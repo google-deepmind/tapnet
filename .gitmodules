@@ -1,0 +1,3 @@
+[submodule "kubric"]
+  path = kubric
+  url = https://github.com/google-research/kubric.git

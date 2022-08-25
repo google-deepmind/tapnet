@@ -1,25 +1,58 @@
 # tapnet
 
-TODO(b/232781782): Add a description for your new project, explain what is
-being released here, etc... Additional, the following sections are normally
-expected for all releases. Feel free to add additional sections if appropriate
-for your project.
+Generic motion understanding from video involves not only
+tracking objects, but also perceiving how their surfaces
+deform and move. Though this information is necessary to
+infer shape and physical interactions, the problem of tracking
+arbitrary physical points on surfaces over the long term
+has received surprisingly little attention. In this paper,
+we first formalize the problem, which we call tracking any
+point (TAP), and introduce a companion benchmark: TAP-Vid,
+that is composed of real-world videos with accurate
+annotations and is made possible by a novel semi-automatic
+crowdsourced procedure. We also propose a point tracking
+model TAP-Net and show how to train it using a combination
+of sim2real and self-supervised learning. TAP-Net outperforms
+both optical flow and structure-from-motion methods on the
+TAP-Vid benchmark while achieving state-of-the-art performance
+on unsupervised human keypoint tracking on JHMDB, even though
+the model tracks points on clothes and skin rather than the
+joints as intended by the benchmark.
 
 ## Installation
 
-Write instructions for how the user should install your code. The instructions
-should ideally be valid when copy-pasted. You can combine this with the Usage
-section if there's no separate installation step.
+Clone the repository:
+
+```git clone https://github.com/deepmind/tapnet.git```
+
+Install submodules:
+
+```git submodule update --init --recursive```
+
+Install requirements:
+
+```pip install -r requirements.txt```
 
 ## Usage
 
-Write example usage of your code. The instructions should ideally be valid when
-copy-pasted, and will be used by your technical reviewer to verify that your
-package functions correctly.
+The configuration file is located at: ```./configs/tapnet_config.py```.
+
+You can modify it for your need or create your own config file following
+the example of ```tapnet_config.py```.
+
+To launch experiment run the command:
+
+```python ./tapnet/experiment.py --config ./tapnet/configs/tapnet_config.py```
+
+## Troubleshooting
+If you got an exception like:
+
+```No 'tapnet' module.``` or ```No 'kubric' module.``` than
+add the project directory to ```PATH``` and ```PYTHONPATH```.
 
 ## Citing this work
 
-Add citation details here, usually a pastable BibTeX snippet.
+TBD.
 
 ## License and disclaimer
 
