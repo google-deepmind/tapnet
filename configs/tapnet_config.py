@@ -23,7 +23,7 @@ from tapnet import kubric_task
 
 # We define the experiment launch config in the same file as the experiment to
 # keep things self-contained in a single file.
-def get_config() -> config_dict.ConfigDict():
+def get_config() -> config_dict.ConfigDict():  # pytype: disable=invalid-annotation
   """Return config object for training."""
   config = base_config.get_base_config()
 
