@@ -15,9 +15,15 @@
 
 """Logging and other experiment utilities."""
 
-from ml_collections import config_dict
+import os
+from typing import Optional
 
+import jax
+from jaxline import utils
+from ml_collections import config_dict
+import numpy as np
 import optax
+import tensorflow as tf
 
 from tapnet import optimizers
 
@@ -86,7 +92,7 @@ def make_optimizer(
   if optimizer_config.max_norm > 0:
     optax_chain.append(optax.clip_by_global_norm(optimizer_config.max_norm))
 
-  if optimizer_config.optimizer == 'sgd':
+    if optimizer_config.optimizer == 'sgd':
     optax_chain.extend([
         optax.trace(**optimizer_config.sgd_kwargs),
         optimizers.add_weight_decay(
@@ -110,3 +116,76 @@ def make_optimizer(
   optimizer = optax.chain(*optax_chain)
   optimizer = optax.apply_if_finite(optimizer, max_consecutive_errors=5)
   return optimizer
+
+
+class NumpyFileCheckpointer(utils.Checkpointer):
+  """A Jaxline checkpointer which saves to numpy files on disk."""
+
+  def __init__(self, config: config_dict.ConfigDict, mode: str):
+    self._checkpoint_file = os.path.join(config.checkpoint_dir +
+                                         'checkpoint.npy')
+    self._checkpoint_state = config_dict.ConfigDict()
+    del mode
+
+  def get_experiment_state(self, ckpt_series: str) -> config_dict.ConfigDict:
+    """Returns the experiment state for a given checkpoint series."""
+    if ckpt_series != 'latest':
+      raise ValueError('multiple checkpoint series are not supported')
+    return self._checkpoint_state
+
+  def save(self, ckpt_series: str) -> None:
+    """Saves the checkpoint."""
+    if ckpt_series != 'latest':
+      raise ValueError('multiple checkpoint series are not supported')
+    exp_mod = self._checkpoint_state.experiment_module
+    global_step = self._checkpoint_state.global_step
+    f_np = lambda x: np.array(jax.device_get(utils.get_first(x)))
+    to_save = {}
+    for attr, name in exp_mod.CHECKPOINT_ATTRS.items():
+      if name == 'global_step':
+        raise ValueError(
+            'global_step attribute would overwrite jaxline global step')
+      np_params = jax.tree_map(f_np, getattr(exp_mod, attr))
+      to_save[name] = np_params
+    to_save['global_step'] = global_step
+
+    with tf.io.gfile.GFile(self._checkpoint_file + '_tmp', 'wb') as fp:
+      np.save(fp, to_save)
+    tf.io.gfile.rename(
+        self._checkpoint_file + '_tmp',
+        self._checkpoint_file,
+        overwrite=True,
+    )
+
+  def can_be_restored(self, ckpt_series: str) -> bool:
+    """Returns whether or not a given checkpoint series can be restored."""
+    if ckpt_series != 'latest':
+      raise ValueError('multiple checkpoint series are not supported')
+    return tf.io.gfile.exists(self._checkpoint_file)
+
+  def restore(self, ckpt_series: str) -> None:
+    """Restores the checkpoint."""
+    experiment_state = self.get_experiment_state(ckpt_series)
+    with tf.io.gfile.GFile(self._checkpoint_file, 'rb') as fp:
+      ckpt_state = np.load(fp, allow_pickle=True).item()
+    experiment_state.global_step = int(ckpt_state['global_step'])
+    exp_mod = experiment_state.experiment_module
+    for attr, name in exp_mod.CHECKPOINT_ATTRS.items():
+      setattr(exp_mod, attr, utils.bcast_local_devices(ckpt_state[name]))
+
+  def restore_path(self, ckpt_series: str) -> Optional[str]:
+    """Returns the restore path for the checkpoint, or None."""
+    if not self.can_be_restored(ckpt_series):
+      return None
+    return self._checkpoint_file
+
+  def wait_for_checkpointing_to_finish(self) -> None:
+    """Waits for any async checkpointing to complete."""
+
+  @classmethod
+  def create(
+      cls,
+      config: config_dict.ConfigDict,
+      mode: str,
+  ) -> utils.Checkpointer:
+    return cls(config, mode)

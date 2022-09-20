@@ -15,8 +15,6 @@
 
 """A Jaxline script for training and evaluating TAPNet."""
 
-import functools
-import os
 import sys
 
 from absl import app
@@ -33,9 +31,9 @@ from ml_collections import config_dict
 
 import numpy as np
 import optax
-import tensorflow as tf
 import tensorflow_datasets as tfds
-from tapnet import kubric_task
+
+from tapnet import supervised_point_prediction
 from kubric.challenges.point_tracking import dataset
 
 from tapnet import tapnet_model
@@ -113,23 +111,15 @@ class Experiment(experiment.AbstractExperiment):
     self._train_input = None
     self._eval_input = None
 
-    self._task_constructors = {
-        'kubric': kubric_task.KubricTask,
-    }
+    self.point_prediction = supervised_point_prediction.SupervisedPointPrediction(
+        **config.supervised_point_prediction_kwargs)
 
-    self._tasks = {}
+    def forward(*args, **kwargs):
+      shared_modules = self._construct_shared_modules()
+      return self.point_prediction.forward_fn(
+          *args, shared_modules=shared_modules, **kwargs)
 
-    for task in config.tasks.task_names:
-      kwargs = self.config['tasks'][task + '_kwargs']
-      self._tasks[task] = self._task_constructors[task](**kwargs)
-
-    # NOTE: creating the multi transform causes forward_fn() to be called on all
-    # tasks in order to initialize all the variables in the model.  The input
-    # will be the full training dict.  Tasks that exclusively re-use variables
-    # from other tasks (e.g. eval-only tasks) can simply return without doing
-    # anything.
-    self._multi_transform = hk.multi_transform_with_state(
-        self._forward_fns_for_multi_transform)
+    self._transform = hk.transform_with_state(forward)
 
     # NOTE: We "donate" the `params, state, opt_state` arguments which allows
     # JAX (on some backends) to reuse the device memory associated with these
@@ -157,38 +147,6 @@ class Experiment(experiment.AbstractExperiment):
       kwargs = self.config.shared_modules[shared_mod_name + '_kwargs']
       shared_modules[shared_mod_name] = ctor(**kwargs)
     return shared_modules
-
-  def _forward_fns_for_multi_transform(self):
-    """Creates a function that can be called to initialize the network.
-
-    Given an input dict, the returned function will call forward on all of the
-    tasks, which allows Haiku to discover the required parameters.  The set of
-    modules (created via _construct_shared_modules) will be passed to all tasks
-    to enable weight sharing across tasks.
-
-    These are the functions that are required for haiku.multi_transform; the
-    joint_forward_fn will initialize all variables, and we'll also return
-    a set of forward_fn's that will allow each task to call its own forward
-    function and have haiku parameters injected.
-
-    Returns:
-      joint_forward_fn: a function that will call forward on all tasks.
-      forward_fns: a dict of separate forward functions that can be called
-        for every task, keyed by task name.
-    """
-    shared_modules = self._construct_shared_modules()
-
-    def joint_forward_fn(inputs, is_training=True):
-      for task_name in self.config.tasks.task_names:
-        self._tasks[task_name].forward_fn(
-            inputs, is_training=is_training, shared_modules=shared_modules)
-
-    forward_fns = dict()
-    for task_name in self.config.tasks.task_names:
-      forward_fn = self._tasks[task_name].forward_fn
-      forward_fns[task_name] = functools.partial(
-          forward_fn, shared_modules=shared_modules)
-    return joint_forward_fn, forward_fns
 
   #  _             _
   # | |_ _ __ __ _(_)_ __
@@ -222,52 +180,18 @@ class Experiment(experiment.AbstractExperiment):
 
     scalars = utils.get_first(scalars)
 
-    # Save final checkpoint.
-    if self.config.save_final_checkpoint_as_npy:
-      global_step_value = utils.get_first(global_step)
-      if global_step_value == FLAGS.config.get('training_steps', 1) - 1:
-        f_np = lambda x: np.array(jax.device_get(utils.get_first(x)))
-        np_params = jax.tree_map(f_np, self._params)
-        np_state = jax.tree_map(f_np, self._state)
-        path_npy = os.path.join(FLAGS.config.checkpoint_dir, 'checkpoint.npy')
-        with tf.io.gfile.GFile(path_npy, 'wb') as fp:
-          np.save(fp, (np_params, np_state))
-        logging.info('Saved final checkpoint at %s', path_npy)
-
-    task_for_eval_mode = {
-        'eval_kubric': 'kubric',
-        'eval_jhmdb': 'kubric',
-        'eval_robotics_points': 'kubric',
-    }
-    for mode in FLAGS.config.eval_modes:
-      if (global_step % FLAGS.config.evaluate_every) != 0:
-        break
-
-      logging.info('Launch %s at step %d', mode, global_step)
-      task_name = task_for_eval_mode[mode]
-      task = self._tasks[task_name]
-      forward_fn = self._multi_transform.apply[task_name]
-      eval_scalars = task.evaluate(
-          global_step=global_step,
-          params=self._params,
-          state=self._state,
-          rng=rng,
-          wrapped_forward_fn=forward_fn,
-          mode=mode,
-      )
-      eval_scalars = {
-          f'eval/{mode}/{key}': value for key, value in eval_scalars.items()
-      }
-      scalars.update(eval_scalars)
+    if (global_step % FLAGS.config.evaluate_every) == 0:
+      for mode in FLAGS.config.eval_modes:
+        eval_scalars = self.evaluate(global_step, rng=rng, mode=mode)
+        scalars.update(eval_scalars)
 
     return scalars
 
   def _initialize_train(self):
     """Initializes the training parameters using the first training input.
 
-    self._multi_transform.init will call the joint_forward_fn, which calls
-    the forward function for every task and allows Haiku to identify the
-    params that need to be initialized.
+    self._multi_transform.init will call the forward_fn, which allows
+    Haiku to identify the params that need to be initialized.
     """
     self._train_input = utils.py_prefetch(self._build_train_input)
 
@@ -275,13 +199,13 @@ class Experiment(experiment.AbstractExperiment):
     # Scale by the (negative) learning rate.
     # Check we haven't already restored params
     if self._params is None:
-      logging.info(
-          'Initializing parameters rather than restoring from checkpoint.',)
+
+      logging.info('Initializing parameters.')
 
       inputs = next(self._train_input)
 
       init_net = jax.pmap(
-          lambda *a: self._multi_transform.init(*a, is_training=True),
+          lambda *a: self._transform.init(*a, is_training=True),
           axis_name='i',
       )
 
@@ -303,9 +227,7 @@ class Experiment(experiment.AbstractExperiment):
     init_opt = jax.pmap(self._optimizer.init, axis_name='i')
 
     if self._opt_state is None:
-      self._opt_state = {
-          task_name: init_opt(self._params) for task_name in self._tasks
-      }
+      self._opt_state = init_opt(self._params)
 
   def _build_train_input(self):
     """Builds the training input.
@@ -335,7 +257,7 @@ class Experiment(experiment.AbstractExperiment):
           dset_name,
       )
 
-      dataset_generators[dset_name] = ds_generator()
+      dataset_generators[dset_name] = ds_generator  #()
 
     while True:
       combined_dset = {}
@@ -356,11 +278,7 @@ class Experiment(experiment.AbstractExperiment):
     dset_kwargs['batch_dims'] = batch_dims
     ds = dataset_constructors[dset_name](**dset_kwargs)
     np_ds = tfds.as_numpy(ds)
-
-    def ds_generator(data_set=np_ds):
-      yield from data_set
-
-    return ds_generator
+    return iter(np_ds)
 
   def _update_func(
       self,
@@ -374,34 +292,31 @@ class Experiment(experiment.AbstractExperiment):
     """Applies an update to parameters and returns new state."""
 
     updates = None
-    all_scalars = {}
-    for task_name in self.config.tasks.task_names:
-      grads, state, scalars = self._tasks[task_name].get_gradients(
+    grads, state, scalars = self.point_prediction.get_gradients(
+        params,
+        state,
+        inputs,
+        rng,
+        global_step,
+        self._transform.apply,
+        is_training=True,
+    )
+    if grads is not None:
+      grads = jax.lax.psum(grads, axis_name='i')
+      task_updates, opt_state = self._optimizer.update(
+          grads,
+          opt_state,
           params,
-          state,
-          inputs,
-          rng,
-          global_step,
-          self._multi_transform.apply[task_name],
-          is_training=True,
       )
-      if grads is not None:
-        grads = jax.lax.psum(grads, axis_name='i')
-        task_updates, opt_state[task_name] = self._optimizer.update(
-            grads,
-            opt_state[task_name],
-            params,
-        )
 
-        # We accumulate task_updates across tasks; if this is the first task
-        # processed, then updates is None and we just initialize with the
-        # updates from the first task.
-        if updates is None:
-          updates = task_updates
-        else:
-          updates = jax.tree_map(jnp.add, updates, task_updates)
-        all_scalars[task_name + '_gradient_norm'] = optax.global_norm(grads)
-      all_scalars.update({task_name + '/' + k: v for k, v in scalars.items()})
+      # We accumulate task_updates across tasks; if this is the first task
+      # processed, then updates is None and we just initialize with the
+      # updates from the first task.
+      if updates is None:
+        updates = task_updates
+      else:
+        updates = jax.tree_map(jnp.add, updates, task_updates)
+      scalars['gradient_norm'] = optax.global_norm(grads)
 
     # Grab the learning rate to log before performing the step.
     learning_rate = self._lr_schedule(global_step)
@@ -439,13 +354,13 @@ class Experiment(experiment.AbstractExperiment):
         n_params = n_params + np.prod(params[k][l].shape)
 
     # Scalars to log (note: we log the mean across all hosts/devices).
-    all_scalars.update({
+    scalars.update({
         'learning_rate': learning_rate,
         'n_params (M)': float(n_params / 1e6),
     })
-    all_scalars = jax.lax.pmean(all_scalars, axis_name='i')
+    scalars = jax.lax.pmean(scalars, axis_name='i')
 
-    return params, state, opt_state, all_scalars
+    return params, state, opt_state, scalars
 
   #                  _
   #   _____   ____ _| |
@@ -453,13 +368,39 @@ class Experiment(experiment.AbstractExperiment):
   # |  __/\ V / (_| | |
   #  \___| \_/ \__,_|_|
   #
-  def evaluate(self, global_step: jnp.ndarray, rng: jnp.ndarray, **unused_args):
-    del global_step, rng, unused_args
+  def evaluate(
+      self,
+      global_step,
+      rng,
+      mode=None,
+      **unused_args,
+  ):
+    mode = mode or self.mode
+    logging.info('Launch %s at step %d', mode, global_step)
+    task = self.point_prediction
+    forward_fn = self._transform.apply
+    eval_scalars = task.evaluate(
+        global_step=global_step,
+        params=self._params,
+        state=self._state,
+        rng=rng,
+        wrapped_forward_fn=forward_fn,
+        mode=mode,
+    )
+    eval_scalars = {
+        f'eval/{mode}/{key}': value for key, value in eval_scalars.items()
+    }
+
+    return eval_scalars
 
 
 def main(_):
   flags.mark_flag_as_required('config')
-  platform.main(Experiment, sys.argv[1:])
+  platform.main(
+      Experiment,
+      sys.argv[1:],
+      checkpointer_factory=exputils.NumpyFileCheckpointer.create,
+  )
 
 if __name__ == '__main__':
   app.run(main)

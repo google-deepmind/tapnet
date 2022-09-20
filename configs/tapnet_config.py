@@ -18,7 +18,7 @@
 from jaxline import base_config
 from ml_collections import config_dict
 
-from tapnet import kubric_task
+from tapnet import tapnet_model
 
 
 # We define the experiment launch config in the same file as the experiment to
@@ -34,9 +34,6 @@ def get_config() -> config_dict.ConfigDict():  # pytype: disable=invalid-annotat
   config.shared_module_names = ('tapnet_model',)
 
   config.dataset_names = (
-      'kubric',
-  )
-  config.task_names = (
       'kubric',
   )
   # Note: eval modes must always start with 'eval_'.
@@ -83,12 +80,10 @@ def get_config() -> config_dict.ConfigDict():  # pytype: disable=invalid-annotat
                   kubric_kwargs=dict(
                       batch_dims=4,
                       shuffle_buffer_size=128,
-                      train_size=kubric_task.TRAIN_SIZE[1:3],
+                      train_size=tapnet_model.TRAIN_SIZE[1:3],
                   )),
-              tasks=dict(
-                  task_names=config.get_oneway_ref('task_names'),
-                  kubric_kwargs=dict(prediction_algo='cost_volume_regressor'),
-              ),
+              supervised_point_prediction_kwargs=dict(
+                  prediction_algo='cost_volume_regressor'),
               training=dict(
                   # Note: to sweep n_training_steps, DO NOT sweep these
                   # fields directly. Instead sweep config.training_steps.
@@ -97,15 +92,17 @@ def get_config() -> config_dict.ConfigDict():  # pytype: disable=invalid-annotat
                   n_training_steps=config.get_oneway_ref('training_steps'),))))
 
   # Set up where to store the resulting model.
-  config.checkpoint_dir = 'checkpoints'
+  config.checkpoint_dir = '/tmp/tapnet_training/'
   config.train_checkpoint_all_hosts = False
   config.evaluate_every = 1000
+  config.save_checkpoint_interval = 10
 
   # If true, run evaluate() on the experiment once before
   # you load a checkpoint.
   # This is useful for getting initial values of metrics at random weights, or
   # when debugging locally if you do not have any train job running.
   config.eval_initial_weights = True
+  config.davis_points_path = None
   config.jhmdb_path = None
   config.robotics_points_path = None
   # Prevents accidentally setting keys that aren't recognized (e.g. in tests).

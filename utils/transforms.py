@@ -18,6 +18,7 @@
 import numpy as np
 
 
+# TODO(doersch): check if the 0.5 is still correct
 def convert_grid_coordinates(
     coords,
     input_grid_size,

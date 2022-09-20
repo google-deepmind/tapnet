@@ -16,11 +16,7 @@
 """Perceiver task module."""
 
 import functools
-import glob
-import os
 from os import path
-import pickle
-import random
 
 from absl import flags
 from absl import logging
@@ -32,12 +28,10 @@ import matplotlib.pyplot as plt
 import mediapy
 import numpy as np
 import tensorflow_datasets as tfds
-from PIL import Image
-from scipy import io
 import tensorflow as tf
-from kubric.challenges.point_tracking import dataset
 
 # These three are questionable
+from tapnet import evaluation_datasets
 from tapnet import tapnet_model
 from tapnet import task
 from tapnet.utils import transforms
@@ -45,8 +39,6 @@ from tapnet.utils import transforms
 matplotlib.use('Agg')
 
 FLAGS = flags.FLAGS
-# (num_frames, height, width)
-TRAIN_SIZE = (24, 256, 256)
 
 
 def sigmoid_cross_entropy(logits, labels, reduction=None):
@@ -229,12 +221,12 @@ def write_visualization(
         video_writer.add_image(fr.astype(np.uint8))
 
 
-class KubricTask(task.Task):
-  """A task predicting point tracks on Kubric and training on ground-truth.
+class SupervisedPointPrediction(task.Task):
+  """A task for predicting point tracks and training on ground-truth.
 
-    This task has a very simple forward pass, which means several evaluators
-    are also implemented here, including for Kinetics, DAVIS, and robotics
-    points.
+    This task has a simple forward pass which predicts points, which is
+    also used for running evaluators on datasets where ground-truth is
+    known.
   """
 
   def __init__(
@@ -375,9 +367,9 @@ class KubricTask(task.Task):
           inputs[input_key]['target_points'],
           inputs[input_key]['occluded'],
       )
-      # For the original paper, the loss was defined on coordinates in the
+      # For the original experiments, the loss was defined on coordinates in the
       # range [-1, 1], so convert them into that scale.
-      loss_huber = loss_huber * 2.0 / TRAIN_SIZE[1] * 2.0 / TRAIN_SIZE[1]
+      loss_huber = loss_huber * 4.0 / np.prod(tapnet_model.TRAIN_SIZE[1:])
       loss_huber = jnp.mean(loss_huber)
 
       loss_occ = sigmoid_cross_entropy(
@@ -752,7 +744,7 @@ class KubricTask(task.Task):
         gt_target_points,
         gt_occluded,
     )
-    loss_huber = loss_huber * 2.0 / TRAIN_SIZE[1]
+    loss_huber = loss_huber * 2.0 / tapnet_model.TRAIN_SIZE[1]
     loss_scalars['position_loss'] = loss_huber
 
     # Occlusion accuracy is simply how often the predicted occlusion equals the
@@ -826,88 +818,6 @@ class KubricTask(task.Task):
 
     return loss_scalars, {'tracks': tracks, 'occlusion': occlusion_logits}
 
-  def sample_and_pad(
-      self,
-      target_occluded,
-      target_points,
-      frames,
-      query_stride=5,
-      num_frames=None,
-  ):
-    """Package a set of frames and tracks for use in TAPNet evaluations.
-
-    Given a set of frames and tracks with no query points, sample queries.
-    Optionally, pad the sequences by replicating the final frame.
-
-    Args:
-      target_occluded: Boolean occlusion flag, of shape [n_tracks, n_frames],
-        where True indicates occluded.
-      target_points: Position, of shape [n_tracks, n_frames, 2], where each
-        point is [x,y] scaled between 0 and 1.
-      frames: Video tensor, of shape [n_frames, height, width, 3].  Scaled
-        between -1 and 1.
-      query_stride: When sampling query points, search for un-occluded points
-        every query_stride frames and convert each one into a query.
-      num_frames: If specified, pad the videos to this length using by
-        duplicating last frame, including the positions and occlusions.
-
-    Returns:
-      A dict with the keys:
-        video: Video tensor of shape [1, num_frames, height, width, 3]
-        query_points: Query points of shape [1, n_queries, 3] where
-          each point is [t, y, x] scaled to the range [-1, 1]
-        target_points: Target points of shape [1, n_queries, n_frames, 2] where
-          each point is [x, y] scaled to the range [-1, 1]
-        trackgroup: Index of the original track that each query point was
-          sampled from.  This is useful for visualization
-        pad_extra_frames: the number of pad frames that were added to reach
-          num_frames.
-    """
-    query_stride = 5
-    tracks = []
-    occs = []
-    queries = []
-    trackgroups = []
-    if num_frames is None:
-      num_frames = target_occluded.shape[1]
-    total = 0
-    trackgroup = np.arange(target_occluded.shape[0])
-    for i in range(0, target_occluded.shape[1], query_stride):
-      mask = target_occluded[:, i] == 0
-      query = jnp.stack(
-          [
-              i * jnp.ones(target_occluded.shape[0:1]), target_points[:, i, 1],
-              target_points[:, i, 0]
-          ],
-          axis=-1,
-      )
-      queries.append(query[mask])
-      tracks.append(target_points[mask])
-      occs.append(target_occluded[mask])
-      trackgroups.append(trackgroup[mask])
-      total += np.array(jnp.sum(target_occluded[:, i] == 0))
-
-    def frame_pad(x):
-      pads = [(0, 0)] * x.ndim
-      pads[1] = (0, num_frames - x.shape[1])  # pylint: disable=cell-var-from-loop
-      return jnp.pad(x, pads, mode='edge')
-
-    converted = {
-        'video':
-            frame_pad(frames[jnp.newaxis, ...]),
-        'query_points':
-            jnp.concatenate(queries, axis=0)[jnp.newaxis, :, ...],
-        'target_points':
-            frame_pad(jnp.concatenate(tracks, axis=0))[jnp.newaxis, ...],
-        'occluded':
-            frame_pad(jnp.concatenate(occs, axis=0))[jnp.newaxis, ...],
-        'trackgroup':
-            jnp.concatenate(trackgroups, axis=0)[jnp.newaxis, :, ...],
-        'pad_extra_frames':
-            num_frames - target_occluded.shape[1],
-    }
-    return converted
-
   def _build_eval_input(self, mode):
     """Build evalutation data reader generator.
 
@@ -915,7 +825,7 @@ class KubricTask(task.Task):
 
       mode: evaluation mode.  Can be one of
       'eval_jhmdb', 'eval_kubric_train',
-      'eval_kubric',
+      'eval_kubric', 'eval_davis_points',
       'eval_robotics_points'.
 
     Yields:
@@ -931,166 +841,16 @@ class KubricTask(task.Task):
           to reach num_frames.
     """
     if 'eval_jhmdb' in mode:
-      gt_dir = FLAGS.config.jhmdb_path
-      videos = []
-      for file in os.listdir(path.join(gt_dir, 'splits')):
-        if not file.endswith('split1.txt'):
-          continue
-
-        video_folder = '_'.join(file.split('_')[:-2])
-        for video in open(path.join(gt_dir, 'splits', file), 'r'):
-          video, traintest = video.split()
-          video, _ = video.split('.')
-
-          traintest = int(traintest)
-          video_path = video_folder + '/' + video
-
-          if traintest == 2:
-            videos.append(video_path)
-
-      # Shuffle so numbers converge faster.
-      random.shuffle(videos)
-
-      for video in videos:
-        logging.info(video)
-        joints = path.join(gt_dir, 'joint_positions', video,
-                           'joint_positions.mat')
-
-        if not os.path.exists(joints):
-          logging.info('skip %s', video)
-          continue
-
-        gt_pose = io.loadmat(open(joints, 'rb'))['pos_img']
-        gt_pose = np.transpose(gt_pose, [1, 2, 0])
-        frames = path.join(gt_dir, 'Rename_Images', video, '*.png')
-        framefil = glob.glob(frames)
-        framefil.sort()
-
-        def read_frame(f):
-          im = Image.open(open(f, 'rb'))
-          im = im.convert('RGB')
-          return np.array(im.getdata()).reshape([im.size[1], im.size[0], 3])
-
-        frames = [read_frame(x) for x in framefil]
-        frames = np.stack(frames)
-        num_frames = frames.shape[0]
-        height = frames.shape[1]
-        width = frames.shape[2]
-        invalid_x = np.logical_or(
-            gt_pose[:, 0:1, 0] < 0,
-            gt_pose[:, 0:1, 0] >= width,
-        )
-        invalid_y = np.logical_or(
-            gt_pose[:, 0:1, 1] < 0,
-            gt_pose[:, 0:1, 1] >= height,
-        )
-        invalid = np.logical_or(invalid_x, invalid_y)
-        invalid = np.tile(invalid, [1, gt_pose.shape[1]])
-        invalid = invalid[:, :, jnp.newaxis].astype(np.float32)
-        gt_pose_orig = gt_pose
-        gt_pose = gt_pose * (1.0 - invalid) - invalid
-
-        frames = np.array(
-            jax.jit(
-                functools.partial(
-                    jax.image.resize,
-                    shape=[num_frames, TRAIN_SIZE[1], TRAIN_SIZE[2], 3],
-                    method='bilinear',
-                ))(frames))
-        frames = frames / (255. / 2.) - 1.
-        queries = gt_pose[:, 0]
-        queries = np.concatenate(
-            [queries[..., 0:1] * 0 - 1, queries[..., ::-1]],
-            axis=-1,
-        )
-        if gt_pose.shape[1] < frames.shape[0]:
-          logging.warning('short video!!')
-          frames = frames[:gt_pose.shape[1]]
-
-        converted = {
-            'video': frames[np.newaxis, ...],
-            'query_points': queries[np.newaxis, ...],
-            'target_points': gt_pose[np.newaxis, ...],
-            'gt_pose': gt_pose[np.newaxis, ...],
-            'gt_pose_orig': gt_pose_orig[np.newaxis, ...],
-            'occluded': gt_pose[np.newaxis, ..., 0] * 0,
-            'fname': video,
-            'im_size': np.array([height, width]),
-        }
-        yield {'jhmdb': converted}
-
+      yield from evaluation_datasets.create_jhmdb_dataset()
     if 'eval_kubric_train' in mode:
-
-      res = dataset.create_point_tracking_dataset(
-          split='train',
-          train_size=TRAIN_SIZE[1:3],
-          batch_dims=[1,],
-          shuffle_buffer_size=None,
-          repeat=False,
-          vflip='vflip' in mode,
-          augment=False)
-
-      num_returned = -1
-
-      for data in res[0]():
-        num_returned += 1
-        if num_returned >= 100:
-          break
-        yield {'kubric': data}
+      yield from evaluation_datasets.create_kubric_eval_train_dataset(mode)
     elif 'eval_kubric' in mode:
-
-      res = dataset.create_point_tracking_dataset(
-          split='validation',
-          batch_dims=[1,],
-          shuffle_buffer_size=None,
-          repeat=False,
-          vflip='vflip' in mode,
-      )
-      np_ds = tfds.as_numpy(res)
-
-      def ds_generator():
-        yield from np_ds
-      for data in ds_generator():
-        yield {'kubric': data}
-
+      yield from evaluation_datasets.create_kubric_eval_dataset(mode)
+    elif 'eval_davis_points' in mode:
+      yield from evaluation_datasets.create_davis_dataset()
     elif 'eval_robotics_points' in mode:
-
-      def preprocess_frames(frames):
-        """Preprocess frames to model inputs."""
-        frames = frames.astype(np.float32)
-        frames = frames / 255 * 2 - 1
-        # [batch_size, num_frames, height, width, 3], [-1, 1]
-        frames = frames[None]
-        return frames
-
-      def track_robotic_episode(eps_id):
-        filename = os.path.join(
-            FLAGS.config.robotics_points_path,
-            f'input_video_{eps_id}.pkl',
-        )
-
-        with open(filename, 'rb') as f:
-          input_gt = pickle.load(f)
-
-        rgb = input_gt['video']
-
-        frames = preprocess_frames(rgb)
-
-        query_points = input_gt['query_points']
-        query_points = query_points[None].astype(np.float32)
-        tracks_gt = input_gt['tracks_gt'][None].astype(np.float32)
-        occlusion_gt = (input_gt['occlusion_gt'])[None] * .5 + .5
-        return frames, query_points, tracks_gt, occlusion_gt
-
-      for i in range(50):
-        frames, query_points, tracks_gt, occlusion_gt = track_robotic_episode(i)
-        converted = {
-            'video': frames,
-            'query_points': query_points,
-            'target_points': tracks_gt,
-            'occluded': occlusion_gt,
-        }
-        yield {'robotics': converted}
+      yield from evaluation_datasets.create_rgb_stacking_dataset()
+    # TODO(doersch): write a loader for kinetics
 
   def compute_pck(self, dist_all, dist_thresh):
     pck_all = np.zeros((len(dist_all),))
@@ -1209,7 +969,7 @@ class KubricTask(task.Task):
     logging.info('Saving videos to %s', outdir)
 
     try:
-      os.makedirs(outdir)
+      tf.io.gfile.makedirs(outdir)
     except FileExistsError:
       print(f'Path {outdir} exists. Skip creating a new dir.')
 
@@ -1243,7 +1003,7 @@ class KubricTask(task.Task):
         ])
         pix_pts = transforms.convert_grid_coordinates(
             pix_pts,
-            (TRAIN_SIZE[2], TRAIN_SIZE[1]),
+            (tapnet_model.TRAIN_SIZE[2], tapnet_model.TRAIN_SIZE[1]),
             grid_size,
         )
         mean_scalars = self._eval_jhmdb(

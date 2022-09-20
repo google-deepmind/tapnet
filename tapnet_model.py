@@ -26,6 +26,9 @@ import jax.numpy as jnp
 from tapnet.models import tsm_resnet
 from tapnet.utils import transforms
 
+# (num_frames, height, width)
+TRAIN_SIZE = (24, 256, 256)
+
 
 def interp(x, y):
   """Bilinear interpolation.
