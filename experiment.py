@@ -16,10 +16,12 @@
 """A Jaxline script for training and evaluating TAPNet."""
 
 import sys
+from typing import Callable, Iterable, Iterator, Mapping, Optional, Tuple
 
 from absl import app
 from absl import flags
 from absl import logging
+import chex
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -31,12 +33,14 @@ from ml_collections import config_dict
 
 import numpy as np
 import optax
+import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from tapnet import supervised_point_prediction
 from kubric.challenges.point_tracking import dataset
 
 from tapnet import tapnet_model
+from tapnet import task
 from tapnet.utils import experiment_utils as exputils
 
 
@@ -128,7 +132,7 @@ class Experiment(experiment.AbstractExperiment):
     self._update_func = jax.pmap(
         self._update_func, axis_name='i', donate_argnums=(0, 1, 2))
 
-  def _construct_shared_modules(self):
+  def _construct_shared_modules(self) -> Mapping[str, task.SharedModule]:
     """Constructs the TAPNet module which is used for all tasks.
 
     More generally, these are Haiku modules that are passed to all tasks so that
@@ -156,11 +160,11 @@ class Experiment(experiment.AbstractExperiment):
   #
   def step(
       self,
-      global_step: int,
-      rng: jnp.ndarray,
+      global_step: chex.Array,
+      rng: chex.PRNGKey,
       *unused_args,
       **unused_kwargs,
-  ) -> dict[str, np.ndarray]:
+  ) -> dict[str, chex.Array]:
     """See base class."""
 
     if self._train_input is None:
@@ -229,7 +233,9 @@ class Experiment(experiment.AbstractExperiment):
     if self._opt_state is None:
       self._opt_state = init_opt(self._params)
 
-  def _build_train_input(self):
+  def _build_train_input(
+      self,
+  ) -> Iterable[Mapping[str, Mapping[str, np.ndarray]]]:
     """Builds the training input.
 
     For each dataset specified in the config, this will call the appropriate
@@ -257,7 +263,7 @@ class Experiment(experiment.AbstractExperiment):
           dset_name,
       )
 
-      dataset_generators[dset_name] = ds_generator  #()
+      dataset_generators[dset_name] = ds_generator
 
     while True:
       combined_dset = {}
@@ -266,7 +272,11 @@ class Experiment(experiment.AbstractExperiment):
         combined_dset[dset_name] = next_data
       yield combined_dset
 
-  def create_dataset_generator(self, dataset_constructors, dset_name):
+  def create_dataset_generator(
+      self,
+      dataset_constructors: Mapping[str, Callable[..., tf.Dataset]],
+      dset_name: str,
+  ) -> Iterator[Mapping[str, np.ndarray]]:
     # Batch data on available devices.
     # Number of devices is unknown when an interpreter reads a config file.
     # Here we re-define batch dims to guide jax for right batching.
@@ -282,13 +292,13 @@ class Experiment(experiment.AbstractExperiment):
 
   def _update_func(
       self,
-      params,
-      state,
-      opt_state,
-      inputs,
-      rng,
-      global_step,
-  ):
+      params: chex.ArrayTree,
+      state: chex.ArrayTree,
+      opt_state: chex.ArrayTree,
+      inputs: chex.ArrayTree,
+      rng: chex.PRNGKey,
+      global_step: chex.Array,
+  ) -> Tuple[chex.Array, chex.Array, chex.Array, Mapping[str, chex.Numeric]]:
     """Applies an update to parameters and returns new state."""
 
     updates = None
@@ -301,6 +311,7 @@ class Experiment(experiment.AbstractExperiment):
         self._transform.apply,
         is_training=True,
     )
+    scalars = {**scalars}  # Mutable copy.
     if grads is not None:
       grads = jax.lax.psum(grads, axis_name='i')
       task_updates, opt_state = self._optimizer.update(
@@ -370,16 +381,16 @@ class Experiment(experiment.AbstractExperiment):
   #
   def evaluate(
       self,
-      global_step,
-      rng,
-      mode=None,
+      global_step: chex.Array,
+      rng: chex.PRNGKey,
+      mode: Optional[str] = None,
       **unused_args,
-  ):
+  ) -> dict[str, chex.Array]:
     mode = mode or self.mode
     logging.info('Launch %s at step %d', mode, global_step)
-    task = self.point_prediction
+    point_prediction_task = self.point_prediction
     forward_fn = self._transform.apply
-    eval_scalars = task.evaluate(
+    eval_scalars = point_prediction_task.evaluate(
         global_step=global_step,
         params=self._params,
         state=self._state,

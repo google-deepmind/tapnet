@@ -21,18 +21,22 @@ Based on:
   https://arxiv.org/pdf/1811.08383.pdf.
 """
 
-from typing import Callable, Optional
+from typing import Optional
 from absl import logging
 
 import chex
 import haiku as hk
 import jax
 import jax.numpy as jnp
-
+import typing_extensions
 
 from tapnet.models import tsm_utils as tsmu
 
-NormalizeFn = Callable[..., chex.Array]
+
+class NormalizeFn(typing_extensions.Protocol):
+
+  def __call__(self, x: chex.Array, is_training: bool) -> chex.Array:
+    pass
 
 
 class TSMResNetBlock(hk.Module):

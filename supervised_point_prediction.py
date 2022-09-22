@@ -17,9 +17,11 @@
 
 import functools
 from os import path
+from typing import Iterable, Mapping, Optional, Sequence, Tuple
 
 from absl import flags
 from absl import logging
+import chex
 import jax
 import jax.numpy as jnp
 from jaxline import utils
@@ -41,7 +43,11 @@ matplotlib.use('Agg')
 FLAGS = flags.FLAGS
 
 
-def sigmoid_cross_entropy(logits, labels, reduction=None):
+def sigmoid_cross_entropy(
+    logits: chex.Array,
+    labels: chex.Array,
+    reduction: Optional[str] = None,
+) -> chex.Array:
   """Computes sigmoid cross entropy given logits and multiple class labels."""
   log_p = jax.nn.log_sigmoid(logits)
   # log(1 - sigmoid(x)) = log_sigmoid(-x), the latter is more numerically stable
@@ -56,7 +62,11 @@ def sigmoid_cross_entropy(logits, labels, reduction=None):
   return result
 
 
-def huber_loss(tracks, target_points, occluded):
+def huber_loss(
+    tracks: chex.Array,
+    target_points: chex.Array,
+    occluded: chex.Numeric,
+) -> chex.Array:
   """Huber loss for point trajectories."""
   error = (tracks - target_points)
   # Huber loss with a threshold of 4 pixels
@@ -76,13 +86,13 @@ def huber_loss(tracks, target_points, occluded):
 
 
 def plot_tracks_v2(
-    rgb,
-    points,
-    occluded,
-    gt_points=None,
-    gt_occluded=None,
-    trackgroup=None,
-):
+    rgb: np.ndarray,
+    points: np.ndarray,
+    occluded: np.ndarray,
+    gt_points: Optional[np.ndarray] = None,
+    gt_occluded: Optional[np.ndarray] = None,
+    trackgroup: Optional[np.ndarray] = None,
+) -> np.ndarray:
   """Plot tracks with matplotlib."""
   disp = []
   cmap = plt.cm.hsv
@@ -151,13 +161,13 @@ def plot_tracks_v2(
 
 
 def plot_tracks_v3(
-    rgb,
-    points,
-    occluded,
-    gt_points,
-    gt_occluded,
-    trackgroup=None,
-):
+    rgb: np.ndarray,
+    points: np.ndarray,
+    occluded: np.ndarray,
+    gt_points: np.ndarray,
+    gt_occluded: np.ndarray,
+    trackgroup: Optional[np.ndarray] = None,
+) -> np.ndarray:
   """Plot tracks in a 2x2 grid."""
   if trackgroup is None:
     trackgroup = np.arange(points.shape[0])
@@ -187,13 +197,13 @@ def plot_tracks_v3(
 
 
 def write_visualization(
-    video,
-    points,
-    occluded,
-    visualization_path,
-    gt_points=None,
-    gt_occluded=None,
-    trackgroup=None,
+    video: np.ndarray,
+    points: np.ndarray,
+    occluded: np.ndarray,
+    visualization_path: Sequence[str],
+    gt_points: Optional[np.ndarray] = None,
+    gt_occluded: Optional[np.ndarray] = None,
+    trackgroup: Optional[np.ndarray] = None,
 ):
   """Write a visualization."""
   for i in range(video.shape[0]):
@@ -231,9 +241,9 @@ class SupervisedPointPrediction(task.Task):
 
   def __init__(
       self,
-      input_key='kubric',
-      contrastive_loss_weight=0.05,
-      prediction_algo='cost_volume_regressor',
+      input_key: str = 'kubric',
+      contrastive_loss_weight: float = 0.05,
+      prediction_algo: str = 'cost_volume_regressor',
   ):
     """Constructs a task for supervised learning on Kubric.
 
@@ -256,14 +266,14 @@ class SupervisedPointPrediction(task.Task):
 
   def forward_fn(
       self,
-      inputs,
-      is_training,
-      rng=None,
-      shared_modules=None,
-      input_key=None,
-      query_chunk_size=16,
-      get_query_feats=True,
-  ):
+      inputs: chex.ArrayTree,
+      is_training: bool,
+      rng: Optional[chex.PRNGKey] = None,
+      shared_modules: Optional[Mapping[str, task.SharedModule]] = None,
+      input_key: Optional[str] = None,
+      query_chunk_size: int = 16,
+      get_query_feats: bool = True,
+  ) -> Mapping[str, chex.Array]:
     """Forward pass for predicting point tracks.
 
     Args:
@@ -307,13 +317,13 @@ class SupervisedPointPrediction(task.Task):
 
   def _loss_fn(
       self,
-      params,
-      state,
-      inputs,
-      rng,
-      wrapped_forward_fn,
-      is_training=True,
-      input_key=None,
+      params: chex.ArrayTree,
+      state: chex.ArrayTree,
+      inputs: chex.ArrayTree,
+      rng: chex.PRNGKey,
+      wrapped_forward_fn: task.WrappedForwardFn,
+      is_training: bool = True,
+      input_key: Optional[str] = None,
   ):
     """Loss function, used for training, depending on the algorithm.
 
@@ -440,14 +450,14 @@ class SupervisedPointPrediction(task.Task):
 
   def get_gradients(
       self,
-      params,
-      state,
-      inputs,
-      rng,
-      global_step,
-      wrapped_forward_fn,
-      is_training=True,
-  ):
+      params: chex.ArrayTree,
+      state: chex.ArrayTree,
+      inputs: chex.ArrayTree,
+      rng: chex.PRNGKey,
+      global_step: chex.Array,
+      wrapped_forward_fn: task.WrappedForwardFn,
+      is_training: bool = True,
+  ) -> Tuple[chex.ArrayTree, chex.ArrayTree, Mapping[str, chex.Array]]:
     """Gets the gradients for the loss function.  See _loss_fn."""
     # This function computes the gradient of the first output of loss_fn and
     # passes through the other arguments unchanged.
@@ -469,13 +479,13 @@ class SupervisedPointPrediction(task.Task):
 
   def evaluate(
       self,
-      global_step,
-      params,
-      state,
-      rng,
-      wrapped_forward_fn,
-      mode=None,
-  ):
+      global_step: chex.Array,
+      params: chex.ArrayTree,
+      state: chex.ArrayTree,
+      rng: chex.PRNGKey,
+      wrapped_forward_fn: task.WrappedForwardFn,
+      mode: str,
+  ) -> Mapping[str, chex.Array]:
     """Run an evaluation epoch.  See base class."""
     global_step = np.array(utils.get_first(global_step))
     scalars = jax.device_get(
@@ -493,14 +503,14 @@ class SupervisedPointPrediction(task.Task):
 
   def _infer_batch(
       self,
-      params,
-      state,
-      inputs,
-      rng,
-      wrapped_forward_fn=None,
-      input_key=None,
-      query_chunk_size=16,
-  ):
+      params: chex.ArrayTree,
+      state: chex.ArrayTree,
+      inputs: chex.ArrayTree,
+      rng: chex.PRNGKey,
+      wrapped_forward_fn: task.WrappedForwardFn,
+      input_key: Optional[str] = None,
+      query_chunk_size: int = 16,
+  ) -> Tuple[chex.Array, chex.Array, Mapping[str, chex.Array]]:
     """Runs inference on a single batch and compute metrics.
 
     For cost_volume_regressor we return the outputs directly inferred from the
@@ -586,7 +596,7 @@ class SupervisedPointPrediction(task.Task):
         query_point_chunk = inputs[input_key]['query_points'][:, qchunk:qchunk +
                                                               query_chunk_size]
         tracks = tapnet_model.heatmaps_to_points(
-            jax.nn.softmax(all_pairs_dots, axis=[-2, -3]),
+            jax.nn.softmax(all_pairs_dots, axis=(-2, -3)),
             im_shp,
             query_points=query_point_chunk,
         )
@@ -676,14 +686,14 @@ class SupervisedPointPrediction(task.Task):
 
   def _eval_batch(
       self,
-      params,
-      state,
-      inputs,
-      rng,
-      wrapped_forward_fn=None,
-      mode='',
-      input_key=None,
-  ):
+      params: chex.Array,
+      state: chex.Array,
+      inputs: chex.Array,
+      rng: chex.PRNGKey,
+      wrapped_forward_fn: task.WrappedForwardFn,
+      mode: str = '',
+      input_key: Optional[str] = None,
+  ) -> Tuple[Mapping[str, chex.Array], Mapping[str, chex.Array]]:
     """Evaluates the model on a single batch and compute metrics.
 
     Args:
@@ -727,6 +737,7 @@ class SupervisedPointPrediction(task.Task):
         input_key,
         query_chunk_size=16,
     )
+    loss_scalars = {**loss_scalars}  # Mutable copy.
 
     gt_occluded = inputs[input_key]['occluded']
     gt_target_points = inputs[input_key]['target_points']
@@ -818,7 +829,10 @@ class SupervisedPointPrediction(task.Task):
 
     return loss_scalars, {'tracks': tracks, 'occlusion': occlusion_logits}
 
-  def _build_eval_input(self, mode):
+  def _build_eval_input(
+      self,
+      mode: str,
+  ) -> Iterable[evaluation_datasets.DatasetElement]:
     """Build evalutation data reader generator.
 
     Args:
@@ -852,7 +866,11 @@ class SupervisedPointPrediction(task.Task):
       yield from evaluation_datasets.create_rgb_stacking_dataset()
     # TODO(doersch): write a loader for kinetics
 
-  def compute_pck(self, dist_all, dist_thresh):
+  def compute_pck(
+      self,
+      dist_all: Sequence[np.ndarray],
+      dist_thresh: float,
+  ) -> Sequence[float]:
     pck_all = np.zeros((len(dist_all),))
     for pidx in range(len(dist_all)):
       idxs = np.argwhere(dist_all[pidx] <= dist_thresh)
@@ -861,7 +879,10 @@ class SupervisedPointPrediction(task.Task):
 
     return pck_all
 
-  def pck_evaluate(self, results):
+  def pck_evaluate(
+      self,
+      results: Sequence[Mapping[str, np.ndarray]],
+  ) -> Mapping[str, np.ndarray]:
     num_keypoints = 15
     dist_all = [np.zeros((0, 0)) for _ in range(num_keypoints)]
     for vid_idx in range(len(results)):
@@ -929,13 +950,15 @@ class SupervisedPointPrediction(task.Task):
 
     return eval_results
 
-  def _eval_jhmdb(self,
-                  pred_pose,
-                  gt_pose,
-                  gt_pose_orig,
-                  im_size,
-                  fname,
-                  is_first=False):
+  def _eval_jhmdb(
+      self,
+      pred_pose: chex.Array,
+      gt_pose: chex.Array,
+      gt_pose_orig: chex.Array,
+      im_size: chex.Array,
+      fname: str,
+      is_first: bool = False,
+  ) -> Mapping[str, np.ndarray]:
     if is_first:
       self.all_results = []
     self.all_results.append({
@@ -948,13 +971,13 @@ class SupervisedPointPrediction(task.Task):
 
   def _eval_epoch(
       self,
-      global_step,
-      state,
-      params,
-      rng,
-      wrapped_forward_fn,
-      mode,
-  ):
+      global_step: chex.Array,
+      state: chex.ArrayTree,
+      params: chex.ArrayTree,
+      rng: chex.PRNGKey,
+      wrapped_forward_fn: task.WrappedForwardFn,
+      mode: str,
+  ) -> Mapping[str, chex.Array]:
     """Evaluates an epoch."""
     num_samples = 0.
     summed_scalars = None
@@ -987,7 +1010,7 @@ class SupervisedPointPrediction(task.Task):
             input_key=input_key,
         ))
     for inputs in self._build_eval_input(mode):
-      batch_size = inputs[input_key]['video'].shape[0]
+      batch_size = inputs[input_key]['video'].shape[0]  # pytype: disable=attribute-error  # 'video' entry is array-valued
       num_samples += batch_size
       scalars, viz = eval_batch_fn(params, state, inputs, rng)
       write_viz = batch_id < 10

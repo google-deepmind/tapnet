@@ -15,16 +15,18 @@
 
 """Utilities for transforming image coordinates."""
 
+from typing import Sequence
+
 import numpy as np
 
 
 # TODO(doersch): check if the 0.5 is still correct
 def convert_grid_coordinates(
-    coords,
-    input_grid_size,
-    output_grid_size,
-    coordinate_format='xy',
-):
+    coords: np.ndarray,
+    input_grid_size: Sequence[int],
+    output_grid_size: Sequence[int],
+    coordinate_format: str = 'xy',
+) -> np.ndarray:
   """Convert image coordinates between image grids of different sizes.
 
   By default, it assumes that the image corners are aligned.  Therefore,

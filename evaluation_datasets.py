@@ -20,9 +20,11 @@ import glob
 from os import path
 import pickle
 import random
+from typing import Iterable, Optional, Mapping, Union
 
 from absl import flags
 from absl import logging
+import chex
 import jax
 import jax.numpy as jnp
 from kubric.challenges.point_tracking import dataset
@@ -41,13 +43,16 @@ from kubric.challenges.point_tracking import dataset
 FLAGS = flags.FLAGS
 
 
+DatasetElement = Mapping[str, Mapping[str, Union[np.ndarray, str]]]
+
+
 def sample_and_pad(
-    target_occluded,
-    target_points,
-    frames,
-    query_stride=5,
-    num_frames=None,
-):
+    target_occluded: np.ndarray,
+    target_points: np.ndarray,
+    frames: np.ndarray,
+    query_stride: int = 5,
+    num_frames: Optional[int] = None,
+) -> Mapping[str, chex.Array]:
   """Package a set of frames and tracks for use in TAPNet evaluations.
 
   Given a set of frames and tracks with no query points, sample queries.
@@ -123,7 +128,7 @@ def sample_and_pad(
   return converted
 
 
-def create_jhmdb_dataset():
+def create_jhmdb_dataset() -> Iterable[DatasetElement]:
   """JHMDB dataset, including fields required for PCK evaluation."""
   gt_dir = FLAGS.config.jhmdb_path
   videos = []
@@ -221,7 +226,10 @@ def create_jhmdb_dataset():
     yield {'jhmdb': converted}
 
 
-def create_kubric_eval_train_dataset(mode, max_dataset_size=100):
+def create_kubric_eval_train_dataset(
+    mode: str,
+    max_dataset_size: int = 100,
+) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on Kubric training data."""
   res = dataset.create_point_tracking_dataset(
       split='train',
@@ -241,7 +249,7 @@ def create_kubric_eval_train_dataset(mode, max_dataset_size=100):
     yield {'kubric': data}
 
 
-def create_kubric_eval_dataset(mode):
+def create_kubric_eval_dataset(mode: str) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on Kubric val data."""
   res = dataset.create_point_tracking_dataset(
       split='validation',
@@ -257,7 +265,7 @@ def create_kubric_eval_dataset(mode):
     yield {'kubric': data}
 
 
-def create_davis_dataset():
+def create_davis_dataset() -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on DAVIS data."""
   pickle_path = FLAGS.config.davis_points_path
 
@@ -288,7 +296,7 @@ def create_davis_dataset():
     yield {'davis': converted}
 
 
-def create_rgb_stacking_dataset():
+def create_rgb_stacking_dataset() -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on robotics data."""
   pickle_path = FLAGS.config.robotics_points_path
 

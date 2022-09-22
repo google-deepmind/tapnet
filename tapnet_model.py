@@ -16,9 +16,10 @@
 """TAP-Net model definition."""
 
 import functools
+from typing import Optional, Mapping, Tuple
 
+import chex
 from einshape import jax_einshape as einshape
-
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -30,7 +31,7 @@ from tapnet.utils import transforms
 TRAIN_SIZE = (24, 256, 256)
 
 
-def interp(x, y):
+def interp(x: chex.Array, y: chex.Array) -> chex.Array:
   """Bilinear interpolation.
 
   Args:
@@ -49,7 +50,10 @@ def interp(x, y):
   )
 
 
-def soft_argmax_heatmap(softmax_val, threshold=5):
+def soft_argmax_heatmap(
+    softmax_val: chex.Array,
+    threshold: chex.Numeric = 5,
+) -> chex.Array:
   """Computes the soft argmax a heatmap.
 
   Finds the argmax grid cell, and then returns the average coordinate of
@@ -90,11 +94,11 @@ def soft_argmax_heatmap(softmax_val, threshold=5):
 
 
 def heatmaps_to_points(
-    all_pairs_softmax,
-    image_shape,
-    threshold=5,
-    query_points=None,
-):
+    all_pairs_softmax: chex.Array,
+    image_shape: chex.Shape,
+    threshold: chex.Numeric = 5,
+    query_points: Optional[chex.Array] = None,
+) -> chex.Array:
   """Given a batch of heatmaps, compute a soft argmax.
 
   If query points are given, constrain that the query points are returned
@@ -156,7 +160,7 @@ def heatmaps_to_points(
   return out_points
 
 
-def create_batch_norm(x, is_training):
+def create_batch_norm(x: chex.Array, is_training: bool) -> chex.Array:
   """Function to allow TSM-ResNet to create batch norm layers."""
   return hk.BatchNorm(
       create_scale=True,
@@ -171,7 +175,7 @@ class TAPNet(hk.Module):
 
   def __init__(
       self,
-      feature_grid_stride=8,
+      feature_grid_stride: int = 8,
   ):
     """Initialize the model and provide kwargs for the various components.
 
@@ -218,11 +222,11 @@ class TAPNet(hk.Module):
 
   def tracks_from_cost_volume(
       self,
-      interp_feature_heads,
-      feature_grid_heads,
-      query_points,
-      im_shp=None,
-  ):
+      interp_feature_heads: chex.Array,
+      feature_grid_heads: chex.Array,
+      query_points: Optional[chex.Array],
+      im_shp: Optional[chex.Shape] = None,
+  ) -> Tuple[chex.Array, chex.Array]:
     """Converts features into tracks by computing a cost volume.
 
     The computed cost volume will have shape
@@ -278,15 +282,15 @@ class TAPNet(hk.Module):
 
   def __call__(
       self,
-      video,
-      is_training,
-      num_frames=None,
-      query_points=None,
-      compute_regression=True,
-      query_chunk_size=None,
-      get_query_feats=False,
-      feature_grid=None,
-  ):
+      video: chex.Array,
+      is_training: bool,
+      query_points: chex.Array,
+      num_frames: Optional[int] = None,
+      compute_regression: bool = True,
+      query_chunk_size: Optional[int] = None,
+      get_query_feats: bool = False,
+      feature_grid: Optional[chex.Array] = None,
+  ) -> Mapping[str, chex.Array]:
     """Runs a forward pass of the model.
 
     Args:
@@ -295,8 +299,8 @@ class TAPNet(hk.Module):
         batch dimension, one sequence after the other.  This can speed up
         inference on the TPU and save memory.
       is_training: Whether we are training.
-      num_frames: Number of frames in the video.
       query_points: The query points for which we compute tracks.
+      num_frames: Number of frames in the video.
       compute_regression: if True, compute tracks using cost volumes; otherwise
         simply compute features (required for the baseline)
       query_chunk_size: When computing cost volumes, break the queries into
