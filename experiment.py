@@ -265,6 +265,7 @@ class Experiment(experiment.AbstractExperiment):
       ds_generator = self.create_dataset_generator(
           dataset_constructors,
           dset_name,
+          color_augmentation=True,
       )
 
       dataset_generators[dset_name] = ds_generator
@@ -280,6 +281,7 @@ class Experiment(experiment.AbstractExperiment):
       self,
       dataset_constructors: Mapping[str, Callable[..., tf.data.Dataset]],
       dset_name: str,
+      color_augmentation: bool = False,
   ) -> Iterator[Mapping[str, np.ndarray]]:
     # Batch data on available devices.
     # Number of devices is unknown when an interpreter reads a config file.
@@ -291,6 +293,8 @@ class Experiment(experiment.AbstractExperiment):
     dset_kwargs = dict(self.config.datasets[dset_name + '_kwargs'])
     dset_kwargs['batch_dims'] = batch_dims
     ds = dataset_constructors[dset_name](**dset_kwargs)
+    if color_augmentation:
+      ds = exputils.add_default_data_augmentation(ds)
     np_ds = tfds.as_numpy(ds)
     return iter(np_ds)
 

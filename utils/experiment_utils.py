@@ -16,7 +16,7 @@
 """Logging and other experiment utilities."""
 
 import os
-from typing import Optional
+from typing import Mapping, Optional
 
 import jax
 from jaxline import utils
@@ -189,3 +189,80 @@ class NumpyFileCheckpointer(utils.Checkpointer):
       mode: str,
   ) -> utils.Checkpointer:
     return cls(config, mode)
+
+
+def default_color_augmentation_fn(
+    inputs: Mapping[str, tf.Tensor]) -> Mapping[str, tf.Tensor]:
+  """Standard color augmentation for videos.
+
+  Args:
+    inputs: A DatasetElement containing the item 'video' which will have
+      augmentations applied to it.
+
+  Returns:
+    A DatasetElement with all the same data as the original, except that
+      the video has augmentations applied.
+  """
+  zero_centering_image = True
+  prob_color_augment = 0.8
+  prob_color_drop = 0.2
+
+  frames = inputs['video']
+  if frames.dtype != tf.float32:
+    raise ValueError('`frames` should be in float32.')
+
+  def color_augment(video: tf.Tensor) -> tf.Tensor:
+    """Do standard color augmentations."""
+    # Note the same augmentation will be applied to all frames of the video.
+    if zero_centering_image:
+      video = 0.5 * (video + 1.0)
+    video = tf.image.random_brightness(video, max_delta=32. / 255.)
+    video = tf.image.random_saturation(video, lower=0.6, upper=1.4)
+    video = tf.image.random_contrast(video, lower=0.6, upper=1.4)
+    video = tf.image.random_hue(video, max_delta=0.2)
+    video = tf.clip_by_value(video, 0.0, 1.0)
+    if zero_centering_image:
+      video = 2 * (video-0.5)
+    return video
+
+  def color_aug_batch(video: tf.Tensor) -> tf.Tensor:
+    return tf.map_fn(color_augment, video)
+
+  def color_aug_batch2(video: tf.Tensor) -> tf.Tensor:
+    return tf.map_fn(color_aug_batch, video)
+
+  def color_drop(video: tf.Tensor) -> tf.Tensor:
+    video = tf.image.rgb_to_grayscale(video)
+    video = tf.tile(video, [1, 1, 1, 3])
+    return video
+
+  def color_drop_batch(video: tf.Tensor) -> tf.Tensor:
+    return tf.map_fn(color_drop, video)
+
+  def color_drop_batch2(video: tf.Tensor) -> tf.Tensor:
+    return tf.map_fn(color_drop_batch, video)
+
+  # Eventually applies color augmentation.
+  coin_toss_color_augment = tf.random.uniform(
+      [], minval=0, maxval=1, dtype=tf.float32)
+  frames = tf.cond(
+      pred=tf.less(coin_toss_color_augment,
+                   tf.cast(prob_color_augment, tf.float32)),
+      true_fn=lambda: color_aug_batch2(frames),
+      false_fn=lambda: frames)
+
+  # Eventually applies color drop.
+  coin_toss_color_drop = tf.random.uniform(
+      [], minval=0, maxval=1, dtype=tf.float32)
+  frames = tf.cond(
+      pred=tf.less(coin_toss_color_drop, tf.cast(prob_color_drop, tf.float32)),
+      true_fn=lambda: color_drop_batch2(frames),
+      false_fn=lambda: frames)
+  result = {**inputs}
+  result['video'] = frames
+
+  return result
+
+
+def add_default_data_augmentation(ds: tf.data.Dataset) -> tf.data.Dataset:
+  return ds.map(default_color_augmentation_fn)

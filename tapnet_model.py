@@ -364,11 +364,7 @@ class TAPNet(hk.Module):
       assert query_chunk_size is not None
       all_occ = []
       all_pts = []
-      infer = hk.remat(
-          functools.partial(
-              self.tracks_from_cost_volume,
-              im_shp=shape,
-          ))
+      infer = functools.partial(self.tracks_from_cost_volume, im_shp=shape)
 
       for i in range(0, query_points.shape[1], query_chunk_size):
         points, occlusion = infer(
