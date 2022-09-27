@@ -14,7 +14,7 @@
 # ==============================================================================
 
 """Optimizer utils."""
-from typing import Callable, List, NamedTuple, Optional, Text
+from typing import Callable, Sequence, NamedTuple, Optional, Text
 
 import haiku as hk
 import jax
@@ -25,7 +25,7 @@ NORM_NAMES = ["layer_norm", "batch_norm", "_bn", "linear_classifier"]
 
 
 def _weight_decay_exclude(
-    exclude_names: Optional[List[Text]] = None
+    exclude_names: Optional[Sequence[Text]] = None
 ) -> Callable[[str, str, jnp.ndarray], bool]:
   """Logic for deciding which parameters to include for weight decay..
 
@@ -34,24 +34,22 @@ def _weight_decay_exclude(
       by default.
 
   Returns:
-    A predicate that returns True for params that need to be excluded from
+    A predicate that returns False for params that need to be excluded from
     weight_decay.
   """
   # By default weight_decay the weights but not the biases.
-  if not exclude_names:
+  if exclude_names is None:
     exclude_names = ["b"]
 
-  def exclude(module_name: Text, name: Text, value: jnp.array):
+  def include(module_name: Text, name: Text, value: jnp.array):
     del value
     # Do not weight decay the parameters of normalization blocks.
     if any([norm_name in module_name for norm_name in NORM_NAMES]):
       return False
-    elif name not in exclude_names:
-      return True
     else:
-      return False
+      return name not in exclude_names
 
-  return exclude
+  return include
 
 
 class AddWeightDecayState(NamedTuple):
@@ -60,7 +58,8 @@ class AddWeightDecayState(NamedTuple):
 
 def add_weight_decay(
     weight_decay: float,
-    exclude_names: Optional[List[Text]] = None) -> optax.GradientTransformation:
+    exclude_names: Optional[Sequence[Text]] = None
+) -> optax.GradientTransformation:
   """Add parameter scaled by `weight_decay` to the `updates`.
 
   Same as optax.additive_weight_decay but can exclude some parameters.
@@ -78,10 +77,10 @@ def add_weight_decay(
     return AddWeightDecayState()
 
   def update_fn(updates, state, params):
-    exclude = _weight_decay_exclude(exclude_names=exclude_names)
+    include = _weight_decay_exclude(exclude_names=exclude_names)
 
-    u_in, u_ex = hk.data_structures.partition(exclude, updates)
-    p_in, _ = hk.data_structures.partition(exclude, params)
+    u_in, u_ex = hk.data_structures.partition(include, updates)
+    p_in, _ = hk.data_structures.partition(include, params)
     u_in = jax.tree_map(lambda g, p: g + weight_decay * p, u_in, p_in)
     updates = hk.data_structures.merge(u_ex, u_in)
     return updates, state

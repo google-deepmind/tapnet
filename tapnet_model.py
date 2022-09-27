@@ -27,8 +27,8 @@ import jax.numpy as jnp
 from tapnet.models import tsm_resnet
 from tapnet.utils import transforms
 
-# (num_frames, height, width)
-TRAIN_SIZE = (24, 256, 256)
+# (num_frames, height, width, channels)
+TRAIN_SIZE = (24, 256, 256, 3)
 
 
 def interp(x: chex.Array, y: chex.Array) -> chex.Array:
@@ -123,14 +123,11 @@ def heatmaps_to_points(
   """
   # soft_argmax_heatmap operates over a single heatmap.  We vmap it across
   # batch, num_points, and frames.
-  out_points = jax.vmap(
-      jax.vmap(
-          jax.vmap(soft_argmax_heatmap, (0, None)),
-          (0, None),
-      ), (0, None))(
-          all_pairs_softmax,
-          threshold,
-      )
+  vmap_sah = soft_argmax_heatmap
+  for _ in range(3):
+    vmap_sah = jax.vmap(vmap_sah, (0, None))
+  out_points = vmap_sah(all_pairs_softmax, threshold)
+
   feature_grid_shape = all_pairs_softmax.shape[1:]
   # Note: out_points is now [x, y]; we need to divide by [width, height].
   # image_shape[3] is width and image_shape[2] is height.
@@ -260,10 +257,7 @@ class TAPNet(hk.Module):
         feature_grid_heads,
     )
     shape = cost_volume.shape
-    cost_volume = jnp.reshape(
-        cost_volume,
-        (shape[0], shape[1] * shape[2]) + shape[3:6],
-    )
+    cost_volume = einshape('tbnhwd->t(bn)hwd', cost_volume)
 
     occlusion = mods['hid1'](cost_volume)
     occlusion = jax.nn.relu(occlusion)

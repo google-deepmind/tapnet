@@ -77,7 +77,8 @@ class TSMResNetBlock(hk.Module):
       name: The name of the module.
     """
     super().__init__(name=name)
-    self._output_channels = output_channels if use_bottleneck else output_channels // 4
+    self._output_channels = (
+        output_channels if use_bottleneck else output_channels // 4)
     self._bottleneck_channels = output_channels // 4
     self._stride = stride
     self._rate = rate
@@ -118,8 +119,7 @@ class TSMResNetBlock(hk.Module):
           with_bias=False,
           padding='SAME',
           name='shortcut_conv',
-      )(
-          preact)
+      )(preact)
     else:
       shortcut = inputs
 
@@ -139,8 +139,7 @@ class TSMResNetBlock(hk.Module):
         with_bias=False,
         padding='SAME',
         name='conv_0',
-    )(
-        preact)
+    )(preact)
 
     if self._use_bottleneck:
       # Second convolution.
@@ -155,8 +154,7 @@ class TSMResNetBlock(hk.Module):
           with_bias=False,
           padding='SAME',
           name='conv_1',
-      )(
-          residual)
+      )(residual)
 
     # Third convolution.
     if self._normalize_fn is not None:
@@ -169,8 +167,7 @@ class TSMResNetBlock(hk.Module):
         with_bias=False,
         padding='SAME',
         name='conv_2',
-    )(
-        residual)
+    )(residual)
 
     # NOTE: we do not use block multiplier.
     output = shortcut + residual
@@ -239,9 +236,9 @@ class TSMResNetUnit(hk.Module):
     for idx_block in range(self._num_blocks):
       net = TSMResNetBlock(
           self._output_channels,
-          stride=self._stride if idx_block == 0 else 1,
-          rate=max(self._rate // 2, 1) if idx_block == 0 else self._rate,
-          use_projection=idx_block == 0,
+          stride=(self._stride if idx_block == 0 else 1),
+          rate=(max(self._rate // 2, 1) if idx_block == 0 else self._rate),
+          use_projection=(idx_block == 0),
           normalize_fn=self._normalize_fn,
           tsm_mode=self._tsm_mode,
           channel_shift_fraction=self._channel_shift_fraction,
@@ -389,14 +386,12 @@ class TSMResNetV2(hk.Module):
         with_bias=False,
         name=end_point,
         padding='SAME',
-    )(
-        inputs)
+    )(inputs)
     net = hk.MaxPool(
         window_shape=(1, 3, 3, 1),
         strides=(1, 2, 2, 1),
         padding='SAME',
-    )(
-        net)
+    )(net)
     if self._final_endpoint == end_point:
       net = tsmu.prepare_outputs(net, tsm_mode, num_frames, reduce_mean=False)
       return net

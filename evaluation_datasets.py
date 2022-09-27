@@ -22,7 +22,6 @@ import pickle
 import random
 from typing import Iterable, Optional, Mapping, Union
 
-from absl import flags
 from absl import logging
 import chex
 import jax
@@ -35,12 +34,6 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from tapnet import tapnet_model
-
-from kubric.challenges.point_tracking import dataset
-
-# These three are questionable
-
-FLAGS = flags.FLAGS
 
 
 DatasetElement = Mapping[str, Mapping[str, Union[np.ndarray, str]]]
@@ -82,7 +75,6 @@ def sample_and_pad(
       pad_extra_frames: the number of pad frames that were added to reach
         num_frames.
   """
-  query_stride = 5
   tracks = []
   occs = []
   queries = []
@@ -111,7 +103,7 @@ def sample_and_pad(
     pads[1] = (0, num_frames - x.shape[1])  # pylint: disable=cell-var-from-loop
     return jnp.pad(x, pads, mode='edge')
 
-  converted = {
+  return {
       'video':
           frame_pad(frames[jnp.newaxis, ...]),
       'query_points':
@@ -125,12 +117,11 @@ def sample_and_pad(
       'pad_extra_frames':
           num_frames - target_occluded.shape[1],
   }
-  return converted
 
 
-def create_jhmdb_dataset() -> Iterable[DatasetElement]:
+def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
   """JHMDB dataset, including fields required for PCK evaluation."""
-  gt_dir = FLAGS.config.jhmdb_path
+  gt_dir = jhmdb_path
   videos = []
   for file in tf.io.gfile.listdir(path.join(gt_dir, 'splits')):
     # JHMDB file containing the first split, which is standard for this type of
@@ -173,9 +164,7 @@ def create_jhmdb_dataset() -> Iterable[DatasetElement]:
 
     frames = [read_frame(x) for x in framefil]
     frames = np.stack(frames)
-    num_frames = frames.shape[0]
-    height = frames.shape[1]
-    width = frames.shape[2]
+    num_frames, height, width, _ = frames.shape
     invalid_x = np.logical_or(
         gt_pose[:, 0:1, 0] < 0,
         gt_pose[:, 0:1, 0] >= width,
@@ -188,16 +177,14 @@ def create_jhmdb_dataset() -> Iterable[DatasetElement]:
     invalid = np.tile(invalid, [1, gt_pose.shape[1]])
     invalid = invalid[:, :, jnp.newaxis].astype(np.float32)
     gt_pose_orig = gt_pose
-    gt_pose = gt_pose * (1.0 - invalid) - invalid
+    # Set invalid poses to -1 (outside the frame)
+    gt_pose = (1. - invalid) * gt_pose + invalid * (-1.)
 
     frames = np.array(
         jax.jit(
             functools.partial(
                 jax.image.resize,
-                shape=[
-                    num_frames, tapnet_model.TRAIN_SIZE[1],
-                    tapnet_model.TRAIN_SIZE[2], 3
-                ],
+                shape=[num_frames, *tapnet_model.TRAIN_SIZE[1:4]],
                 method='bilinear',
             ))(frames))
     frames = frames / (255. / 2.) - 1.
@@ -240,12 +227,12 @@ def create_kubric_eval_train_dataset(
       vflip='vflip' in mode,
       random_crop=False)
 
-  num_returned = -1
+  num_returned = 0
 
   for data in res[0]():
-    num_returned += 1
     if num_returned >= max_dataset_size:
       break
+    num_returned += 1
     yield {'kubric': data}
 
 
@@ -265,9 +252,9 @@ def create_kubric_eval_dataset(mode: str) -> Iterable[DatasetElement]:
     yield {'kubric': data}
 
 
-def create_davis_dataset() -> Iterable[DatasetElement]:
+def create_davis_dataset(davis_points_path: str) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on DAVIS data."""
-  pickle_path = FLAGS.config.davis_points_path
+  pickle_path = davis_points_path
 
   with tf.io.gfile.GFile(pickle_path, 'rb') as f:
     davis_points_dataset = pickle.load(f)
@@ -296,9 +283,10 @@ def create_davis_dataset() -> Iterable[DatasetElement]:
     yield {'davis': converted}
 
 
-def create_rgb_stacking_dataset() -> Iterable[DatasetElement]:
+def create_rgb_stacking_dataset(
+    robotics_points_path: str) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on robotics data."""
-  pickle_path = FLAGS.config.robotics_points_path
+  pickle_path = robotics_points_path
 
   with tf.io.gfile.GFile(pickle_path, 'rb') as f:
     robotics_points_dataset = pickle.load(f)

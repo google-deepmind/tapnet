@@ -19,7 +19,6 @@ import functools
 from os import path
 from typing import Iterable, Mapping, Optional, Sequence, Tuple
 
-from absl import flags
 from absl import logging
 import chex
 import jax
@@ -28,19 +27,17 @@ from jaxline import utils
 import matplotlib
 import matplotlib.pyplot as plt
 import mediapy
+from ml_collections import config_dict
 import numpy as np
 import tensorflow_datasets as tfds
 import tensorflow as tf
 
-# These three are questionable
 from tapnet import evaluation_datasets
 from tapnet import tapnet_model
 from tapnet import task
 from tapnet.utils import transforms
 
 matplotlib.use('Agg')
-
-FLAGS = flags.FLAGS
 
 
 def sigmoid_cross_entropy(
@@ -241,6 +238,7 @@ class SupervisedPointPrediction(task.Task):
 
   def __init__(
       self,
+      config: config_dict.ConfigDict,
       input_key: str = 'kubric',
       contrastive_loss_weight: float = 0.05,
       prediction_algo: str = 'cost_volume_regressor',
@@ -248,6 +246,8 @@ class SupervisedPointPrediction(task.Task):
     """Constructs a task for supervised learning on Kubric.
 
     Args:
+      config: a ConfigDict for configuring this experiment, notably including
+        the paths for checkpoints and datasets.
       input_key: The forward pass takes an input dict.  Inference or learning
         will be performed on input[input_key]['video']
       contrastive_loss_weight: Weight for the additional contrastive loss that's
@@ -263,12 +263,12 @@ class SupervisedPointPrediction(task.Task):
     self.input_key = input_key
     self.prediction_algo = prediction_algo
     self.contrastive_loss_weight = contrastive_loss_weight
+    self.config = config
 
   def forward_fn(
       self,
       inputs: chex.ArrayTree,
       is_training: bool,
-      rng: Optional[chex.PRNGKey] = None,
       shared_modules: Optional[Mapping[str, task.SharedModule]] = None,
       input_key: Optional[str] = None,
       query_chunk_size: int = 16,
@@ -285,7 +285,6 @@ class SupervisedPointPrediction(task.Task):
         of shape [batch, num_queries, 3], where each query is [t,y,x]
         coordinates normalized to between -1 and 1.
       is_training: Is the model in training mode.
-      rng: jax.random.PRNGKey for random number generation.
       shared_modules: Haiku modules, injected by experiment.py.
         shared_modules['tapnet_model'] should be a JointModel.
       input_key: Run on inputs[input_key]['video']. If None, use the input_key
@@ -393,7 +392,6 @@ class SupervisedPointPrediction(task.Task):
       loss_scalars = dict(position_loss=loss_huber, occlusion_loss=loss_occ)
     if self.prediction_algo in [
         'cost_volume_cycle_consistency',
-        'cost_volume_regressor',
     ]:
       feature_grid = output['feature_grid']
 
@@ -404,10 +402,12 @@ class SupervisedPointPrediction(task.Task):
       # This computes the contrastive loss from the paper.  We break the set of
       # queries up into chunks in order to save memory.
       for qchunk in range(0, query_feats.shape[1], query_chunk_size):
+        qchunk_lo = qchunk
+        qchunk_hi = qchunk + query_chunk_size
         im_shp = inputs[input_key]['video'].shape
         all_pairs_dots = jnp.einsum(
             'bnc,bthwc->bnthw',
-            query_feats[:, qchunk:qchunk + query_chunk_size],
+            query_feats[:, qchunk_lo:qchunk_hi],
             feature_grid,
         )
         all_pairs_softmax = jax.nn.log_softmax(
@@ -417,7 +417,7 @@ class SupervisedPointPrediction(task.Task):
         im_shp = inputs[input_key]['video'].shape
         position_in_grid2 = transforms.convert_grid_coordinates(
             inputs[input_key]['target_points'][:,
-                                               qchunk:qchunk + query_chunk_size,
+                                               qchunk_lo:qchunk_hi,
                                                ..., ::-1],
             im_shp[3:1:-1],
             feature_grid.shape[3:1:-1],
@@ -434,8 +434,7 @@ class SupervisedPointPrediction(task.Task):
         loss_contrast.append(
             jnp.mean(
                 interp_softmax *
-                (1.0 - inputs[input_key]['occluded'][:, qchunk:qchunk +
-                                                     query_chunk_size]),
+                (1.0 - inputs[input_key]['occluded'][:, qchunk_lo:qchunk_hi]),
                 axis=-1,
             ))
 
@@ -616,13 +615,15 @@ class SupervisedPointPrediction(task.Task):
             feature_grid.shape[1:4],
             coordinate_format='tyx',
         )
+        # vmap over channels, duplicating the coordinates
+        vmap_interp = jax.vmap(
+            tapnet_model.interp, in_axes=(3, None), out_axes=1)
+        # vmap over frames, using the same queries for each frame
+        vmap_interp = jax.vmap(vmap_interp, in_axes=(None, 0), out_axes=0)
+        # vmap over the batch
+        vmap_interp = jax.vmap(vmap_interp)
         # interp_features is [batch_size,num_queries,num_frames,channels]
-        interp_features = jax.vmap(
-            jax.vmap(
-                jax.vmap(tapnet_model.interp, in_axes=(3, None), out_axes=1),
-                in_axes=(None, 0),
-                out_axes=0,
-            ))(feature_grid, position_in_grid)
+        interp_features = vmap_interp(feature_grid, position_in_grid)
 
         # For each query point, extract the features for the frame which
         # contains the query.
@@ -724,9 +725,10 @@ class SupervisedPointPrediction(task.Task):
         from the constructor.
 
     Returns:
-      A 3-tuple consisting of the occlusion logits, of shape
-        [batch, num_queries, num_frames], the predicted position, of shape
-        [batch, num_queries, num_frames, 2], and a dict of loss scalars.
+      A 2-tuple consisting of a dict of loss scalars and a dict of outputs.
+        The latter consists of the occlusion logits, of shape
+        [batch, num_queries, num_frames] and the predicted position, of shape
+        [batch, num_queries, num_frames, 2].
     """
     occlusion_logits, tracks, loss_scalars = self._infer_batch(
         params,
@@ -806,14 +808,8 @@ class SupervisedPointPrediction(task.Task):
       # False positives are simply points that are predicted to be visible,
       # but the ground truth is not visible or too far from the prediction.
       gt_positives = jnp.sum(visible, axis=(1, 2))
-      false_positives = jnp.logical_and(jnp.logical_not(visible), pred_visible)
-      false_positives = jnp.logical_or(
-          false_positives,
-          jnp.logical_and(
-              jnp.logical_not(within_dist),
-              pred_visible,
-          ),
-      )
+      false_positives = (~visible) & pred_visible
+      false_positives = false_positives | ((~within_dist) & pred_visible)
       false_positives = jnp.sum(false_positives, axis=(1, 2))
       jaccard = true_positives / (gt_positives + false_positives)
       loss_scalars['jaccard_' + str(thresh)] = jaccard
@@ -855,15 +851,18 @@ class SupervisedPointPrediction(task.Task):
           to reach num_frames.
     """
     if 'eval_jhmdb' in mode:
-      yield from evaluation_datasets.create_jhmdb_dataset()
+      yield from evaluation_datasets.create_jhmdb_dataset(
+          self.config.jhmdb_path)
     if 'eval_kubric_train' in mode:
       yield from evaluation_datasets.create_kubric_eval_train_dataset(mode)
     elif 'eval_kubric' in mode:
       yield from evaluation_datasets.create_kubric_eval_dataset(mode)
     elif 'eval_davis_points' in mode:
-      yield from evaluation_datasets.create_davis_dataset()
+      yield from evaluation_datasets.create_davis_dataset(
+          self.config.davis_points_path)
     elif 'eval_robotics_points' in mode:
-      yield from evaluation_datasets.create_rgb_stacking_dataset()
+      yield from evaluation_datasets.create_rgb_stacking_dataset(
+          self.config.robotics_points_path)
     # TODO(doersch): write a loader for kinetics
 
   def compute_pck(
@@ -984,7 +983,7 @@ class SupervisedPointPrediction(task.Task):
     batch_id = 0
 
     outdir = path.join(
-        FLAGS.config.checkpoint_dir,
+        self.config.checkpoint_dir,
         mode,
         str(global_step),
     )

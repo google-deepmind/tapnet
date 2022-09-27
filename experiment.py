@@ -29,6 +29,7 @@ import jax.numpy as jnp
 from jaxline import experiment
 from jaxline import platform
 from jaxline import utils
+from kubric.challenges.point_tracking import dataset
 from ml_collections import config_dict
 
 import numpy as np
@@ -37,14 +38,10 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from tapnet import supervised_point_prediction
-from kubric.challenges.point_tracking import dataset
 
 from tapnet import tapnet_model
 from tapnet import task
 from tapnet.utils import experiment_utils as exputils
-
-
-FLAGS = flags.FLAGS
 
 
 class Experiment(experiment.AbstractExperiment):
@@ -111,17 +108,24 @@ class Experiment(experiment.AbstractExperiment):
     self._state = None
     self._opt_state = None
 
+    self._optimizer = None
+
     # Input pipelines.
     self._train_input = None
     self._eval_input = None
 
     self.point_prediction = supervised_point_prediction.SupervisedPointPrediction(
+        config,
         **config.supervised_point_prediction_kwargs)
 
-    def forward(*args, **kwargs):
+    def forward(*args, is_training=True, **kwargs):
       shared_modules = self._construct_shared_modules()
       return self.point_prediction.forward_fn(
-          *args, shared_modules=shared_modules, **kwargs)
+          *args,
+          shared_modules=shared_modules,
+          is_training=is_training,
+          **kwargs,
+      )
 
     self._transform = hk.transform_with_state(forward)
 
@@ -184,8 +188,8 @@ class Experiment(experiment.AbstractExperiment):
 
     scalars = utils.get_first(scalars)
 
-    if (global_step % FLAGS.config.evaluate_every) == 0:
-      for mode in FLAGS.config.eval_modes:
+    if (global_step % self.config.evaluate_every) == 0:
+      for mode in self.config.eval_modes:
         eval_scalars = self.evaluate(global_step, rng=rng, mode=mode)
         scalars.update(eval_scalars)
 
@@ -274,7 +278,7 @@ class Experiment(experiment.AbstractExperiment):
 
   def create_dataset_generator(
       self,
-      dataset_constructors: Mapping[str, Callable[..., tf.Dataset]],
+      dataset_constructors: Mapping[str, Callable[..., tf.data.Dataset]],
       dset_name: str,
   ) -> Iterator[Mapping[str, np.ndarray]]:
     # Batch data on available devices.
@@ -398,11 +402,9 @@ class Experiment(experiment.AbstractExperiment):
         wrapped_forward_fn=forward_fn,
         mode=mode,
     )
-    eval_scalars = {
+    return {
         f'eval/{mode}/{key}': value for key, value in eval_scalars.items()
     }
-
-    return eval_scalars
 
 
 def main(_):
