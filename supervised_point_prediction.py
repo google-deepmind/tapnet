@@ -1018,7 +1018,7 @@ class SupervisedPointPrediction(task.Task):
         # there will be a crazy number of videos dumped.
         write_viz = write_viz and (global_step % 10 == 0)
       if 'eval_jhmdb' in mode:
-        pix_pts = viz['tracks'][np.newaxis, np.newaxis, :]
+        pix_pts = viz['tracks']
         grid_size = np.array([
             inputs[input_key]['im_size'][1],
             inputs[input_key]['im_size'][0],

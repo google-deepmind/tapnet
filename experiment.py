@@ -16,7 +16,7 @@
 """A Jaxline script for training and evaluating TAPNet."""
 
 import sys
-from typing import Callable, Iterable, Iterator, Mapping, Optional, Tuple
+from typing import Callable, Dict, Iterable, Iterator, Mapping, Optional, Tuple
 
 from absl import app
 from absl import flags
@@ -168,7 +168,7 @@ class Experiment(experiment.AbstractExperiment):
       rng: chex.PRNGKey,
       *unused_args,
       **unused_kwargs,
-  ) -> dict[str, chex.Array]:
+  ) -> Dict[str, chex.Array]:
     """See base class."""
 
     if self._train_input is None:
@@ -188,7 +188,7 @@ class Experiment(experiment.AbstractExperiment):
 
     scalars = utils.get_first(scalars)
 
-    if (global_step % self.config.evaluate_every) == 0:
+    if (utils.get_first(global_step) % self.config.evaluate_every) == 0:
       for mode in self.config.eval_modes:
         eval_scalars = self.evaluate(global_step, rng=rng, mode=mode)
         scalars.update(eval_scalars)
@@ -393,9 +393,8 @@ class Experiment(experiment.AbstractExperiment):
       rng: chex.PRNGKey,
       mode: Optional[str] = None,
       **unused_args,
-  ) -> dict[str, chex.Array]:
+  ) -> Dict[str, chex.Array]:
     mode = mode or self.mode
-    logging.info('Launch %s at step %d', mode, global_step)
     point_prediction_task = self.point_prediction
     forward_fn = self._transform.apply
     eval_scalars = point_prediction_task.evaluate(
@@ -413,6 +412,9 @@ class Experiment(experiment.AbstractExperiment):
 
 def main(_):
   flags.mark_flag_as_required('config')
+  # Keep TF off the GPU; otherwise it hogs all the memory and leaves none for
+  # JAX.
+  tf.config.experimental.set_visible_devices([], 'GPU')
   platform.main(
       Experiment,
       sys.argv[1:],

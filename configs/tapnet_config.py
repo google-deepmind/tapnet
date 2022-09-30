@@ -41,6 +41,8 @@ def get_config() -> config_dict.ConfigDict:
       'eval_jhmdb',
       'eval_robotics_points',
   )
+  config.checkpoint_dir = '/tmp/tapnet_training/'
+  config.evaluate_every = 1000
 
   config.experiment_kwargs = config_dict.ConfigDict(
       dict(
@@ -83,6 +85,18 @@ def get_config() -> config_dict.ConfigDict:
                   )),
               supervised_point_prediction_kwargs=dict(
                   prediction_algo='cost_volume_regressor'),
+              checkpoint_dir=config.get_oneway_ref('checkpoint_dir'),
+              evaluate_every=config.get_oneway_ref('evaluate_every'),
+              eval_modes=config.get_oneway_ref('eval_modes'),
+              # If true, run evaluate() on the experiment once before
+              # you load a checkpoint.
+              # This is useful for getting initial values of metrics
+              # at random weights, or when debugging locally if you
+              # do not have any train job running.
+              davis_points_path = None,
+              jhmdb_path = None,
+              robotics_points_path = None,
+
               training=dict(
                   # Note: to sweep n_training_steps, DO NOT sweep these
                   # fields directly. Instead sweep config.training_steps.
@@ -91,19 +105,10 @@ def get_config() -> config_dict.ConfigDict:
                   n_training_steps=config.get_oneway_ref('training_steps'),))))
 
   # Set up where to store the resulting model.
-  config.checkpoint_dir = '/tmp/tapnet_training/'
   config.train_checkpoint_all_hosts = False
-  config.evaluate_every = 1000
   config.save_checkpoint_interval = 10
-
-  # If true, run evaluate() on the experiment once before
-  # you load a checkpoint.
-  # This is useful for getting initial values of metrics at random weights, or
-  # when debugging locally if you do not have any train job running.
   config.eval_initial_weights = True
-  config.davis_points_path = None
-  config.jhmdb_path = None
-  config.robotics_points_path = None
+
   # Prevents accidentally setting keys that aren't recognized (e.g. in tests).
   config.lock()
 

@@ -92,7 +92,7 @@ def make_optimizer(
   if optimizer_config.max_norm > 0:
     optax_chain.append(optax.clip_by_global_norm(optimizer_config.max_norm))
 
-    if optimizer_config.optimizer == 'sgd':
+  if optimizer_config.optimizer == 'sgd':
     optax_chain.extend([
         optax.trace(**optimizer_config.sgd_kwargs),
         optimizers.add_weight_decay(

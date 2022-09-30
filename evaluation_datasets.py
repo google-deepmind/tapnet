@@ -147,7 +147,7 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
     logging.info(video)
     joints = path.join(gt_dir, 'joint_positions', video, 'joint_positions.mat')
 
-    if not tf.io.gfile.path.exists(joints):
+    if not tf.io.gfile.exists(joints):
       logging.info('skip %s', video)
       continue
 
