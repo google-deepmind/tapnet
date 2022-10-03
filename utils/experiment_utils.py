@@ -225,22 +225,10 @@ def default_color_augmentation_fn(
       video = 2 * (video-0.5)
     return video
 
-  def color_aug_batch(video: tf.Tensor) -> tf.Tensor:
-    return tf.map_fn(color_augment, video)
-
-  def color_aug_batch2(video: tf.Tensor) -> tf.Tensor:
-    return tf.map_fn(color_aug_batch, video)
-
   def color_drop(video: tf.Tensor) -> tf.Tensor:
     video = tf.image.rgb_to_grayscale(video)
     video = tf.tile(video, [1, 1, 1, 3])
     return video
-
-  def color_drop_batch(video: tf.Tensor) -> tf.Tensor:
-    return tf.map_fn(color_drop, video)
-
-  def color_drop_batch2(video: tf.Tensor) -> tf.Tensor:
-    return tf.map_fn(color_drop_batch, video)
 
   # Eventually applies color augmentation.
   coin_toss_color_augment = tf.random.uniform(
@@ -248,7 +236,7 @@ def default_color_augmentation_fn(
   frames = tf.cond(
       pred=tf.less(coin_toss_color_augment,
                    tf.cast(prob_color_augment, tf.float32)),
-      true_fn=lambda: color_aug_batch2(frames),
+      true_fn=lambda: color_augment(frames),
       false_fn=lambda: frames)
 
   # Eventually applies color drop.
@@ -256,7 +244,7 @@ def default_color_augmentation_fn(
       [], minval=0, maxval=1, dtype=tf.float32)
   frames = tf.cond(
       pred=tf.less(coin_toss_color_drop, tf.cast(prob_color_drop, tf.float32)),
-      true_fn=lambda: color_drop_batch2(frames),
+      true_fn=lambda: color_drop(frames),
       false_fn=lambda: frames)
   result = {**inputs}
   result['video'] = frames
@@ -265,4 +253,5 @@ def default_color_augmentation_fn(
 
 
 def add_default_data_augmentation(ds: tf.data.Dataset) -> tf.data.Dataset:
-  return ds.map(default_color_augmentation_fn)
+  return ds.map(
+      default_color_augmentation_fn, num_parallel_calls=tf.data.AUTOTUNE)

@@ -291,10 +291,12 @@ class Experiment(experiment.AbstractExperiment):
         self.config.datasets[dset_name + '_kwargs'].batch_dims,
     ]
     dset_kwargs = dict(self.config.datasets[dset_name + '_kwargs'])
-    dset_kwargs['batch_dims'] = batch_dims
+    dset_kwargs['batch_dims'] = []
     ds = dataset_constructors[dset_name](**dset_kwargs)
     if color_augmentation:
       ds = exputils.add_default_data_augmentation(ds)
+    for dim in batch_dims[::-1]:
+      ds = ds.batch(dim)
     np_ds = tfds.as_numpy(ds)
     return iter(np_ds)
 
