@@ -21,9 +21,27 @@ joints as intended by the benchmark.
 
 ## Installation
 
+Install ffmpeg on your machine:
+
+```sudo apt update```
+
+```sudo apt install ffmpeg```
+
+Install OpenEXR:
+
+```sudo apt-get install libopenexr-dev```
+
 Clone the repository:
 
 ```git clone https://github.com/deepmind/tapnet.git```
+
+Add a path to directory where TapNet stored to ```PYTHONPATH```:
+
+```export PYTHONPATH=path/to/diretory/where/tapnet/stored:$PYTHONPATH```
+
+Switch to the project directory:
+
+```cd tapnet```
 
 Install submodules:
 
@@ -32,6 +50,12 @@ Install submodules:
 Install requirements:
 
 ```pip install -r requirements.txt```
+
+If you want to use CUDA, make sure you install the drivers and a version
+of JAX that's compatible with your CUDA and CUDNN versions.
+Refer to
+[the jax manual](https://github.com/google/jax#pip-installation-gpu-cuda)
+to install JAX version with CUDA.
 
 ## Usage
 
@@ -44,15 +68,19 @@ To launch experiment run the command:
 
 ```python ./tapnet/experiment.py --config ./tapnet/configs/tapnet_config.py```
 
-## Troubleshooting
-If you got an exception like:
-
-```No 'tapnet' module.``` or ```No 'kubric' module.``` than
-add the project directory to ```PATH``` and ```PYTHONPATH```.
-
 ## Citing this work
+Please use the following bibtex entry to cite ```TapNet-Vid```:
 
-TBD.
+```
+@inproceedings{doersch2022tapvid,
+  author = {Doersch, Carl and Gupta, Ankush and Markeeva, Larisa and
+            Continente, Adria Recasens and Smaira, Kucas and Aytar, Yusuf and
+            Carreira, Joao and Zisserman, Andrew and Yang, Yi},
+  title = {TAP-Vid: A Benchmark for Tracking Any Point in a Video},
+  booktitle={NeurIPS Datasets Track},
+  year = {2022},
+}
+```
 
 ## License and disclaimer
 
