@@ -40,6 +40,7 @@ def get_config() -> config_dict.ConfigDict:
       'eval_kubric',
       'eval_jhmdb',
       'eval_robotics_points',
+      'eval_kinetics',
   )
   config.checkpoint_dir = '/tmp/tapnet_training/'
   config.evaluate_every = 1000
@@ -96,7 +97,6 @@ def get_config() -> config_dict.ConfigDict:
               davis_points_path = None,
               jhmdb_path = None,
               robotics_points_path = None,
-
               training=dict(
                   # Note: to sweep n_training_steps, DO NOT sweep these
                   # fields directly. Instead sweep config.training_steps.

@@ -415,10 +415,10 @@ class SupervisedPointPrediction(task.Task):
             axis=(2, 3, 4),
         )
         im_shp = inputs[input_key]['video'].shape
+        point_track = inputs[input_key]['target_points'][:, qchunk_lo:qchunk_hi,
+                                                         ..., ::-1]
         position_in_grid2 = transforms.convert_grid_coordinates(
-            inputs[input_key]['target_points'][:,
-                                               qchunk_lo:qchunk_hi,
-                                               ..., ::-1],
+            point_track,
             im_shp[3:1:-1],
             feature_grid.shape[3:1:-1],
         )
@@ -850,9 +850,6 @@ class SupervisedPointPrediction(task.Task):
         pad_extra_frames (optional): the number of pad frames that were added
           to reach num_frames.
     """
-    if 'eval_jhmdb' in mode:
-      yield from evaluation_datasets.create_jhmdb_dataset(
-          self.config.jhmdb_path)
     if 'eval_kubric_train' in mode:
       yield from evaluation_datasets.create_kubric_eval_train_dataset(mode)
     elif 'eval_kubric' in mode:
@@ -860,10 +857,15 @@ class SupervisedPointPrediction(task.Task):
     elif 'eval_davis_points' in mode:
       yield from evaluation_datasets.create_davis_dataset(
           self.config.davis_points_path)
+    elif 'eval_jhmdb' in mode:
+      yield from evaluation_datasets.create_jhmdb_dataset(
+          self.config.jhmdb_path)
     elif 'eval_robotics_points' in mode:
       yield from evaluation_datasets.create_rgb_stacking_dataset(
           self.config.robotics_points_path)
-    # TODO(doersch): write a loader for kinetics
+    elif 'eval_kinetics' in mode:
+      yield from evaluation_datasets.create_kinetics_dataset(
+          self.config.kinetics_points_path)
 
   def compute_pck(
       self,
@@ -995,10 +997,12 @@ class SupervisedPointPrediction(task.Task):
     except FileExistsError:
       print(f'Path {outdir} exists. Skip creating a new dir.')
 
-    if 'eval_jhmdb' in mode:
+      if 'eval_jhmdb' in mode:
       input_key = 'jhmdb'
     elif 'eval_robotics_points' in mode:
       input_key = 'robotics'
+    elif 'eval_kinetics' in mode:
+      input_key = 'kinetics'
     else:
       input_key = 'kubric'
     eval_batch_fn = (

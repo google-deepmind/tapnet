@@ -15,6 +15,7 @@
 
 """Evaluation dataset creation functions."""
 
+import csv
 import functools
 import glob
 from os import path
@@ -27,6 +28,7 @@ import chex
 import jax
 import jax.numpy as jnp
 from kubric.challenges.point_tracking import dataset
+import mediapy as media
 import numpy as np
 from PIL import Image
 from scipy import io
@@ -34,7 +36,6 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from tapnet import tapnet_model
-
 
 DatasetElement = Mapping[str, Mapping[str, Union[np.ndarray, str]]]
 
@@ -221,7 +222,7 @@ def create_kubric_eval_train_dataset(
   res = dataset.create_point_tracking_dataset(
       split='train',
       train_size=tapnet_model.TRAIN_SIZE[1:3],
-      batch_dims=[1,],
+      batch_dims=[1],
       shuffle_buffer_size=None,
       repeat=False,
       vflip='vflip' in mode,
@@ -310,3 +311,48 @@ def create_rgb_stacking_dataset(
         'occluded': target_occ[np.newaxis, ...],
     }
     yield {'robotics': converted}
+
+
+def create_kinetics_dataset(kinetics_path: str) -> Iterable[DatasetElement]:
+  """Kinetics point tracking dataset."""
+  csv_path = path.join(kinetics_path, 'tapvid_kinetics.csv')
+
+  point_tracks_all = dict()
+  with tf.io.gfile.Open(csv_path) as f:
+    reader = csv.reader(f, delimiter=',')
+    for row in reader:
+      youtube_id = row[0]
+      point_tracks = np.array(row[3:]).reshape(-1, 3)
+      if youtube_id in point_tracks_all:
+        point_tracks_all[youtube_id].append(point_tracks)
+      else:
+        point_tracks_all[youtube_id] = [point_tracks]
+
+  for video_id in point_tracks_all:
+    video_path = path.join(kinetics_path, 'videos', video_id + '_valid.mp4')
+    frames = media.read_video(video_path)
+    frames = media.resize_video(frames, tapnet_model.TRAIN_SIZE[1:3])
+    frames = frames.astype(np.float32) / 255. * 2. - 1.
+
+    point_tracks = np.stack(point_tracks_all[video_id], axis=0)
+    point_tracks = point_tracks.astype(np.float32)
+    point_tracks, occluded = point_tracks[..., 0:2], point_tracks[..., 2]
+    target_points = point_tracks * np.array(
+        [tapnet_model.TRAIN_SIZE[2], tapnet_model.TRAIN_SIZE[1]])
+
+    # Find the query points from the first time when a point is visible.
+    query_points = []
+    for i in range(point_tracks.shape[0]):
+      index = np.where(occluded[i] == 0)[0][0]
+      x, y = target_points[i, index, 0], target_points[i, index, 1]
+      query_points.append(np.array([index, y, x]))  # [t, y, x]
+    query_points = np.stack(query_points, axis=0)
+
+    converted = {
+        'video': frames[np.newaxis, ...],
+        'query_points': query_points[np.newaxis, ...],
+        'target_points': target_points[np.newaxis, ...],
+        'occluded': occluded[np.newaxis, ...],
+    }
+
+    yield {'kinetics': converted}
