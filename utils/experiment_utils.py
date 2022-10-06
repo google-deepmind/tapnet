@@ -122,7 +122,7 @@ class NumpyFileCheckpointer(utils.Checkpointer):
   """A Jaxline checkpointer which saves to numpy files on disk."""
 
   def __init__(self, config: config_dict.ConfigDict, mode: str):
-    self._checkpoint_file = os.path.join(config.checkpoint_dir +
+    self._checkpoint_file = os.path.join(config.checkpoint_dir,
                                          'checkpoint.npy')
     self._checkpoint_state = config_dict.ConfigDict()
     del mode

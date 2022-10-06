@@ -27,7 +27,7 @@ def get_config() -> config_dict.ConfigDict:
   config = base_config.get_base_config()
 
   # Experiment config.
-  config.training_steps = 500000
+  config.training_steps = 100000
 
   # NOTE: duplicates not allowed.
   config.shared_module_names = ('tapnet_model',)
@@ -37,13 +37,13 @@ def get_config() -> config_dict.ConfigDict:
   )
   # Note: eval modes must always start with 'eval_'.
   config.eval_modes = (
-      'eval_kubric',
+      'eval_davis',
       'eval_jhmdb',
       'eval_robotics_points',
       'eval_kinetics',
   )
   config.checkpoint_dir = '/tmp/tapnet_training/'
-  config.evaluate_every = 1000
+  config.evaluate_every = 10000
 
   config.experiment_kwargs = config_dict.ConfigDict(
       dict(
@@ -57,7 +57,6 @@ def get_config() -> config_dict.ConfigDict:
                   base_lr=2e-3,
                   max_norm=-1,  # < 0 to turn off.
                   weight_decay=1e-2,
-                  scale_by_batch=True,
                   schedule_type='cosine',
                   cosine_decay_kwargs=dict(
                       init_value=0.0,

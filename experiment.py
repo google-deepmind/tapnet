@@ -188,7 +188,7 @@ class Experiment(experiment.AbstractExperiment):
 
     scalars = utils.get_first(scalars)
 
-    if (utils.get_first(global_step) % self.config.evaluate_every) == 0:
+    if ((utils.get_first(global_step) + 1) % self.config.evaluate_every) == 0:
       for mode in self.config.eval_modes:
         eval_scalars = self.evaluate(global_step, rng=rng, mode=mode)
         scalars.update(eval_scalars)

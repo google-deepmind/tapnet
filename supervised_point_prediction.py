@@ -997,8 +997,10 @@ class SupervisedPointPrediction(task.Task):
     except FileExistsError:
       print(f'Path {outdir} exists. Skip creating a new dir.')
 
-      if 'eval_jhmdb' in mode:
+    if 'eval_jhmdb' in mode:
       input_key = 'jhmdb'
+    elif 'eval_davis_points' in mode:
+      input_key = 'davis'
     elif 'eval_robotics_points' in mode:
       input_key = 'robotics'
     elif 'eval_kinetics' in mode:

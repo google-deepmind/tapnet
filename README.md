@@ -68,7 +68,36 @@ To launch experiment run the command:
 
 ```python ./tapnet/experiment.py --config ./tapnet/configs/tapnet_config.py```
 
+## Evaluation
+
+You can run evaluation for a particular dataset using the command:
+
+```python3 ./tapnet/experiment.py --config ./tapnet/configs/tapnet_config.py --jaxline_mode=eval_davis --config.checkpoint_dir=/path/to/checkpoint/dir/```
+
+Available eval datasets are listed in `supervised_point_prediction.py`.
+
+`/path/to/checkpoint/dir/` must contain a file checkpoint.npy that's loadable
+using our NumpyFileCheckpointer.
+
+## A note on coordinates
+
+In our storage datasets, (x, y) coordinates are typically in normalized raster
+coordinates: i.e., (0, 0) is the upper-left corner of the upper-left pixel, and
+(1, 1) is the lower-left corner of the lower-right pixel.  Our code, however,
+immediately converts these to regular raster coordinates, matching the output of
+the Kubric reader: (0, 0) is the upper-left corner of the upper-left pixel,
+while (h, w) is the lower-right corner of the lower-right pixel, where h is the
+image height in pixels, and w is the respctive width.
+
+When working with 2D coordinates, we typically store them in the order (x, y).
+However, we typically work with 3D coordinates in the order (t, y, x), where
+y and x are raster coordinates as above, but t is in frame coordinates, i.e.
+0 refers to the first frame, and 0.5 refers to halfway between the first and
+second frames.  Please take care with this: one pixel error can make a
+difference according to our metrics.
+
 ## Citing this work
+
 Please use the following bibtex entry to cite ```TapNet-Vid```:
 
 ```

@@ -20,7 +20,6 @@ from typing import Sequence
 import numpy as np
 
 
-# TODO(doersch): check if the 0.5 is still correct
 def convert_grid_coordinates(
     coords: np.ndarray,
     input_grid_size: Sequence[int],
@@ -67,10 +66,12 @@ def convert_grid_coordinates(
     if input_grid_size.shape[0] != 3 or output_grid_size.shape[0] != 3:
       raise ValueError(
           'If coordinate_format is tyx, the shapes must be length 3.')
+    if input_grid_size[0] != output_grid_size[0]:
+      raise ValueError('converting frame count is not supported.')
   else:
     raise ValueError('Recognized coordinate formats are xy and tyx.')
 
-  position_in_grid = coords + .5
-  position_in_grid = position_in_grid * output_grid_size / input_grid_size - .5
+  position_in_grid = coords
+  position_in_grid = position_in_grid * output_grid_size / input_grid_size
 
   return position_in_grid

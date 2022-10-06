@@ -37,11 +37,22 @@ def interp(x: chex.Array, y: chex.Array) -> chex.Array:
   Args:
     x: Grid of features to be interpolated, of shape [height, width]
     y: Points to be interpolated, of shape [num_points, 2], where each point is
-      [y, x] in pixel coordinates.
+      [y, x] in pixel coordinates, or [num_points, 3], where each point is
+      [z, y, x].  Note that x and y are assumed to be raster coordinates:
+      i.e. (0, 0) refers to the upper-left corner of the upper-left pixel.
+      z, however, is assumed to be frame coordinates, so 0 is the first frame,
+      and 0.5 is halfway between the first and second frames.
 
   Returns:
     The interpolated value, of shape [num_points].
   """
+  # If the coordinate format is [z,y,x], we need to handle the z coordinate
+  # differently per the docstring.
+  if y.shape[-1] == 3:
+    y = jnp.concatenate([y[..., 0:1], y[..., 1:] - 0.5], axis=-1)
+  else:
+    y = y - 0.5
+
   return jax.scipy.ndimage.map_coordinates(
       x,
       jnp.transpose(y),

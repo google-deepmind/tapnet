@@ -36,6 +36,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from tapnet import tapnet_model
+from tapnet.utils import transforms
 
 DatasetElement = Mapping[str, Mapping[str, Union[np.ndarray, str]]]
 
@@ -178,6 +179,12 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
     invalid = np.tile(invalid, [1, gt_pose.shape[1]])
     invalid = invalid[:, :, jnp.newaxis].astype(np.float32)
     gt_pose_orig = gt_pose
+
+    gt_pose = transforms.convert_grid_coordinates(
+        gt_pose,
+        np.array([width, height]),
+        np.array(tapnet_model.TRAIN_SIZE[2:0:-1]),
+    )
     # Set invalid poses to -1 (outside the frame)
     gt_pose = (1. - invalid) * gt_pose + invalid * (-1.)
 
@@ -191,7 +198,7 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
     frames = frames / (255. / 2.) - 1.
     queries = gt_pose[:, 0]
     queries = np.concatenate(
-        [queries[..., 0:1] * 0 - 1, queries[..., ::-1]],
+        [queries[..., 0:1] * 0, queries[..., ::-1]],
         axis=-1,
     )
     if gt_pose.shape[1] < frames.shape[0]:
