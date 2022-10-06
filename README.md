@@ -35,17 +35,18 @@ Clone the repository:
 
 ```git clone https://github.com/deepmind/tapnet.git```
 
-Add a path to directory where TapNet stored to ```PYTHONPATH```:
+Add current path (parent directory of where TapNet is installed)
+to ```PYTHONPATH```:
 
-```export PYTHONPATH=path/to/diretory/where/tapnet/stored:$PYTHONPATH```
+```export PYTHONPATH=`pwd`:$PYTHONPATH```
 
 Switch to the project directory:
 
 ```cd tapnet```
 
-Install submodules:
+Install kubric as a subdirectory:
 
-```git submodule update --init --recursive```
+```git clone https://github.com/google-research/kubric.git```
 
 Install requirements:
 
@@ -66,7 +67,7 @@ the example of ```tapnet_config.py```.
 
 To launch experiment run the command:
 
-```python ./tapnet/experiment.py --config ./tapnet/configs/tapnet_config.py```
+```python ./experiment.py --config ./configs/tapnet_config.py```
 
 ## Evaluation
 
