@@ -264,6 +264,7 @@ class SupervisedPointPrediction(task.Task):
     self.prediction_algo = prediction_algo
     self.contrastive_loss_weight = contrastive_loss_weight
     self.config = config
+    self.softmax_temperature = 10.0
 
   def forward_fn(
       self,
@@ -378,7 +379,7 @@ class SupervisedPointPrediction(task.Task):
       )
       # For the original experiments, the loss was defined on coordinates in the
       # range [-1, 1], so convert them into that scale.
-      loss_huber = loss_huber * 4.0 / np.prod(tapnet_model.TRAIN_SIZE[1:])
+      loss_huber = loss_huber * 4.0 / np.prod(tapnet_model.TRAIN_SIZE[1:3])
       loss_huber = jnp.mean(loss_huber)
 
       loss_occ = sigmoid_cross_entropy(
@@ -411,12 +412,12 @@ class SupervisedPointPrediction(task.Task):
             feature_grid,
         )
         all_pairs_softmax = jax.nn.log_softmax(
-            all_pairs_dots * 10.0,
+            all_pairs_dots * self.softmax_temperature,
             axis=(2, 3, 4),
         )
         im_shp = inputs[input_key]['video'].shape
         point_track = inputs[input_key]['target_points'][:, qchunk_lo:qchunk_hi,
-                                                         ..., ::-1]
+                                                         ..., :]
         position_in_grid2 = transforms.convert_grid_coordinates(
             point_track,
             im_shp[3:1:-1],
@@ -427,10 +428,14 @@ class SupervisedPointPrediction(task.Task):
         # Interp handles a single 2D slice.  We need to vmap it across all
         # batch, queries, and time to extract the softmax value associated with
         # the entire trajectory.
+        #
+        # Note: grid positions are in [x, y] format, but interp needs
+        # coordinates in [y, x] format.
         interp_softmax = jax.vmap(jax.vmap(jax.vmap(tapnet_model.interp)))(
             all_pairs_softmax,
-            position_in_grid2,
+            position_in_grid2[..., ::-1],
         )
+
         loss_contrast.append(
             jnp.mean(
                 interp_softmax *
@@ -595,7 +600,10 @@ class SupervisedPointPrediction(task.Task):
         query_point_chunk = inputs[input_key]['query_points'][:, qchunk:qchunk +
                                                               query_chunk_size]
         tracks = tapnet_model.heatmaps_to_points(
-            jax.nn.softmax(all_pairs_dots, axis=(-2, -3)),
+            jax.nn.softmax(
+                all_pairs_dots * self.softmax_temperature,
+                axis=(-1, -2),
+            ),
             im_shp,
             query_points=query_point_chunk,
         )
@@ -659,9 +667,8 @@ class SupervisedPointPrediction(task.Task):
         # started from.
         # inverse_tracks is [batch_size, chunk, num_frames, 2]
         inverse_tracks = tapnet_model.heatmaps_to_points(
-            feature_grid.shape,
             jax.nn.softmax(
-                all_pairs_dots,
+                all_pairs_dots * self.softmax_temperature,
                 axis=(-2, -1),
             ),
             im_shp,
@@ -672,7 +679,7 @@ class SupervisedPointPrediction(task.Task):
                                                          query_chunk_size,
                                                          jnp.newaxis, 2:0:-1]),
             axis=-1)
-        occlusion = (dist > jnp.square(96. / 256.))
+        occlusion = (dist > jnp.square(48.))
         # We need to return logits, but the cycle consistency rule is binary.
         # So we just convert the binary values into large real values.
         occlusion = occlusion * 20. - 10.
@@ -744,59 +751,66 @@ class SupervisedPointPrediction(task.Task):
     gt_occluded = inputs[input_key]['occluded']
     gt_target_points = inputs[input_key]['target_points']
 
-    # If the inputs are padded, remove the padding before evaluation.
-    if 'pad_extra_frames' in inputs[input_key]:
-      nf = gt_occluded.shape[2] - inputs[input_key]['pad_extra_frames']
-      gt_occluded = gt_occluded[:, :, :nf]
-      gt_target_points = gt_target_points[:, :, :nf]
-      occlusion_logits = occlusion_logits[:, :, :nf]
-      tracks = tracks[:, :, :nf]
-
     loss_huber = huber_loss(
         tracks,
         gt_target_points,
         gt_occluded,
     )
-    loss_huber = loss_huber * 2.0 / tapnet_model.TRAIN_SIZE[1]
+    loss_huber = loss_huber * 4.0 / np.prod(tapnet_model.TRAIN_SIZE[1:3])
     loss_scalars['position_loss'] = loss_huber
+
+    # Don't evaluate the query point.
+    one_hot_eye = np.eye(gt_target_points.shape[2])
+    query_frame = inputs[input_key]['query_points'][..., 0]
+    query_frame = np.round(query_frame).astype(np.int32)
+    evaluation_points = one_hot_eye[query_frame] == 0
+
+    # If we're using the first point on the track as a query, don't evaluate the
+    # other points.
+    if 'q_first' in mode:
+      for i in range(gt_occluded.shape[0]):
+        index = np.where(gt_occluded[i] == 0)[0][0]
+        evaluation_points[i, :index] = False
 
     # Occlusion accuracy is simply how often the predicted occlusion equals the
     # ground truth.
     pred_occ = (occlusion_logits > 0)
-    occ_acc = jnp.mean(
-        jnp.equal(pred_occ, gt_occluded),
+    occ_acc = np.sum(
+        np.equal(pred_occ, gt_occluded) & evaluation_points,
         axis=(1, 2),
-    )
+    ) / np.sum(evaluation_points)
     loss_scalars['occlusion_accuracy'] = occ_acc
 
     # Next, convert the predictions and ground truth positions into pixel
     # coordinates.
-    visible = jnp.logical_not(gt_occluded)
+    visible = np.logical_not(gt_occluded)
     pred_visible = np.logical_not(pred_occ)
     all_frac_within = []
     all_jaccard = []
     for thresh in [1, 2, 4, 8, 16]:
       # True positives are points that are within the threshold and where both
       # the prediction and the ground truth are listed as visible.
-      within_dist = jnp.sum(
-          jnp.square(tracks - gt_target_points),
+      within_dist = np.sum(
+          np.square(tracks - gt_target_points),
           axis=-1,
-      ) < jnp.square(thresh)
-      is_correct = jnp.logical_and(within_dist, visible)
+      ) < np.square(thresh)
+      is_correct = np.logical_and(within_dist, visible)
 
       # Compute the frac_within_threshold, which is the fraction of points
       # within the threshold among points that are visible in the ground truth,
       # ignoring whether they're predicted to be visible.
-      frac_correct = jnp.sum(
-          is_correct,
-          axis=[1, 2],
-      ) / jnp.sum(
-          visible, axis=(1, 2))
+      count_correct = np.sum(
+          is_correct & evaluation_points,
+          axis=(1, 2),
+      )
+      count_visible_points = np.sum(
+          visible & evaluation_points, axis=(1, 2))
+      frac_correct = count_correct / count_visible_points
       loss_scalars['pts_within_' + str(thresh)] = frac_correct
       all_frac_within.append(frac_correct)
 
-      true_positives = jnp.sum(
-          jnp.logical_and(is_correct, pred_visible), axis=(1, 2))
+      true_positives = np.sum(
+          is_correct & pred_visible & evaluation_points, axis=(1, 2))
 
       # The denominator of the jaccard metric is the true positives plus
       # false positives plus false negatives.  However, note that true positives
@@ -807,19 +821,19 @@ class SupervisedPointPrediction(task.Task):
       #
       # False positives are simply points that are predicted to be visible,
       # but the ground truth is not visible or too far from the prediction.
-      gt_positives = jnp.sum(visible, axis=(1, 2))
+      gt_positives = np.sum(visible & evaluation_points, axis=(1, 2))
       false_positives = (~visible) & pred_visible
       false_positives = false_positives | ((~within_dist) & pred_visible)
-      false_positives = jnp.sum(false_positives, axis=(1, 2))
+      false_positives = np.sum(false_positives & evaluation_points, axis=(1, 2))
       jaccard = true_positives / (gt_positives + false_positives)
       loss_scalars['jaccard_' + str(thresh)] = jaccard
       all_jaccard.append(jaccard)
-    loss_scalars['average_jaccard'] = jnp.mean(
-        jnp.stack(all_jaccard, axis=1),
+    loss_scalars['average_jaccard'] = np.mean(
+        np.stack(all_jaccard, axis=1),
         axis=1,
     )
-    loss_scalars['average_pts_within_thresh'] = jnp.mean(
-        jnp.stack(all_frac_within, axis=1),
+    loss_scalars['average_pts_within_thresh'] = np.mean(
+        np.stack(all_frac_within, axis=1),
         axis=1,
     )
 
@@ -850,22 +864,23 @@ class SupervisedPointPrediction(task.Task):
         pad_extra_frames (optional): the number of pad frames that were added
           to reach num_frames.
     """
+    query_mode = 'first' if 'q_first' in mode else 'strided'
     if 'eval_kubric_train' in mode:
       yield from evaluation_datasets.create_kubric_eval_train_dataset(mode)
     elif 'eval_kubric' in mode:
       yield from evaluation_datasets.create_kubric_eval_dataset(mode)
     elif 'eval_davis_points' in mode:
       yield from evaluation_datasets.create_davis_dataset(
-          self.config.davis_points_path)
+          self.config.davis_points_path, query_mode=query_mode)
     elif 'eval_jhmdb' in mode:
       yield from evaluation_datasets.create_jhmdb_dataset(
           self.config.jhmdb_path)
     elif 'eval_robotics_points' in mode:
       yield from evaluation_datasets.create_rgb_stacking_dataset(
-          self.config.robotics_points_path)
+          self.config.robotics_points_path, query_mode=query_mode)
     elif 'eval_kinetics' in mode:
       yield from evaluation_datasets.create_kinetics_dataset(
-          self.config.kinetics_points_path)
+          self.config.kinetics_points_path, query_mode=query_mode)
 
   def compute_pck(
       self,

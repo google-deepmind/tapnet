@@ -38,7 +38,6 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from tapnet import supervised_point_prediction
-
 from tapnet import tapnet_model
 from tapnet import task
 from tapnet.utils import experiment_utils as exputils
@@ -295,6 +294,7 @@ class Experiment(experiment.AbstractExperiment):
     ds = dataset_constructors[dset_name](**dset_kwargs)
     if color_augmentation:
       ds = exputils.add_default_data_augmentation(ds)
+
     for dim in batch_dims[::-1]:
       ds = ds.batch(dim)
     np_ds = tfds.as_numpy(ds)
@@ -417,6 +417,7 @@ def main(_):
   # Keep TF off the GPU; otherwise it hogs all the memory and leaves none for
   # JAX.
   tf.config.experimental.set_visible_devices([], 'GPU')
+  tf.config.experimental.set_visible_devices([], 'TPU')
   platform.main(
       Experiment,
       sys.argv[1:],

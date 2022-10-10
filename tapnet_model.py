@@ -83,7 +83,7 @@ def soft_argmax_heatmap(
       jnp.arange(softmax_val.shape[1]),
       jnp.arange(softmax_val.shape[0]),
   )
-  coords = jnp.stack([x, y], axis=-1)
+  coords = jnp.stack([x + 0.5, y + 0.5], axis=-1)
   argmax_pos = jnp.argmax(jnp.reshape(softmax_val, -1))
   pos = jnp.reshape(coords, [-1, 2])[argmax_pos, jnp.newaxis, jnp.newaxis, :]
   valid = (
@@ -198,7 +198,8 @@ class TAPNet(hk.Module):
 
     self.tsm_resnet = tsm_resnet.TSMResNetV2(
         normalize_fn=create_batch_norm,
-        num_frames=24,
+        num_frames=TRAIN_SIZE[0],
+        channel_shift_fraction=[0.125, 0.125, 0., 0.],
         name='tsm_resnet_video',
     )
 
@@ -224,8 +225,14 @@ class TAPNet(hk.Module):
                 name='cost_volume_occlusion_1',
                 stride=[1, 2, 2],
             ),
+        'hid4':
+            hk.Linear(16, name='cost_volume_occlusion_2'),
         'occ_out':
             hk.Linear(1, name='occlusion_out'),
+        'regression_hid':
+            hk.Linear(128, name='regression_hid'),
+        'regression_out':
+            hk.Linear(2, name='regression_out'),
     }
 
   def tracks_from_cost_volume(
@@ -277,8 +284,11 @@ class TAPNet(hk.Module):
     pos = jax.nn.softmax(pos, axis=(-2, -3))
     pos = einshape('t(bn)hw1->bnthw', pos, n=shape[2])
     points = heatmaps_to_points(pos, im_shp, query_points=query_points)
+
     occlusion = mods['hid3'](occlusion)
-    occlusion = jnp.sqrt(jnp.mean(jnp.square(occlusion), axis=(-2, -3)) + 1e-8)
+    occlusion = jnp.mean(occlusion, axis=(-2, -3))
+    occlusion = mods['hid4'](occlusion)
+    occlusion = jax.nn.relu(occlusion)
     occlusion = mods['occ_out'](occlusion)
     occlusion = jnp.transpose(occlusion, (1, 0, 2))
     assert occlusion.shape[1] == shape[0]
@@ -290,7 +300,6 @@ class TAPNet(hk.Module):
       video: chex.Array,
       is_training: bool,
       query_points: chex.Array,
-      num_frames: Optional[int] = None,
       compute_regression: bool = True,
       query_chunk_size: Optional[int] = None,
       get_query_feats: bool = False,
@@ -305,7 +314,6 @@ class TAPNet(hk.Module):
         inference on the TPU and save memory.
       is_training: Whether we are training.
       query_points: The query points for which we compute tracks.
-      num_frames: Number of frames in the video.
       compute_regression: if True, compute tracks using cost volumes; otherwise
         simply compute features (required for the baseline)
       query_chunk_size: When computing cost volumes, break the queries into
@@ -327,6 +335,7 @@ class TAPNet(hk.Module):
           [batch, num_queries, num_frames, 2], where each point is [x, y]
           scaled to the range [-1, 1]
     """
+    num_frames = None
     if feature_grid is None:
       latent = self.tsm_resnet(
           video,
@@ -360,7 +369,7 @@ class TAPNet(hk.Module):
             in_axes=(3, None),
             out_axes=1,
         ))(feature_grid, position_in_grid)
-    num_heads = 4
+    num_heads = 1
     feature_grid_heads = einshape('bthw(cd)->bthwcd', feature_grid, d=num_heads)
     interp_features_heads = einshape(
         'bn(cd)->bncd',

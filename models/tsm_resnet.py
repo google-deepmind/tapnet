@@ -21,7 +21,7 @@ Based on:
   https://arxiv.org/pdf/1811.08383.pdf.
 """
 
-from typing import Optional
+from typing import Optional, Sequence, Union
 from absl import logging
 
 import chex
@@ -267,7 +267,7 @@ class TSMResNetV2(hk.Module):
       normalize_fn: Optional[NormalizeFn] = None,
       depth: int = 18,
       num_frames: int = 16,
-      channel_shift_fraction: float = 0.125,
+      channel_shift_fraction: Union[float, Sequence[float]] = 0.125,
       width_mult: int = 1,
       name: str = 'TSMResNetV2',
   ):
@@ -287,9 +287,12 @@ class TSMResNetV2(hk.Module):
     """
     super().__init__(name=name)
 
-    if not 0. <= channel_shift_fraction <= 1.0:
+    if isinstance(channel_shift_fraction, float):
+      channel_shift_fraction = [channel_shift_fraction] * 4
+
+    if not all([0. <= x <= 1.0 for x in channel_shift_fraction]):
       raise ValueError(f'channel_shift_fraction ({channel_shift_fraction})'
-                       ' has to be in [0, 1].')
+                       ' all have to be in [0, 1].')
 
     self._num_frames = num_frames
 
@@ -309,9 +312,7 @@ class TSMResNetV2(hk.Module):
     self._num_blocks = num_blocks[depth]
 
     self._width_mult = width_mult
-    self._channel_shift_fraction = [
-        channel_shift_fraction, channel_shift_fraction, 0, 0,
-    ]
+    self._channel_shift_fraction = channel_shift_fraction
     self._normalize_fn = normalize_fn
     self._use_bottleneck = (depth >= 50)
 
