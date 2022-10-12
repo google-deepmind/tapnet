@@ -38,7 +38,7 @@ Clone the repository:
 Add current path (parent directory of where TapNet is installed)
 to ```PYTHONPATH```:
 
-```export PYTHONPATH=`pwd`:$PYTHONPATH```
+```export PYTHONPATH=`(cd ../ && pwd)`:`pwd`:$PYTHONPATH```
 
 Switch to the project directory:
 
