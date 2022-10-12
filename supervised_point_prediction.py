@@ -750,6 +750,7 @@ class SupervisedPointPrediction(task.Task):
 
     gt_occluded = inputs[input_key]['occluded']
     gt_target_points = inputs[input_key]['target_points']
+    query_points = inputs[input_key]['query_points']
 
     loss_huber = huber_loss(
         tracks,
@@ -759,83 +760,18 @@ class SupervisedPointPrediction(task.Task):
     loss_huber = loss_huber * 4.0 / np.prod(tapnet_model.TRAIN_SIZE[1:3])
     loss_scalars['position_loss'] = loss_huber
 
-    # Don't evaluate the query point.
-    one_hot_eye = np.eye(gt_target_points.shape[2])
-    query_frame = inputs[input_key]['query_points'][..., 0]
-    query_frame = np.round(query_frame).astype(np.int32)
-    evaluation_points = one_hot_eye[query_frame] == 0
-
-    # If we're using the first point on the track as a query, don't evaluate the
-    # other points.
-    if 'q_first' in mode:
-      for i in range(gt_occluded.shape[0]):
-        index = np.where(gt_occluded[i] == 0)[0][0]
-        evaluation_points[i, :index] = False
-
-    # Occlusion accuracy is simply how often the predicted occlusion equals the
-    # ground truth.
     pred_occ = (occlusion_logits > 0)
-    occ_acc = np.sum(
-        np.equal(pred_occ, gt_occluded) & evaluation_points,
-        axis=(1, 2),
-    ) / np.sum(evaluation_points)
-    loss_scalars['occlusion_accuracy'] = occ_acc
+    query_mode = 'first' if 'q_first' in mode else 'strided'
 
-    # Next, convert the predictions and ground truth positions into pixel
-    # coordinates.
-    visible = np.logical_not(gt_occluded)
-    pred_visible = np.logical_not(pred_occ)
-    all_frac_within = []
-    all_jaccard = []
-    for thresh in [1, 2, 4, 8, 16]:
-      # True positives are points that are within the threshold and where both
-      # the prediction and the ground truth are listed as visible.
-      within_dist = np.sum(
-          np.square(tracks - gt_target_points),
-          axis=-1,
-      ) < np.square(thresh)
-      is_correct = np.logical_and(within_dist, visible)
-
-      # Compute the frac_within_threshold, which is the fraction of points
-      # within the threshold among points that are visible in the ground truth,
-      # ignoring whether they're predicted to be visible.
-      count_correct = np.sum(
-          is_correct & evaluation_points,
-          axis=(1, 2),
-      )
-      count_visible_points = np.sum(
-          visible & evaluation_points, axis=(1, 2))
-      frac_correct = count_correct / count_visible_points
-      loss_scalars['pts_within_' + str(thresh)] = frac_correct
-      all_frac_within.append(frac_correct)
-
-      true_positives = np.sum(
-          is_correct & pred_visible & evaluation_points, axis=(1, 2))
-
-      # The denominator of the jaccard metric is the true positives plus
-      # false positives plus false negatives.  However, note that true positives
-      # plus false negatives is simply the number of points in the ground truth
-      # which is easier to compute than trying to compute all three quantities.
-      # Thus we just add the number of points in the ground truth to the number
-      # of false positives.
-      #
-      # False positives are simply points that are predicted to be visible,
-      # but the ground truth is not visible or too far from the prediction.
-      gt_positives = np.sum(visible & evaluation_points, axis=(1, 2))
-      false_positives = (~visible) & pred_visible
-      false_positives = false_positives | ((~within_dist) & pred_visible)
-      false_positives = np.sum(false_positives & evaluation_points, axis=(1, 2))
-      jaccard = true_positives / (gt_positives + false_positives)
-      loss_scalars['jaccard_' + str(thresh)] = jaccard
-      all_jaccard.append(jaccard)
-    loss_scalars['average_jaccard'] = np.mean(
-        np.stack(all_jaccard, axis=1),
-        axis=1,
+    metrics = evaluation_datasets.compute_tapvid_metrics(
+        query_points=query_points,
+        gt_occluded=gt_occluded,
+        gt_tracks=gt_target_points,
+        pred_occluded=pred_occ,
+        pred_tracks=tracks,
+        query_mode=query_mode,
     )
-    loss_scalars['average_pts_within_thresh'] = np.mean(
-        np.stack(all_frac_within, axis=1),
-        axis=1,
-    )
+    loss_scalars.update(metrics)
 
     return loss_scalars, {'tracks': tracks, 'occlusion': occlusion_logits}
 
@@ -846,11 +782,10 @@ class SupervisedPointPrediction(task.Task):
     """Build evalutation data reader generator.
 
     Args:
-
-      mode: evaluation mode.  Can be one of
-      'eval_jhmdb', 'eval_kubric_train',
-      'eval_kubric', 'eval_davis_points',
-      'eval_robotics_points'.
+      mode: evaluation mode.  Can be one of 'eval_davis_points',
+      'eval_robotics_points', 'eval_kinetics_points',
+      'eval_davis_points_q_first', 'eval_robotics_points_q_first',
+      'eval_kinetics_points_q_first', 'eval_jhmdb', 'eval_kubric',
 
     Yields:
       A dict with one key (for the dataset), containing a dict with the keys:
@@ -1060,7 +995,7 @@ class SupervisedPointPrediction(task.Task):
       if write_viz:
         pix_pts = viz['tracks']
         targ_pts = None
-        if 'eval_perception_test' in mode:
+        if 'eval_kinetics' in mode:
           targ_pts = inputs[input_key]['target_points']
         outname = [
             f'{outdir}/{x}.mp4'
@@ -1090,28 +1025,6 @@ class SupervisedPointPrediction(task.Task):
       if 'eval_jhmdb' not in mode:
         mean_scalars = jax.tree_map(lambda x: x / num_samples, summed_scalars)
       logging.info(mean_scalars)
-    if 'average_jaccard' in mean_scalars:
-      latex_fields = [
-          'average_jaccard',
-          'average_pts_within_thresh',
-          'occlusion_accuracy',
-          'jaccard_1',
-          'jaccard_2',
-          'jaccard_4',
-          'jaccard_8',
-          'jaccard_16',
-          'pts_within_1',
-          'pts_within_2',
-          'pts_within_4',
-          'pts_within_8',
-          'pts_within_16',
-      ]
-    else:
-      latex_fields = ['PCK@0.1', 'PCK@0.2', 'PCK@0.3', 'PCK@0.4', 'PCK@0.5']
-
-    logging.info(
-        ' & '.join([
-            f'{float(np.array(mean_scalars[x]*100)):.3}' for x in latex_fields
-        ]),)
+    logging.info(evaluation_datasets.latex_table(mean_scalars))
 
     return mean_scalars

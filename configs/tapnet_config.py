@@ -79,7 +79,7 @@ def get_config() -> config_dict.ConfigDict:
               datasets=dict(
                   dataset_names=config.get_oneway_ref('dataset_names'),
                   kubric_kwargs=dict(
-                      batch_dims=4,
+                      batch_dims=8,
                       shuffle_buffer_size=128,
                       train_size=tapnet_model.TRAIN_SIZE[1:3],
                   )),
