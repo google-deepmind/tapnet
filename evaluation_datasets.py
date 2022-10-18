@@ -347,6 +347,9 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
       if traintest == 2:
         videos.append(video_path)
 
+  if not videos:
+    raise ValueError('No JHMDB videos found in directory ' + str(jhmdb_path))
+
   # Shuffle so numbers converge faster.
   random.shuffle(videos)
 
@@ -524,7 +527,7 @@ def create_kinetics_dataset(
   csv_path = path.join(kinetics_path, 'tapvid_kinetics.csv')
 
   point_tracks_all = dict()
-  with tf.io.gfile.GFile(csv_path) as f:
+  with tf.io.gfile.GFile(csv_path, 'r') as f:
     reader = csv.reader(f, delimiter=',')
     for row in reader:
       youtube_id = row[0]
@@ -533,6 +536,9 @@ def create_kinetics_dataset(
         point_tracks_all[youtube_id].append(point_tracks)
       else:
         point_tracks_all[youtube_id] = [point_tracks]
+
+  if not point_tracks_all:
+    raise ValueError('No Kinetics dataset in directory ' + kinetics_path)
 
   for video_id in point_tracks_all:
     video_path = path.join(kinetics_path, 'videos', video_id + '_valid.mp4')
