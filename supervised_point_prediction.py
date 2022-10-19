@@ -813,9 +813,11 @@ class SupervisedPointPrediction(task.Task):
     elif 'eval_robotics_points' in mode:
       yield from evaluation_datasets.create_rgb_stacking_dataset(
           self.config.robotics_points_path, query_mode=query_mode)
-    elif 'eval_kinetics' in mode:
+    elif 'eval_kinetics_points' in mode:
       yield from evaluation_datasets.create_kinetics_dataset(
           self.config.kinetics_points_path, query_mode=query_mode)
+    else:
+      raise ValueError(f'Unrecognized eval mode {mode}')
 
   def compute_pck(
       self,
@@ -953,7 +955,7 @@ class SupervisedPointPrediction(task.Task):
       input_key = 'davis'
     elif 'eval_robotics_points' in mode:
       input_key = 'robotics'
-    elif 'eval_kinetics' in mode:
+    elif 'eval_kinetics_points' in mode:
       input_key = 'kinetics'
     else:
       input_key = 'kubric'
@@ -995,7 +997,7 @@ class SupervisedPointPrediction(task.Task):
       if write_viz:
         pix_pts = viz['tracks']
         targ_pts = None
-        if 'eval_kinetics' in mode:
+        if 'eval_kinetics_points' in mode:
           targ_pts = inputs[input_key]['target_points']
         outname = [
             f'{outdir}/{x}.mp4'

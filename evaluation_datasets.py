@@ -43,7 +43,7 @@ def resize_video(video: np.ndarray, output_size: Tuple[int, int]) -> np.ndarray:
   """Resize a video to output_size."""
   # If you have a GPU, consider replacing this with a GPU-enabled resize op,
   # such as a jitted jax.image.resize.  It will make things faster.
-  return media.resize_video(frames, tapnet_model.TRAIN_SIZE[1:3])
+  return media.resize_video(video, tapnet_model.TRAIN_SIZE[1:3])
 
 
 def compute_tapvid_metrics(
@@ -370,7 +370,8 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
     def read_frame(f):
       im = Image.open(tf.io.gfile.GFile(f, 'rb'))
       im = im.convert('RGB')
-      return np.array(im.getdata()).reshape([im.size[1], im.size[0], 3])
+      im_data = np.array(im.getdata(), np.uint8)
+      return im_data.reshape([im.size[1], im.size[0], 3])
 
     frames = [read_frame(x) for x in framefil]
     frames = np.stack(frames)

@@ -37,10 +37,10 @@ def get_config() -> config_dict.ConfigDict:
   )
   # Note: eval modes must always start with 'eval_'.
   config.eval_modes = (
-      'eval_davis',
+      'eval_davis_points',
       'eval_jhmdb',
       'eval_robotics_points',
-      'eval_kinetics',
+      'eval_kinetics_points',
   )
   config.checkpoint_dir = '/tmp/tapnet_training/'
   config.evaluate_every = 10000
