@@ -195,6 +195,7 @@ class TAPNet(hk.Module):
     super().__init__()
 
     self.feature_grid_stride = feature_grid_stride
+    self.softmax_temperature = 10.0
 
     self.tsm_resnet = tsm_resnet.TSMResNetV2(
         normalize_fn=create_batch_norm,
@@ -281,7 +282,7 @@ class TAPNet(hk.Module):
     occlusion = jax.nn.relu(occlusion)
 
     pos = mods['hid2'](occlusion)
-    pos = jax.nn.softmax(pos, axis=(-2, -3))
+    pos = jax.nn.softmax(pos * self.softmax_temperature, axis=(-2, -3))
     pos = einshape('t(bn)hw1->bnthw', pos, n=shape[2])
     points = heatmaps_to_points(pos, im_shp, query_points=query_points)
 

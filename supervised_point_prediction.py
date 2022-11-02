@@ -287,7 +287,7 @@ class SupervisedPointPrediction(task.Task):
         coordinates normalized to between -1 and 1.
       is_training: Is the model in training mode.
       shared_modules: Haiku modules, injected by experiment.py.
-        shared_modules['tapnet_model'] should be a JointModel.
+        shared_modules['tapnet_model'] should be a TAPNetModel.
       input_key: Run on inputs[input_key]['video']. If None, use the input_key
         from the constructor.
       query_chunk_size: Compute predictions on this many queries simultaneously.
@@ -295,7 +295,7 @@ class SupervisedPointPrediction(task.Task):
       get_query_feats: If True, also return features for each query.
 
     Returns:
-      Result dict produced by calling the joint model. See tapnet_model.py.
+      Result dict produced by calling the tapnet model. See tapnet_model.py.
     """
     if input_key is None:
       input_key = self.input_key

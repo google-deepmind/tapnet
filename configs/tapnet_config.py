@@ -71,7 +71,7 @@ def get_config() -> config_dict.ConfigDict:
                       eps=1e-8,
                   ),
               ),
-              fast_variables=('track_pred', 'rescaler_'),
+              fast_variables=tuple(),
               shared_modules=dict(
                   shared_module_names=config.get_oneway_ref(
                       'shared_module_names',),

@@ -237,7 +237,8 @@ def sample_queries_strided(
 
   Returns:
     A dict with the keys:
-      video: Video tensor of shape [1, n_frames, height, width, 3].
+      video: Video tensor of shape [1, n_frames, height, width, 3].  The video
+        has floats scaled to the range [-1, 1].
       query_points: Query points of shape [1, n_queries, 3] where
         each point is [t, y, x] scaled to the range [-1, 1].
       target_points: Target points of shape [1, n_queries, n_frames, 2] where
