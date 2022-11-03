@@ -3,13 +3,6 @@
 
 TAP-Vid is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans). Here's an example of what's annotated on one video of the DAVIS dataset:
 
-/*:
-  To include this video, one should go to github and drag it into the edit page (verified that works)
-
-  https://storage.googleapis.com/dm-tapnet/content/davis_ground_truth/soapbox.mp4
- */
-
-
 For our full benchmark incorporates 4 datasets: the 30 videos of the DAVIS-val set, more than 30,000 points on 1000 videos from the Kinetics dataset, 50 synthetic robotics videos with perfect ground truth, and point annotations on the large-scale synthetic Kubric dataset for training (see [here](https://github.com/google-research/kubric/tree/main/challenges/point_tracking).  For more examples, we have the full [TAP-Vid-DAVIS](https://storage.googleapis.com/dm-tapnet/content/davis_ground_truth_v2.html) as well as 10 examples each from the synthetic [TAP-Vid-Kubric](https://storage.googleapis.com/dm-tapnet/content/kubric_ground_truth.html) and [TAP-Vid-RGB-Stacking](https://storage.googleapis.com/dm-tapnet/content/rgb_stacking_ground_truth_v2.html) datasets.
 
 
