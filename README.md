@@ -154,9 +154,9 @@ Available eval datasets are listed in `supervised_point_prediction.py`.
 
 `/path/to/checkpoint/dir/` must contain a file checkpoint.npy that's loadable
 using our NumpyFileCheckpointer.  You can download a checkpoint
-[here](https://storage.googleapis.com/dm-tapnet/content/), which was
-obtained via the open-source version of the code, and should closely match the
-one used to write the paper.
+[here](https://storage.googleapis.com/dm-tapnet/checkpoint.npy), which
+was obtained via the open-source version of the code, and should closely match
+the one used to write the paper.
 
 
 ## Citing this work
