@@ -22,7 +22,7 @@ joints as intended by the benchmark.
 
 ## Downloading and Using the Dataset
 
-There are three dataset files to download: [DAVIS](https://storage.googleapis.com/dm-tapnet/tapvid_davis.pkl), [Kinetics](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip), and [RGB-stacking](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.pkl).
+There are three dataset files to download: [DAVIS](https://storage.googleapis.com/dm-tapnet/tapvid_davis.zip), [Kinetics](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip), and [RGB-stacking](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.zip).
 For DAVIS and RGB-Stacking, the videos are contained in a simple pickle file; for DAVIS, this contains a simple dict, where each key is a DAVIS video title, and the contents are the video (4D uint8 tensor), the points (float32 tensor with 3 axes; the first is point id, the second is time, and the third is x/y), and the occlusions (bool tensor with 2 axies; the first is point id, the second is time). RGB-Stacking is the same, except there's no video titles, so it's a simple list of these structures rather than a dict. The downloads are given above.
 For Kinetics, we cannot distribute the raw videos, so instructions for
 assembling the above data structures are given [here](data/README.md).
