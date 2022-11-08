@@ -1,4 +1,7 @@
 # TAP-Vid: A Benchmark for Tracking Any Point in a Video
+
+Full paper available at [https://arxiv.org/abs/2211.03726](https://arxiv.org/abs/2211.03726)
+
 ## Introduction
 
 TAP-Vid is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans). Here's an example of what's annotated on one video of the DAVIS dataset:
