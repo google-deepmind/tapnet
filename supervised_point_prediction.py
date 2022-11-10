@@ -92,7 +92,7 @@ def plot_tracks_v2(
 ) -> np.ndarray:
   """Plot tracks with matplotlib."""
   disp = []
-  cmap = plt.cm.hsv
+  cmap = plt.cm.hsv  # pytype: disable=module-attr
 
   z_list = np.arange(
       points.shape[0]) if trackgroup is None else np.array(trackgroup)
