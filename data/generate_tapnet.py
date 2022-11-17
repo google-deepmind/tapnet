@@ -17,6 +17,7 @@
 
 import csv
 import dataclasses
+import io
 import math
 import os
 import pickle
@@ -25,9 +26,9 @@ from typing import Dict, Iterator, List, Sequence, Tuple
 from absl import app
 from absl import flags
 from absl import logging
-import cv2
 import ffmpeg
 import numpy as np
+from PIL import Image
 
 FLAGS = flags.FLAGS
 
@@ -161,11 +162,9 @@ def generate_example(video: Video) -> Dict[str, np.ndarray]:
                   video.video_path, new_tracks)
 
   example['video'] = np.array(imgs_encoded)
-
-  frame_example = cv2.imdecode(
-      np.frombuffer(imgs_encoded[0], dtype=np.uint8),
-      flags=cv2.IMREAD_UNCHANGED)
-  height, width, _ = frame_example.shape
+  byteio = io.BytesIO(imgs_encoded[0])
+  img = Image.open(byteio)
+  height, width, _ = np.array(img).shape
 
   points = []
   occluded = []

@@ -16,7 +16,7 @@
 """Visualize frames of a random video of the given dataset."""
 
 import colorsys
-import math
+import io
 import pickle
 import random
 from typing import List, Sequence, Tuple
@@ -24,8 +24,10 @@ from typing import List, Sequence, Tuple
 from absl import app
 from absl import flags
 from absl import logging
-import cv2
+import mediapy as media
 import numpy as np
+from PIL import Image
+
 
 FLAGS = flags.FLAGS
 
@@ -55,67 +57,76 @@ _COLORS = _get_colors(num_colors=70)
 
 def paint_point_track(
     frames: np.ndarray,
-    points: np.ndarray,
-    occluded: np.ndarray,
+    point_tracks: np.ndarray,
+    visibles: np.ndarray,
 ) -> np.ndarray:
-  """Returns frames with painted points."""
-  painted_frames = []
-  for idx in range(len(frames)):
-    frame = frames[idx]
-    for track in range(len(points)):
-      x, y = points[track, idx]
-      occ = occluded[track, idx]
-      if not occ:
-        height, width, _ = frame.shape
-        x = x * width
-        y = y * height
-        color = _COLORS[track]
+  """Converts a sequence of points to color code video.
 
-        x_floor, x_ceil = math.floor(x), math.ceil(x)
-        y_floor, y_ceil = math.floor(y), math.ceil(y)
+  Args:
+    frames: [num_frames, height, width, 3], np.uint8, [0, 255]
+    point_tracks: [num_points, num_frames, 2], np.float32, [0, width / height]
+    visibles: [num_points, num_frames], bool
 
-        new_frame = np.zeros_like(frame, dtype=np.float64)
-        new_frame = cv2.circle(
-            frame, (int(x_floor), int(y_floor)),
-            radius=3,
-            color=color,
-            thickness=-1) * (x_ceil - x) * (
-                y_ceil - y)
-        new_frame += cv2.circle(
-            frame, (int(x_floor), int(y_ceil)),
-            radius=3,
-            color=color,
-            thickness=-1) * (x_ceil - x) * (
-                y - y_floor)
-        new_frame += cv2.circle(
-            frame, (int(x_ceil), int(y_floor)),
-            radius=3,
-            color=color,
-            thickness=-1) * (x - x_floor) * (
-                y_ceil - y)
-        new_frame += cv2.circle(
-            frame, (int(x_ceil), int(y_ceil)),
-            radius=3,
-            color=color,
-            thickness=-1) * (x - x_floor) * (
-                y - y_floor)
-        new_frame = np.array(new_frame, dtype=np.uint8)
-        frame = new_frame
-    painted_frames.append(frame)
+  Returns:
+    video: [num_frames, height, width, 3], np.uint8, [0, 255]
+  """
+  num_points, num_frames = point_tracks.shape[0:2]
+  height, width = frames.shape[1:3]
+  dot_size_as_fraction_of_min_edge = 0.015
+  radius = int(round(min(height, width) * dot_size_as_fraction_of_min_edge))
+  diam = radius * 2 + 1
+  quadratic_y = np.square(np.arange(diam)[:, np.newaxis] - radius - 1)
+  quadratic_x = np.square(np.arange(diam)[np.newaxis, :] - radius - 1)
+  icon = (quadratic_y + quadratic_x) - (radius ** 2) / 2.
+  sharpness = .15
+  icon = np.clip(icon / (radius * 2 * sharpness), 0, 1)
+  icon = 1 - icon[:, :, np.newaxis]
+  icon1 = np.pad(icon, [(0, 1), (0, 1), (0, 0)])
+  icon2 = np.pad(icon, [(1, 0), (0, 1), (0, 0)])
+  icon3 = np.pad(icon, [(0, 1), (1, 0), (0, 0)])
+  icon4 = np.pad(icon, [(1, 0), (1, 0), (0, 0)])
 
-  return np.array(painted_frames)
+  video = frames.copy()
+  for t in range(num_frames):
+    # Pad so that points that extend outside the image frame don't crash us
+    image = np.pad(
+        video[t],
+        [
+            (radius + 1, radius + 1),
+            (radius + 1, radius + 1),
+            (0, 0),
+        ],
+    )
+    for i in range(num_points):
+      # The icon is centered at the center of a pixel, but the input coordinates
+      # are raster coordinates.  Therefore, to render a point at (1,1) (which
+      # lies on the corner between four pixels), we need 1/4 of the icon placed
+      # centered on the 0'th row, 0'th column, etc.  We need to subtract
+      # 0.5 to make the fractional position come out right.
+      x, y = point_tracks[i, t, :] + 0.5
+      x = min(max(x, 0.0), width)
+      y = min(max(y, 0.0), height)
 
+      if visibles[i, t]:
+        x1, y1 = np.floor(x).astype(np.int32), np.floor(y).astype(np.int32)
+        x2, y2 = x1 + 1, y1 + 1
 
-def write_video(frames: np.ndarray, output_path: str) -> None:
-  _, height, width, _ = frames.shape
-  fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-  video = cv2.VideoWriter(output_path, fourcc, 25.0, (width, height))
+        # bilinear interpolation
+        patch = (
+            icon1 * (x2 - x) * (y2 - y) +
+            icon2 * (x2 - x) * (y - y1) +
+            icon3 * (x - x1) * (y2 - y) +
+            icon4 * (x - x1) * (y - y1))
+        x_ub = x1 + 2 * radius + 2
+        y_ub = y1 + 2 * radius + 2
+        image[y1:y_ub, x1:x_ub, :] = (
+            (1 - patch) * image[y1:y_ub, x1:x_ub, :] +
+            patch * np.array(_COLORS[i])[np.newaxis, np.newaxis, :])
 
-  for frame in frames:
-    video.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
-
-  cv2.destroyAllWindows()
-  video.release()
+      # Remove the pad
+      video[t] = image[radius + 1:-radius - 1,
+                       radius + 1:-radius - 1].astype(np.uint8)
+  return video
 
 
 def main(argv: Sequence[str]) -> None:
@@ -136,15 +147,20 @@ def main(argv: Sequence[str]) -> None:
   if isinstance(frames[0], bytes):
     # Tapnet is stored and JPEG bytes rather than `np.ndarray`s.
     def decode(frame):
-      frame = cv2.imdecode(
-          np.frombuffer(frame, dtype=np.uint8), flags=cv2.IMREAD_UNCHANGED)
-      return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+      byteio = io.BytesIO(frame)
+      img = Image.open(byteio)
+      return np.array(img)
 
-    frames = [decode(frame) for frame in frames]
+    frames = np.array([decode(frame) for frame in frames])
 
-  painted_frames = paint_point_track(frames, video['points'], video['occluded'])
+  scale_factor = np.array(frames.shape[2:0:-1])[np.newaxis, np.newaxis, :]
+  painted_frames = paint_point_track(
+      frames,
+      video['points'] * scale_factor,
+      ~video['occluded'],
+  )
 
-  write_video(painted_frames, FLAGS.output_path)
+  media.write_video(FLAGS.output_path, painted_frames, fps=25)
 
 
 if __name__ == '__main__':
