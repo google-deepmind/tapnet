@@ -9,7 +9,7 @@ TAP-Vid is a dataset of videos along with point tracks, either manually annotate
 https://user-images.githubusercontent.com/15641194/202213058-f0ce0b13-27bb-45ee-8b61-1f5f8d26c254.mp4
 
 
-For our full benchmark incorporates 4 datasets: the 30 videos of the DAVIS-val set, more than 30,000 points on 1000 videos from the Kinetics dataset, 50 synthetic robotics videos with perfect ground truth, and point annotations on the large-scale synthetic Kubric dataset for training (see [here](https://github.com/google-research/kubric/tree/main/challenges/point_tracking).  For more examples, we have the full [TAP-Vid-DAVIS](https://storage.googleapis.com/dm-tapnet/content/davis_ground_truth_v2.html) as well as 10 examples each from the synthetic [TAP-Vid-Kubric](https://storage.googleapis.com/dm-tapnet/content/kubric_ground_truth.html) and [TAP-Vid-RGB-Stacking](https://storage.googleapis.com/dm-tapnet/content/rgb_stacking_ground_truth_v2.html) datasets.
+For our full benchmark incorporates 4 datasets: the 30 videos of the DAVIS-val set, the 1000 videos from the Kinetics dataset, 50 synthetic robotics videos with perfect ground truth, and point annotations on the large-scale synthetic Kubric dataset for training (see [here](https://github.com/google-research/kubric/tree/main/challenges/point_tracking).  For more examples, we have the full [TAP-Vid-DAVIS](https://storage.googleapis.com/dm-tapnet/content/davis_ground_truth_v2.html) as well as 10 examples each from the synthetic [TAP-Vid-Kubric](https://storage.googleapis.com/dm-tapnet/content/kubric_ground_truth.html) and [TAP-Vid-RGB-Stacking](https://storage.googleapis.com/dm-tapnet/content/rgb_stacking_ground_truth_v2.html) datasets.
 
 
 We also include a point tracking
