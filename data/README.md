@@ -18,7 +18,7 @@ information can be generated using the provided script:
 
 ```bash
 python3 -m pip install -r requirements.txt
-python3 generate_kinetics.py \
+python3 generate_tapvid.py \
   --csv_path=<path_to_tapvid_kinetics.csv> \
   --output_base_path=<path_to_output_pickle_folder> \
   --video_root_path=<path_to_raw_videos_root_folder> \
