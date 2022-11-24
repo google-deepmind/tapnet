@@ -203,7 +203,7 @@ def main(argv: Sequence[str]) -> None:
     data.append(generate_example(video))
     if i == len(videos) - 1 or len(data) == num_examples_per_shard:
       shard_path = os.path.join(
-          output_folder, f'tapnet_{shard:04}_of_{FLAGS.num_shards:04}.pkl')
+          output_folder, f'tapvid_{shard:04}_of_{FLAGS.num_shards:04}.pkl')
       logging.info('Writing file "%s".', shard_path)
       with open(shard_path, 'wb') as f:
         pickle.dump(data, f)
