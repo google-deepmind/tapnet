@@ -1,4 +1,4 @@
-# Downloading and processing Kinetics Tapnet
+# Downloading and processing Tap-Vid-Kinetics
 
 ## Downloading the raw videos
 
