@@ -18,8 +18,8 @@ information can be generated using the provided script:
 
 ```bash
 python3 -m pip install -r requirements.txt
-python3 generate_tapnet.py \
-  --csv_path=<path_to_kinetics_tapnet.csv> \
+python3 generate_kinetics.py \
+  --csv_path=<path_to_tapvid_kinetics.csv> \
   --output_base_path=<path_to_output_pickle_folder> \
   --video_root_path=<path_to_raw_videos_root_folder> \
   --alsologtostderr
@@ -28,7 +28,7 @@ python3 generate_tapnet.py \
 ## Visualizing annotations
 
 We also provide a script generating an MP4 with the points painted on top of the
-frames. The script will work with any of the pickle files (Kinetics Tapnet,
+frames. The script will work with any of the pickle files (Kinetics,
 Davis or Robotics). A random clip is chosen from all the available ones and all
 the point tracks are painted.
 
