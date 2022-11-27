@@ -1,5 +1,5 @@
 absl-py
 ffmpeg
 ffmpeg-python
+mediapy
 numpy
-opencv-python
