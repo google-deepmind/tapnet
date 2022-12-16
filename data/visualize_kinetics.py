@@ -15,9 +15,10 @@
 
 """Visualize frames of a random video of the given dataset."""
 
+import collections
 import colorsys
-import io
-import pickle
+import csv
+import os
 import random
 from typing import List, Sequence, Tuple
 
@@ -26,13 +27,15 @@ from absl import flags
 from absl import logging
 import mediapy as media
 import numpy as np
-from PIL import Image
-
 
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string(
-    'input_path', None, 'Path to the pickle file.', required=True)
+    'input_csv_path', None, 'Path to the csv file.', required=True
+)
+flags.DEFINE_string(
+    'input_video_dir', None, 'Path to the videos', required=True
+)
 flags.DEFINE_string(
     'output_path', None, 'Path to the output mp4 video.', required=True)
 
@@ -52,9 +55,6 @@ def _get_colors(num_colors: int) -> List[Tuple[int, int, int]]:
   return colors
 
 
-_COLORS = _get_colors(num_colors=70)
-
-
 def paint_point_track(
     frames: np.ndarray,
     point_tracks: np.ndarray,
@@ -72,6 +72,7 @@ def paint_point_track(
   """
   num_points, num_frames = point_tracks.shape[0:2]
   height, width = frames.shape[1:3]
+  colormap = _get_colors(num_points)
   dot_size_as_fraction_of_min_edge = 0.015
   radius = int(round(min(height, width) * dot_size_as_fraction_of_min_edge))
   diam = radius * 2 + 1
@@ -119,9 +120,9 @@ def paint_point_track(
             icon4 * (x - x1) * (y - y1))
         x_ub = x1 + 2 * radius + 2
         y_ub = y1 + 2 * radius + 2
-        image[y1:y_ub, x1:x_ub, :] = (
-            (1 - patch) * image[y1:y_ub, x1:x_ub, :] +
-            patch * np.array(_COLORS[i])[np.newaxis, np.newaxis, :])
+        image[y1:y_ub, x1:x_ub, :] = (1 - patch) * image[
+            y1:y_ub, x1:x_ub, :
+        ] + patch * np.array(colormap[i])[np.newaxis, np.newaxis, :]
 
       # Remove the pad
       video[t] = image[radius + 1:-radius - 1,
@@ -132,35 +133,33 @@ def paint_point_track(
 def main(argv: Sequence[str]) -> None:
   del argv
 
-  input_path = FLAGS.input_path
-  logging.info('Loading data in "%s". This may take some time.', input_path)
-  with open(input_path, 'rb') as f:
-    data = pickle.load(f)
-    if isinstance(data, dict):
-      data = list(data.values())
+  logging.info('Loading data from %s. This takes time.', FLAGS.input_csv_path)
+  point_tracks_all = collections.defaultdict(list)
+  with open(FLAGS.input_csv_path, 'r') as f:
+    reader = csv.reader(f, delimiter=',')
+    for row in reader:
+      youtube_id = row[0]
+      point_tracks = np.array(row[3:]).reshape(-1, 3)
+      point_tracks_all[youtube_id].append(point_tracks)
 
-  idx = random.randint(0, len(data) - 1)
-  video = data[idx]
+  video_id = random.choice(list(point_tracks_all.keys()))
+  point_tracks = point_tracks_all[video_id]
+  video_path = os.path.join(FLAGS.input_video_dir, video_id + '.mp4')
+  frames = media.read_video(video_path)
 
-  frames = video['video']
+  point_tracks = np.stack(point_tracks_all[video_id], axis=0)
+  point_tracks, occluded = point_tracks[..., 0:2], point_tracks[..., 2]
+  point_tracks = point_tracks.astype(np.float32)
+  occluded = occluded.astype(bool)
 
-  if isinstance(frames[0], bytes):
-    # Tapnet is stored and JPEG bytes rather than `np.ndarray`s.
-    def decode(frame):
-      byteio = io.BytesIO(frame)
-      img = Image.open(byteio)
-      return np.array(img)
-
-    frames = np.array([decode(frame) for frame in frames])
-
-  scale_factor = np.array(frames.shape[2:0:-1])[np.newaxis, np.newaxis, :]
-  painted_frames = paint_point_track(
-      frames,
-      video['points'] * scale_factor,
-      ~video['occluded'],
-  )
+  # The stored point tracks coordinates are normalized to [0, 1).
+  # So we multiple by the width and height of the video [0, width/height).
+  height, width = frames.shape[1:3]
+  point_tracks *= np.array([width, height], dtype=np.float32)
+  painted_frames = paint_point_track(frames, point_tracks, ~occluded)
 
   media.write_video(FLAGS.output_path, painted_frames, fps=25)
+  logging.info('Examplar point visualization saved to %s', FLAGS.output_path)
 
 
 if __name__ == '__main__':
