@@ -10,29 +10,33 @@ For DAVIS, the pickile file contains a dictionary, where each key is a DAVIS vid
 
 The script below will generate an MP4 video with the points painted on top of the frames. A random video clip is chosen and all the point tracks are painted.
 
-```
-python3 -m pip install -r requirements.txt
+```bash
+pip3 install -r requirements.txt
 python3 visualize_pickle.py \
   --input_pkl_path=<path_to_the_pickle_file.pkl> \
   --output_path=<path_to_the_output_video.mp4> \
   --alsologtostderr
 ```
 
+An exampler shell script can be found in `visualize.sh`.
+
 ## Downloading Kinetics
 
 The labels are contained in a csv file with download link: [Kinetics](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip).
 
-The videos are expected as the raw clips from Kinetics700-2020 validation set and stored in a local folder `<video_root_path>`. The videos should be stored as MP4, following the name pattern `f'{youtube_id}.mp4'`, e.g. 'abcdefghijk.mp4'.
+The videos are expected as the raw clips from [Kinetics700-2020](https://www.deepmind.com/open-source/kinetics) validation set and stored in a local folder `<video_root_path>`. The videos should be stored as MP4, following the name pattern `f'{youtube_id}.mp4'`, e.g. 'abcdefghijk.mp4'.
 
 ## Visualizing Kinetics
 
 The script below will generate an MP4 video with the points painted on top of the frames. A random video clip is chosen and all the point tracks are painted.
 
 ```bash
-python3 -m pip install -r requirements.txt
+pip3 install -r requirements.txt
 python3 visualize_kinetics.py \
   --input_csv_path=<path_to_the_csv_file.csv> \
   --input_video_dir=<video_root_path> \
   --output_path=<path_to_the_output_video.mp4> \
   --alsologtostderr
 ```
+
+An exampler shell script can be found in `visualize.sh`.
