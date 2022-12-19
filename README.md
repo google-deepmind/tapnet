@@ -2,42 +2,30 @@
 
 Full paper available at [https://arxiv.org/abs/2211.03726](https://arxiv.org/abs/2211.03726)
 
+## Downloading and Visualizing Tap-Vid Dataset
+
+There are three datasets to download: [Tap-Vid-DAVIS](https://storage.googleapis.com/dm-tapnet/tapvid_davis.zip), [Tap-Vid-Kinetics](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip), and [Tap-Vid-RGB-stacking](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.zip).
+
+For more details and visualization of the dataset, please see [data/README.md](data/README.md).
+
 ## Introduction
 
 TAP-Vid is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans). Here are examples of what is annotated on videos of the DAVIS and Kinetics datasets:
 
 https://user-images.githubusercontent.com/15641194/202213058-f0ce0b13-27bb-45ee-8b61-1f5f8d26c254.mp4
 
+Our full benchmark incorporates 4 datasets: 30 videos from the DAVIS val set, 1000 videos from the Kinetics val set, 50 synthetic robotics videos with perfect ground truth, and point annotations on the large-scale synthetic [Kubric](https://github.com/google-research/kubric/tree/main/challenges/point_tracking) dataset for training.
 
-For our full benchmark incorporates 4 datasets: the 30 videos of the DAVIS-val set, the 1000 videos from the Kinetics dataset, 50 synthetic robotics videos with perfect ground truth, and point annotations on the large-scale synthetic Kubric dataset for training (see [here](https://github.com/google-research/kubric/tree/main/challenges/point_tracking).  For more examples, we have the full [TAP-Vid-DAVIS](https://storage.googleapis.com/dm-tapnet/content/davis_ground_truth_v2.html) as well as 10 examples each from the synthetic [TAP-Vid-Kubric](https://storage.googleapis.com/dm-tapnet/content/kubric_ground_truth.html) and [TAP-Vid-RGB-Stacking](https://storage.googleapis.com/dm-tapnet/content/rgb_stacking_ground_truth_v2.html) datasets.
-
+For more examples, we have the full [TAP-Vid-DAVIS](https://storage.googleapis.com/dm-tapnet/content/davis_ground_truth_v2.html) as well as 10 examples from the synthetic [TAP-Vid-Kubric](https://storage.googleapis.com/dm-tapnet/content/kubric_ground_truth.html) and [TAP-Vid-RGB-Stacking](https://storage.googleapis.com/dm-tapnet/content/rgb_stacking_ground_truth_v2.html) datasets.
 
 We also include a point tracking
-model TAP-Net, with code to train it on Kubric data.
+model TAP-Net, with code to train it on Kubric dataset.
 TAP-Net outperforms
 both optical flow and structure-from-motion methods on the
 TAP-Vid benchmark while achieving state-of-the-art performance
 on unsupervised human keypoint tracking on JHMDB, even though
 the model tracks points on clothes and skin rather than the
 joints as intended by the benchmark.
-
-## Downloading and Using the Dataset
-
-There are three dataset files to download: [DAVIS](https://storage.googleapis.com/dm-tapnet/tapvid_davis.zip), [Kinetics](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip), and [RGB-stacking](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.zip).
-For DAVIS and RGB-Stacking, the videos are contained in a simple pickle file; for DAVIS, this contains a simple dict, where each key is a DAVIS video title, and the contents are the video (4D uint8 tensor), the points (float32 tensor with 3 axes; the first is point id, the second is time, and the third is x/y), and the occlusions (bool tensor with 2 axies; the first is point id, the second is time). RGB-Stacking is the same, except there's no video titles, so it's a simple list of these structures rather than a dict. The downloads are given above.
-For Kinetics, we cannot distribute the raw videos, so instructions for
-assembling the above data structures are given [here](data/README.md).
-
-### Visualizing annotations
-We also provide a script generating an MP4 with the points painted on top of the frames. The script will work with any of the pickle files (Kinetics Tapnet, Davis or Robotics). A random clip is chosen from all the available ones and all the point tracks are painted.
-```
-bash
-python3 -m pip install -r requirements.txt
-python3 visualize.py \
-  --input_path=<path_to_the_pickle_file.pkl> \
-  --output_path=<path_to_the_output_video.mp4> \
-  --alsologtostderr
-```
 
 ### Evaluating on TAP-Vid
 
@@ -147,13 +135,19 @@ To launch experiment run the command:
 
 ## Evaluation
 
-You can run evaluation for a particular dataset using the command:
+You can run evaluation for a particular dataset (i.e. tapvid_davis) using the command:
 
-```python3 ./tapnet/experiment.py --config ./tapnet/configs/tapnet_config.py --jaxline_mode=eval_davis --config.checkpoint_dir=/path/to/checkpoint/dir/```
+```bash
+python3 ./tapnet/experiment.py \
+  --config=./tapnet/configs/tapnet_config.py \
+  --jaxline_mode=eval_davis_points \
+  --config.checkpoint_dir=./tapnet/checkpoint/ \
+  --config.experiment_kwargs.config.davis_points_path=/path/to/tapvid_davis.pkl
+```
 
 Available eval datasets are listed in `supervised_point_prediction.py`.
 
-`/path/to/checkpoint/dir/` must contain a file checkpoint.npy that's loadable
+`tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable
 using our NumpyFileCheckpointer.  You can download a checkpoint
 [here](https://storage.googleapis.com/dm-tapnet/checkpoint.npy), which
 was obtained via the open-source version of the code, and should closely match
@@ -162,7 +156,7 @@ the one used to write the paper.
 
 ## Citing this work
 
-Please use the following bibtex entry to cite ```TapNet-Vid```:
+Please use the following bibtex entry to cite our work:
 
 ```
 @inproceedings{doersch2022tapvid,
@@ -183,6 +177,7 @@ Copyright 2022 DeepMind Technologies Limited
 All software is licensed under the Apache License, Version 2.0 (Apache 2.0);
 you may not use this file except in compliance with the Apache 2.0 license.
 You may obtain a copy of the Apache 2.0 license at:
+
 https://www.apache.org/licenses/LICENSE-2.0
 
 All other materials are licensed under the Creative Commons Attribution 4.0

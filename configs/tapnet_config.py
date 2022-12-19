@@ -1,16 +1,17 @@
-# Copyright 2022 DeepMind Technologies Limited.
+# Copyright 2022 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# ==============================================================================
 
 """Default config to train the TapNet."""
 from jaxline import base_config
@@ -73,17 +74,21 @@ def get_config() -> config_dict.ConfigDict:
               fast_variables=tuple(),
               shared_modules=dict(
                   shared_module_names=config.get_oneway_ref(
-                      'shared_module_names',),
-                  tapnet_model_kwargs=dict()),
+                      'shared_module_names',
+                  ),
+                  tapnet_model_kwargs=dict(),
+              ),
               datasets=dict(
                   dataset_names=config.get_oneway_ref('dataset_names'),
                   kubric_kwargs=dict(
                       batch_dims=8,
                       shuffle_buffer_size=128,
                       train_size=tapnet_model.TRAIN_SIZE[1:3],
-                  )),
+                  ),
+              ),
               supervised_point_prediction_kwargs=dict(
-                  prediction_algo='cost_volume_regressor'),
+                  prediction_algo='cost_volume_regressor',
+              ),
               checkpoint_dir=config.get_oneway_ref('checkpoint_dir'),
               evaluate_every=config.get_oneway_ref('evaluate_every'),
               eval_modes=config.get_oneway_ref('eval_modes'),
@@ -92,15 +97,19 @@ def get_config() -> config_dict.ConfigDict:
               # This is useful for getting initial values of metrics
               # at random weights, or when debugging locally if you
               # do not have any train job running.
-              davis_points_path = None,
-              jhmdb_path = None,
-              robotics_points_path = None,
+              davis_points_path = '',
+              jhmdb_path = '',
+              robotics_points_path = '',
               training=dict(
                   # Note: to sweep n_training_steps, DO NOT sweep these
                   # fields directly. Instead sweep config.training_steps.
                   # Otherwise, decay/stopping logic
                   # is not guaranteed to be consistent.
-                  n_training_steps=config.get_oneway_ref('training_steps'),))))
+                  n_training_steps=config.get_oneway_ref('training_steps'),
+              ),
+          )
+      )
+  )
 
   # Set up where to store the resulting model.
   config.train_checkpoint_all_hosts = False
