@@ -35,4 +35,4 @@ python3 visualize.py \
   --alsologtostderr
 ```
 
-An exampler shell script can be found in [visualize.sh](data/visualize.sh).
+An exampler shell script can be found in [visualize.sh](visualize.sh).
