@@ -20,6 +20,9 @@ source /tmp/venv/bin/activate
 
 pip3 install -r requirements.txt
 
-python visualize_pickle.py --input_pkl_path=tapvid_davis.pkl --output_path=tapvid_davis.mp4
+python visualize.py --input_path=tapvid_davis.pkl --output_path=tapvid_davis.mp4
 
-python visualize_kinetics.py --input_csv_path=tapvid_kinetics.csv --input_video_dir=kinetics_videos --output_path=tapvid_kinetics.mp4
+python visualize.py --input_path=tapvid_rgb_stacking.pkl --output_path=tapvid_rgb_stacking.mp4
+
+python generate_tapvid.py --input_csv_path=tapvid_kinetics.csv --output_base_path=tapvid_kinetics --video_root_path=kinetics_videos
+python visualize.py --input_path=tapvid_kinetics/0001_of_0010.pkl --output_path=tapvid_kinetics.mp4
