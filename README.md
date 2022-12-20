@@ -6,7 +6,7 @@ Full paper available at [https://arxiv.org/abs/2211.03726](https://arxiv.org/abs
 
 There are three datasets to download: [Tap-Vid-DAVIS](https://storage.googleapis.com/dm-tapnet/tapvid_davis.zip), [Tap-Vid-Kinetics](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip), and [Tap-Vid-RGB-stacking](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.zip).
 
-For more details and visualization of the dataset, please see [data/README.md](data/README.md).
+For more details and visualization of the dataset, please see [data section](data).
 
 ## Introduction
 
