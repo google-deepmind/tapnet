@@ -97,9 +97,9 @@ def get_config() -> config_dict.ConfigDict:
               # This is useful for getting initial values of metrics
               # at random weights, or when debugging locally if you
               # do not have any train job running.
-              davis_points_path = '',
-              jhmdb_path = '',
-              robotics_points_path = '',
+              davis_points_path='',
+              jhmdb_path='',
+              robotics_points_path='',
               training=dict(
                   # Note: to sweep n_training_steps, DO NOT sweep these
                   # fields directly. Instead sweep config.training_steps.
@@ -107,6 +107,8 @@ def get_config() -> config_dict.ConfigDict:
                   # is not guaranteed to be consistent.
                   n_training_steps=config.get_oneway_ref('training_steps'),
               ),
+              input_video_path='',
+              output_video_path='',
           )
       )
   )

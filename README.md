@@ -148,11 +148,25 @@ python3 ./tapnet/experiment.py \
 Available eval datasets are listed in `supervised_point_prediction.py`.
 
 `tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable
-using our NumpyFileCheckpointer.  You can download a checkpoint
+using our NumpyFileCheckpointer. You can download a checkpoint
 [here](https://storage.googleapis.com/dm-tapnet/checkpoint.npy), which
 was obtained via the open-source version of the code, and should closely match
 the one used to write the paper.
 
+## Inference
+
+You can run inference for a particular video (i.e. horsejump-high.mp4) using the command:
+
+```bash
+python3 ./tapnet/experiment.py \
+  --config=./tapnet/configs/tapnet_config.py \
+  --jaxline_mode=eval_inference \
+  --config.checkpoint_dir=./tapnet/checkpoint/ \
+  --config.experiment_kwargs.config.input_video_path=horsejump-high.mp4 \
+  --config.experiment_kwargs.config.output_video_path=result.mp4
+```
+
+The inference only serves as an example. It will resize the video to 256x256 resolution, sample 20 random query points on the first frame and track these random points in the rest frames.
 
 ## Citing this work
 

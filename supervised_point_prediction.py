@@ -35,6 +35,7 @@ import tensorflow as tf
 from tapnet import evaluation_datasets
 from tapnet import tapnet_model
 from tapnet import task
+from tapnet.data import viz_utils
 from tapnet.utils import transforms
 
 matplotlib.use('Agg')
@@ -492,17 +493,29 @@ class SupervisedPointPrediction(task.Task):
   ) -> Mapping[str, chex.Array]:
     """Run an evaluation epoch.  See base class."""
     global_step = np.array(utils.get_first(global_step))
-    scalars = jax.device_get(
-        self._eval_epoch(
-            global_step,
-            utils.get_first(state),
-            utils.get_first(params),
-            utils.get_first(rng),
-            wrapped_forward_fn,
-            mode,
-        ))
+    if mode == 'eval_inference':
+      scalars = jax.device_get(
+          self._eval_inference(
+              global_step,
+              utils.get_first(state),
+              utils.get_first(params),
+              utils.get_first(rng),
+              wrapped_forward_fn,
+          )
+      )
+    else:
+      scalars = jax.device_get(
+          self._eval_epoch(
+              global_step,
+              utils.get_first(state),
+              utils.get_first(params),
+              utils.get_first(rng),
+              wrapped_forward_fn,
+              mode,
+          )
+      )
 
-    logging.info('[Step %d] Eval scalars: %s', global_step, scalars)
+      logging.info('[Step %d] Eval scalars: %s', global_step, scalars)
     return scalars
 
   def _infer_batch(
@@ -866,7 +879,9 @@ class SupervisedPointPrediction(task.Task):
 
       clip_len = pred_poses.shape[-1]
 
-      assert pred_poses.shape == gt_poses.shape, f'{pred_poses.shape} vs {gt_poses.shape}'
+      assert (
+          pred_poses.shape == gt_poses.shape
+      ), f'{pred_poses.shape} vs {gt_poses.shape}'
 
       # [15, clip_len]
       valid_max_gt_poses = gt_poses.copy()
@@ -1031,3 +1046,61 @@ class SupervisedPointPrediction(task.Task):
     logging.info(evaluation_datasets.latex_table(mean_scalars))
 
     return mean_scalars
+
+  def _eval_inference(
+      self,
+      global_step: chex.Array,
+      state: chex.ArrayTree,
+      params: chex.ArrayTree,
+      rng: chex.PRNGKey,
+      wrapped_forward_fn: task.WrappedForwardFn,
+  ) -> Mapping[str, chex.Array]:
+    """Inferences a single video."""
+
+    def _sample_random_points(frame_max_idx, height, width, num_points):
+      """Sample random points with (time, height, width) order."""
+      y = np.random.randint(0, height, (num_points, 1))
+      x = np.random.randint(0, width, (num_points, 1))
+      t = np.random.randint(0, frame_max_idx + 1, (num_points, 1))
+      points = np.concatenate((t, y, x), axis=-1).astype(np.int32)
+      return points
+
+    video = mediapy.read_video(self.config.input_video_path)
+    fps = video.metadata.fps
+    video = mediapy.resize_video(video, (256, 256))
+    video = video.astype(np.float32) / 255 * 2 - 1
+    num_frames, height, width = video.shape[0:3]
+    num_points = 20
+    query_points = _sample_random_points(num_frames, height, width, num_points)
+    occluded = np.zeros((num_points, num_frames), dtype=np.float32)
+    inputs = {
+        self.input_key: {
+            'video': video[np.newaxis],
+            'query_points': query_points[np.newaxis],
+            'occluded': occluded[np.newaxis],
+        }
+    }
+
+    occlusion_logits, tracks, _ = self._infer_batch(
+        params,
+        state,
+        inputs,
+        rng,
+        wrapped_forward_fn,
+        self.input_key,
+        query_chunk_size=16,
+    )
+    occluded = occlusion_logits > 0
+
+    video = (video + 1) * 255 / 2
+    video = video.astype(np.uint8)
+
+    painted_frames = viz_utils.paint_point_track(
+        video,
+        tracks[0],
+        ~occluded[0],
+    )
+    mediapy.write_video(self.config.output_video_path, painted_frames, fps=fps)
+    logging.info('Inference result saved to %s', self.config.output_video_path)
+
+    return {'': 0}
