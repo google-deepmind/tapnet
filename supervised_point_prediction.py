@@ -284,7 +284,7 @@ class SupervisedPointPrediction(task.Task):
         ([batch, num_frames, height, width, 3]) normalize to [-1,1].
         inputs[input_key]['query_points'] specifies the query point locations,
         of shape [batch, num_queries, 3], where each query is [t,y,x]
-        coordinates normalized to between -1 and 1.
+        coordinates in frame/raster coordinates.
       is_training: Is the model in training mode.
       shared_modules: Haiku modules, injected by experiment.py.
         shared_modules['tapnet_model'] should be a TAPNetModel.
@@ -340,10 +340,10 @@ class SupervisedPointPrediction(task.Task):
         ([batch, num_frames, height, width, 3]) normalize to [-1,1].
         inputs[input_key]['query_points'] specifies the query point locations,
         of shape [batch, num_queries, 3], where each query is [t,y,x]
-        coordinates normalized to between -1 and 1.
+        coordinates in frame/raster coordinates.
         inputs[input_key]['target_points'] is the ground-truth locations on each
-        frame, of shape [batch, num_queries, num_frames, 2], where each query is
-        [x,y] coordinates normalized between -1 and 1.
+        frame, of shape [batch, num_queries, num_frames, 2], where each point is
+        [x,y] raster coordinates (in the range [0,width]/[0,height]).
         inputs[input_key]['occluded'] is the ground-truth occlusion flag, a
         boolean of shape [batch, num_queries, num_frames], where True indicates
         occluded.
@@ -531,10 +531,10 @@ class SupervisedPointPrediction(task.Task):
         ([batch, num_frames, height, width, 3]) normalize to [-1,1].
         inputs[input_key]['query_points'] specifies the query point locations,
         of shape [batch, num_queries, 3], where each query is [t,y,x]
-        coordinates normalized to between -1 and 1.
+        coordinates in frame/raster coordinates.
         inputs[input_key]['target_points'] is the ground-truth locations on each
-        frame, of shape [batch, num_queries, num_frames, 2], where each query is
-        [x,y] coordinates normalized between -1 and 1.
+        frame, of shape [batch, num_queries, num_frames, 2], where each point is
+        [x,y] raster coordinates (in the range [0,width]/[0,height]).
         inputs[input_key]['occluded'] is the ground-truth occlusion flag, a
         boolean of shape [batch, num_queries, num_frames], where True indicates
         occluded.
@@ -713,10 +713,10 @@ class SupervisedPointPrediction(task.Task):
         ([batch, num_frames, height, width, 3]) normalize to [-1,1].
         inputs[input_key]['query_points'] specifies the query point locations,
         of shape [batch, num_queries, 3], where each query is [t,y,x]
-        coordinates normalized to between -1 and 1.
+        coordinates in frame/raster coordinates.
         inputs[input_key]['target_points'] is the ground-truth locations on each
-        frame, of shape [batch, num_queries, num_frames, 2], where each query is
-        [x,y] coordinates normalized between -1 and 1.
+        frame, of shape [batch, num_queries, num_frames, 2], where each point is
+        [x,y] raster coordinates (in the range [0,width]/[0,height]).
         inputs[input_key]['occluded'] is the ground-truth occlusion flag, a
         boolean of shape [batch, num_queries, num_frames], where True indicates
         occluded.
@@ -791,9 +791,10 @@ class SupervisedPointPrediction(task.Task):
       A dict with one key (for the dataset), containing a dict with the keys:
         video: Video tensor of shape [1, num_frames, height, width, 3]
         query_points: Query points of shape [1, n_queries, 3] where
-          each point is [t, y, x] scaled to the range [-1, 1]
+          each point is [t, y, x] in pixel/raster coordinates
         target_points: Target points of shape [1, n_queries, n_frames, 2] where
-          each point is [x, y] scaled to the range [-1, 1]
+          each point is [x, y] raster coordinates (in the range
+          [0,width]/[0,height])
         trackgroup (optional): Index of the original track that each query
           point was sampled from.  This is useful for visualization.
         pad_extra_frames (optional): the number of pad frames that were added

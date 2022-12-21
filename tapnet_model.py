@@ -123,14 +123,14 @@ def heatmaps_to_points(
     threshold: Threshold for the soft argmax operation.
     query_points (optional): If specified, we assume these points are given as
       ground truth and we reproduce them exactly.  This is a set of points of
-      shape [batch, num_points, 3], where each entry is [t, y, x] normalized
-      between -1 and 1.
+      shape [batch, num_points, 3], where each entry is [t, y, x] in frame/
+      raster coordinates.
 
   Returns:
     predicted points, of shape [batch, num_points, time, 2], where each point is
-      [x, y] normalized between -1 and 1.  These are the result of a soft
-      argmax except where the query point is specified, in which case the query
-      points are returned verbatim.
+      [x, y] in raster coordinates.  These are the result of a soft argmax ecept
+      where the query point is specified, in which case the query points are
+      returned verbatim.
   """
   # soft_argmax_heatmap operates over a single heatmap.  We vmap it across
   # batch, num_points, and frames.
@@ -256,8 +256,8 @@ class TAPNet(hk.Module):
         time, height, width, channels, heads].
       query_points: When computing tracks, we assume these points are given as
         ground truth and we reproduce them exactly.  This is a set of points of
-        shape [batch, num_points, 3], where each entry is [t, y, x] normalized
-        between -1 and 1.
+        shape [batch, num_points, 3], where each entry is [t, y, x] in frame/
+        raster coordinates.
       im_shp: The shape of the original image, i.e., [batch, num_frames, time,
         height, width, 3].
 
@@ -334,7 +334,7 @@ class TAPNet(hk.Module):
           where higher indicates more likely to be occluded.
         tracks: predicted point locations, of shape
           [batch, num_queries, num_frames, 2], where each point is [x, y]
-          scaled to the range [-1, 1]
+          in raster coordinates
     """
     num_frames = None
     if feature_grid is None:
