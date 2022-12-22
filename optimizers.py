@@ -62,7 +62,7 @@ def add_weight_decay(
 ) -> optax.GradientTransformation:
   """Add parameter scaled by `weight_decay` to the `updates`.
 
-  Same as optax.additive_weight_decay but can exclude some parameters.
+  Same as optax.add_decayed_weights but can exclude some parameters.
 
   Args:
     weight_decay: weight_decay coefficient.
