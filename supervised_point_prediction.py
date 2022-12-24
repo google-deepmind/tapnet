@@ -26,7 +26,7 @@ import jax.numpy as jnp
 from jaxline import utils
 import matplotlib
 import matplotlib.pyplot as plt
-import mediapy
+import mediapy as media
 from ml_collections import config_dict
 import numpy as np
 import tensorflow_datasets as tfds
@@ -50,7 +50,7 @@ def sigmoid_cross_entropy(
   log_p = jax.nn.log_sigmoid(logits)
   # log(1 - sigmoid(x)) = log_sigmoid(-x), the latter is more numerically stable
   log_not_p = jax.nn.log_sigmoid(-logits)
-  loss = -labels * log_p - (1. - labels) * log_not_p
+  loss = -labels * log_p - (1.0 - labels) * log_not_p
   result = jnp.asarray(loss)
   if reduction:
     if reduction == 'mean':
@@ -66,17 +66,17 @@ def huber_loss(
     occluded: chex.Numeric,
 ) -> chex.Array:
   """Huber loss for point trajectories."""
-  error = (tracks - target_points)
+  error = tracks - target_points
   # Huber loss with a threshold of 4 pixels
   distsqr = jnp.sum(jnp.square(error), axis=-1)
   dist = jnp.sqrt(distsqr + 1e-12)  # add eps to prevent nan
-  delta = 4.
+  delta = 4.0
   loss_huber = jnp.where(
       dist < delta,
       distsqr / 2,
       delta * (jnp.abs(dist) - delta / 2),
   )
-  loss_huber *= (1. - occluded)
+  loss_huber *= 1.0 - occluded
 
   loss_huber = jnp.mean(loss_huber, axis=[1, 2])
 
@@ -95,8 +95,9 @@ def plot_tracks_v2(
   disp = []
   cmap = plt.cm.hsv  # pytype: disable=module-attr
 
-  z_list = np.arange(
-      points.shape[0]) if trackgroup is None else np.array(trackgroup)
+  z_list = (
+      np.arange(points.shape[0]) if trackgroup is None else np.array(trackgroup)
+  )
   # random permutation of the colors so nearby points in the list can get
   # different colors
   z_list = np.random.permutation(np.max(z_list) + 1)[z_list]
@@ -114,15 +115,15 @@ def plot_tracks_v2(
     figs.append(fig)
     ax = fig.add_subplot()
     ax.axis('off')
-    ax.imshow(rgb[i] / 255.)
+    ax.imshow(rgb[i] / 255.0)
     colalpha = np.concatenate(
-        [colors[:, :-1], 1 - occluded[:, i:i + 1]],
+        [colors[:, :-1], 1 - occluded[:, i : i + 1]],
         axis=1,
     )
     plt.scatter(points[:, i, 0], points[:, i, 1], s=3, c=colalpha)
-    occ2 = occluded[:, i:i + 1]
+    occ2 = occluded[:, i : i + 1]
     if gt_occluded is not None:
-      occ2 *= (1 - gt_occluded[:, i:i + 1])
+      occ2 *= 1 - gt_occluded[:, i : i + 1]
     colalpha = np.concatenate([colors[:, :-1], occ2], axis=1)
 
     plt.scatter(
@@ -133,8 +134,9 @@ def plot_tracks_v2(
         edgecolors=colalpha,
     )
     if gt_points is not None:
-      colalpha = np.concatenate([colors[:, :-1], 1 - gt_occluded[:, i:i + 1]],
-                                axis=1)
+      colalpha = np.concatenate(
+          [colors[:, :-1], 1 - gt_occluded[:, i : i + 1]], axis=1
+      )
       plt.scatter(
           gt_points[:, i, 0],
           gt_points[:, i, 1],
@@ -179,7 +181,8 @@ def plot_tracks_v3(
     valid = np.any(trackgroup[:, np.newaxis] == ch[np.newaxis, :], axis=1)
 
     new_trackgroup = np.argmax(
-        trackgroup[valid][:, np.newaxis] == ch[np.newaxis, :], axis=1)
+        trackgroup[valid][:, np.newaxis] == ch[np.newaxis, :], axis=1
+    )
     plots.append(
         plot_tracks_v2(
             rgb,
@@ -188,7 +191,8 @@ def plot_tracks_v3(
             None if gt_points is None else gt_points[valid],
             None if gt_points is None else gt_occluded[valid],
             new_trackgroup,
-        ))
+        )
+    )
   p1 = np.concatenate(plots[0:2], axis=2)
   p2 = np.concatenate(plots[2:4], axis=2)
   return np.concatenate([p1, p2], axis=1)
@@ -217,7 +221,7 @@ def write_visualization(
     )
 
     logging.info('writing...')
-    with mediapy.VideoWriter(
+    with media.VideoWriter(
         visualization_path[i],
         shape=video_frames.shape[-3:-1],
         fps=10,
@@ -232,9 +236,9 @@ def write_visualization(
 class SupervisedPointPrediction(task.Task):
   """A task for predicting point tracks and training on ground-truth.
 
-    This task has a simple forward pass which predicts points, which is
-    also used for running evaluators on datasets where ground-truth is
-    known.
+  This task has a simple forward pass which predicts points, which is
+  also used for running evaluators on datasets where ground-truth is
+  known.
   """
 
   def __init__(
@@ -389,7 +393,7 @@ class SupervisedPointPrediction(task.Task):
           reduction='mean',
       )
 
-      loss = loss_huber * 100. + loss_occ
+      loss = loss_huber * 100.0 + loss_occ
 
       loss_scalars = dict(position_loss=loss_huber, occlusion_loss=loss_occ)
     if self.prediction_algo in [
@@ -417,8 +421,9 @@ class SupervisedPointPrediction(task.Task):
             axis=(2, 3, 4),
         )
         im_shp = inputs[input_key]['video'].shape
-        point_track = inputs[input_key]['target_points'][:, qchunk_lo:qchunk_hi,
-                                                         ..., :]
+        point_track = inputs[input_key]['target_points'][
+            :, qchunk_lo:qchunk_hi, ..., :
+        ]
         position_in_grid2 = transforms.convert_grid_coordinates(
             point_track,
             im_shp[3:1:-1],
@@ -439,10 +444,11 @@ class SupervisedPointPrediction(task.Task):
 
         loss_contrast.append(
             jnp.mean(
-                interp_softmax *
-                (1.0 - inputs[input_key]['occluded'][:, qchunk_lo:qchunk_hi]),
+                interp_softmax
+                * (1.0 - inputs[input_key]['occluded'][:, qchunk_lo:qchunk_hi]),
                 axis=-1,
-            ))
+            )
+        )
 
       loss_contrast = -jnp.mean(jnp.concatenate(loss_contrast, 1))
       loss += loss_contrast * self.contrastive_loss_weight
@@ -606,12 +612,13 @@ class SupervisedPointPrediction(task.Task):
         # Compute pairwise dot products between queries and all other features
         all_pairs_dots = jnp.einsum(
             'bnc,bthwc->bnthw',
-            query_feats[:, qchunk:qchunk + query_chunk_size],
+            query_feats[:, qchunk : qchunk + query_chunk_size],
             feature_grid,
         )
         # Compute the soft argmax for each frame
-        query_point_chunk = inputs[input_key]['query_points'][:, qchunk:qchunk +
-                                                              query_chunk_size]
+        query_point_chunk = inputs[input_key]['query_points'][
+            :, qchunk : qchunk + query_chunk_size
+        ]
         tracks = tapnet_model.heatmaps_to_points(
             jax.nn.softmax(
                 all_pairs_dots * self.softmax_temperature,
@@ -625,7 +632,8 @@ class SupervisedPointPrediction(task.Task):
         # bilinear interpolation.
         frame_id = jnp.broadcast_to(
             jnp.arange(tracks.shape[-2])[..., jnp.newaxis],
-            tracks[..., :1].shape)
+            tracks[..., :1].shape,
+        )
         position_in_grid = jnp.concatenate(
             [frame_id, tracks[..., ::-1]],
             axis=-1,
@@ -638,7 +646,8 @@ class SupervisedPointPrediction(task.Task):
         )
         # vmap over channels, duplicating the coordinates
         vmap_interp = jax.vmap(
-            tapnet_model.interp, in_axes=(3, None), out_axes=1)
+            tapnet_model.interp, in_axes=(3, None), out_axes=1
+        )
         # vmap over frames, using the same queries for each frame
         vmap_interp = jax.vmap(vmap_interp, in_axes=(None, 0), out_axes=0)
         # vmap over the batch
@@ -654,9 +663,9 @@ class SupervisedPointPrediction(task.Task):
             axis=-1,
         )
         query_frame = transforms.convert_grid_coordinates(
-            inputs[input_key]['query_points'][:,
-                                              qchunk:qchunk + query_chunk_size,
-                                              ...],
+            inputs[input_key]['query_points'][
+                :, qchunk : qchunk + query_chunk_size, ...
+            ],
             im_shp[1:4],
             feature_grid.shape[1:4],
             coordinate_format='tyx',
@@ -666,7 +675,8 @@ class SupervisedPointPrediction(task.Task):
         target_features = jnp.take_along_axis(
             feature_grid,
             query_frame[:, :, np.newaxis, np.newaxis, np.newaxis],
-            axis=1)
+            axis=1,
+        )
 
         # For each output point along the track, compare the features with all
         # features in the frame that the query came from
@@ -687,15 +697,18 @@ class SupervisedPointPrediction(task.Task):
             im_shp,
         )
         dist = jnp.sum(
-            jnp.square(inverse_tracks -
-                       inputs[input_key]['query_points'][:, qchunk:qchunk +
-                                                         query_chunk_size,
-                                                         jnp.newaxis, 2:0:-1]),
-            axis=-1)
-        occlusion = (dist > jnp.square(48.))
+            jnp.square(
+                inverse_tracks
+                - inputs[input_key]['query_points'][
+                    :, qchunk : qchunk + query_chunk_size, jnp.newaxis, 2:0:-1
+                ]
+            ),
+            axis=-1,
+        )
+        occlusion = dist > jnp.square(48.0)
         # We need to return logits, but the cycle consistency rule is binary.
         # So we just convert the binary values into large real values.
-        occlusion = occlusion * 20. - 10.
+        occlusion = occlusion * 20.0 - 10.0
 
         all_occlusion.append(occlusion)
         all_tracks.append(tracks)
@@ -773,7 +786,7 @@ class SupervisedPointPrediction(task.Task):
     loss_huber = loss_huber * 4.0 / np.prod(tapnet_model.TRAIN_SIZE[1:3])
     loss_scalars['position_loss'] = loss_huber
 
-    pred_occ = (occlusion_logits > 0)
+    pred_occ = occlusion_logits > 0
     query_mode = 'first' if 'q_first' in mode else 'strided'
 
     metrics = evaluation_datasets.compute_tapvid_metrics(
@@ -796,9 +809,9 @@ class SupervisedPointPrediction(task.Task):
 
     Args:
       mode: evaluation mode.  Can be one of 'eval_davis_points',
-      'eval_robotics_points', 'eval_kinetics_points',
-      'eval_davis_points_q_first', 'eval_robotics_points_q_first',
-      'eval_kinetics_points_q_first', 'eval_jhmdb', 'eval_kubric',
+        'eval_robotics_points', 'eval_kinetics_points',
+        'eval_davis_points_q_first', 'eval_robotics_points_q_first',
+        'eval_kinetics_points_q_first', 'eval_jhmdb', 'eval_kubric',
 
     Yields:
       A dict with one key (for the dataset), containing a dict with the keys:
@@ -820,16 +833,20 @@ class SupervisedPointPrediction(task.Task):
       yield from evaluation_datasets.create_kubric_eval_dataset(mode)
     elif 'eval_davis_points' in mode:
       yield from evaluation_datasets.create_davis_dataset(
-          self.config.davis_points_path, query_mode=query_mode)
+          self.config.davis_points_path, query_mode=query_mode
+      )
     elif 'eval_jhmdb' in mode:
       yield from evaluation_datasets.create_jhmdb_dataset(
-          self.config.jhmdb_path)
+          self.config.jhmdb_path
+      )
     elif 'eval_robotics_points' in mode:
       yield from evaluation_datasets.create_rgb_stacking_dataset(
-          self.config.robotics_points_path, query_mode=query_mode)
+          self.config.robotics_points_path, query_mode=query_mode
+      )
     elif 'eval_kinetics_points' in mode:
       yield from evaluation_datasets.create_kinetics_dataset(
-          self.config.kinetics_points_path, query_mode=query_mode)
+          self.config.kinetics_points_path, query_mode=query_mode
+      )
     else:
       raise ValueError(f'Unrecognized eval mode {mode}')
 
@@ -853,7 +870,6 @@ class SupervisedPointPrediction(task.Task):
     num_keypoints = 15
     dist_all = [np.zeros((0, 0)) for _ in range(num_keypoints)]
     for vid_idx in range(len(results)):
-
       sample = results[vid_idx]
 
       # [2, 15, clip_len]
@@ -889,10 +905,12 @@ class SupervisedPointPrediction(task.Task):
       valid_min_gt_poses = gt_poses.copy()
       valid_min_gt_poses[:, ~joint_visible] = 1e6
       boxes = np.stack(
-          (valid_max_gt_poses[0].max(axis=0) -
-           valid_min_gt_poses[0].min(axis=0),
-           valid_max_gt_poses[1].max(axis=0) -
-           valid_min_gt_poses[1].min(axis=0)),
+          (
+              valid_max_gt_poses[0].max(axis=0)
+              - valid_min_gt_poses[0].min(axis=0),
+              valid_max_gt_poses[1].max(axis=0)
+              - valid_min_gt_poses[1].min(axis=0),
+          ),
           axis=0,
       )
       # [clip_len]
@@ -934,7 +952,7 @@ class SupervisedPointPrediction(task.Task):
         'pred_pose': np.array(pred_pose),
         'gt_pose': np.array(gt_pose),
         'gt_pose_orig': np.array(gt_pose_orig),
-        'im_size': np.array(im_size)
+        'im_size': np.array(im_size),
     })
     return self.pck_evaluate(self.all_results)
 
@@ -948,7 +966,7 @@ class SupervisedPointPrediction(task.Task):
       mode: str,
   ) -> Mapping[str, chex.Array]:
     """Evaluates an epoch."""
-    num_samples = 0.
+    num_samples = 0.0
     summed_scalars = None
     batch_id = 0
 
@@ -975,19 +993,18 @@ class SupervisedPointPrediction(task.Task):
       input_key = 'kinetics'
     else:
       input_key = 'kubric'
-    eval_batch_fn = (
-        functools.partial(
-            self._eval_batch,
-            wrapped_forward_fn=wrapped_forward_fn,
-            mode=mode,
-            input_key=input_key,
-        ))
+    eval_batch_fn = functools.partial(
+        self._eval_batch,
+        wrapped_forward_fn=wrapped_forward_fn,
+        mode=mode,
+        input_key=input_key,
+    )
     for inputs in self._build_eval_input(mode):
       batch_size = inputs[input_key]['video'].shape[0]  # pytype: disable=attribute-error  # 'video' entry is array-valued
       num_samples += batch_size
       scalars, viz = eval_batch_fn(params, state, inputs, rng)
       write_viz = batch_id < 10
-      if ('eval_davis_points' in mode or 'eval_robotics_points' in mode):
+      if 'eval_davis_points' in mode or 'eval_robotics_points' in mode:
         # Only write videos sometimes for the small datasets; otherwise
         # there will be a crazy number of videos dumped.
         write_viz = write_viz and (global_step % 10 == 0)
@@ -1008,7 +1025,8 @@ class SupervisedPointPrediction(task.Task):
             inputs[input_key]['gt_pose_orig'],
             inputs[input_key]['im_size'],
             inputs[input_key]['fname'],
-            is_first=batch_id == 0)
+            is_first=batch_id == 0,
+        )
         scalars = {}
       if write_viz:
         pix_pts = viz['tracks']
@@ -1020,14 +1038,16 @@ class SupervisedPointPrediction(task.Task):
             for x in range(batch_size * batch_id, batch_size * (batch_id + 1))
         ]
         write_visualization(
-            (inputs[input_key]['video'] + 1.) * (255. / 2.),
+            (inputs[input_key]['video'] + 1.0) * (255.0 / 2.0),
             pix_pts,
             jax.nn.sigmoid(viz['occlusion']),
             outname,
             gt_points=targ_pts,
             gt_occluded=inputs[input_key]['occluded'],
             trackgroup=inputs[input_key]['trackgroup']
-            if 'trackgroup' in inputs[input_key] else None)
+            if 'trackgroup' in inputs[input_key]
+            else None,
+        )
       del viz
 
       batch_id += 1
@@ -1065,13 +1085,21 @@ class SupervisedPointPrediction(task.Task):
       points = np.concatenate((t, y, x), axis=-1).astype(np.int32)
       return points
 
-    video = mediapy.read_video(self.config.input_video_path)
-    fps = video.metadata.fps
-    video = mediapy.resize_video(video, (256, 256))
+    config = self.config.inference
+    input_video_path = config.input_video_path
+    output_video_path = config.output_video_path
+    resize_height, resize_width = config.resize_height, config.resize_width
+    num_points = config.num_points
+
+    logging.info('load video from %s', input_video_path)
+    video = media.read_video(input_video_path)
+    num_frames, fps = video.metadata.num_images, video.metadata.fps
+    logging.info('resize video to (%s, %s)', resize_height, resize_width)
+    video = media.resize_video(video, (resize_height, resize_width))
     video = video.astype(np.float32) / 255 * 2 - 1
-    num_frames, height, width = video.shape[0:3]
-    num_points = 20
-    query_points = _sample_random_points(num_frames, height, width, num_points)
+    query_points = _sample_random_points(
+        num_frames, resize_height, resize_width, num_points
+    )
     occluded = np.zeros((num_points, num_frames), dtype=np.float32)
     inputs = {
         self.input_key: {
@@ -1100,7 +1128,7 @@ class SupervisedPointPrediction(task.Task):
         tracks[0],
         ~occluded[0],
     )
-    mediapy.write_video(self.config.output_video_path, painted_frames, fps=fps)
-    logging.info('Inference result saved to %s', self.config.output_video_path)
+    media.write_video(output_video_path, painted_frames, fps=fps)
+    logging.info('Inference result saved to %s', output_video_path)
 
     return {'': 0}

@@ -32,9 +32,7 @@ def get_config() -> config_dict.ConfigDict:
   # NOTE: duplicates not allowed.
   config.shared_module_names = ('tapnet_model',)
 
-  config.dataset_names = (
-      'kubric',
-  )
+  config.dataset_names = ('kubric',)
   # Note: eval modes must always start with 'eval_'.
   config.eval_modes = (
       'eval_davis_points',
@@ -107,8 +105,13 @@ def get_config() -> config_dict.ConfigDict:
                   # is not guaranteed to be consistent.
                   n_training_steps=config.get_oneway_ref('training_steps'),
               ),
-              input_video_path='',
-              output_video_path='',
+              inference=dict(
+                  input_video_path='',
+                  output_video_path='',
+                  resize_height=256,  # video height resized to before inference
+                  resize_width=256,  # video width resized to before inference
+                  num_points=20,  # number of random points to sample
+              ),
           )
       )
   )

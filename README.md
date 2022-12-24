@@ -56,12 +56,9 @@ move.  This property is not enforced in the current evaluation code, but
 algorithms which violate this principle should not be considered valid
 competitors on this benchmark.
 
-Our readers also supply videos resized at 256-by-256.  If algorithms can handle
-it, we encourage using full-resolution videos instead; we anticipate that
-predictions on such videos would be scaled to match a 256-by-256 resolution
-before computing metrics.
-Such predictions would, however, be evaluated as a separate category: we don't
-consider them comparable to those produced from lower-resolution videos.
+Our readers also supply videos resized at 256x256 resolution.  If algorithms can handle it, we encourage using full-resolution videos instead; we anticipate that
+predictions on such videos would be scaled to match a 256x256 resolution
+before computing metrics. Such predictions would, however, be evaluated as a separate category: we don't consider them comparable to those produced from lower-resolution videos.
 
 ### A note on coordinates
 
@@ -147,6 +144,8 @@ python3 ./tapnet/experiment.py \
 
 Available eval datasets are listed in `supervised_point_prediction.py`.
 
+## Download a baseline checkpoint
+
 `tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable
 using our NumpyFileCheckpointer. You can download a checkpoint
 [here](https://storage.googleapis.com/dm-tapnet/checkpoint.npy), which
@@ -162,11 +161,16 @@ python3 ./tapnet/experiment.py \
   --config=./tapnet/configs/tapnet_config.py \
   --jaxline_mode=eval_inference \
   --config.checkpoint_dir=./tapnet/checkpoint/ \
-  --config.experiment_kwargs.config.input_video_path=horsejump-high.mp4 \
-  --config.experiment_kwargs.config.output_video_path=result.mp4
+  --config.experiment_kwargs.config.inference.input_video_path=horsejump-high.mp4 \
+  --config.experiment_kwargs.config.inference.output_video_path=result.mp4 \
+  --config.experiment_kwargs.config.inference.resize_height=256 \
+  --config.experiment_kwargs.config.inference.resize_width=256 \
+  --config.experiment_kwargs.config.inference.num_points=20
 ```
 
 The inference only serves as an example. It will resize the video to 256x256 resolution, sample 20 random query points on the first frame and track these random points in the rest frames.
+
+Also note that the current checkpoint is trained under 256x256 resolution and has not been trained for other resolutions.
 
 ## Citing this work
 
@@ -182,7 +186,6 @@ Please use the following bibtex entry to cite our work:
   year = {2022},
 }
 ```
-
 
 ## License and disclaimer
 
@@ -207,3 +210,6 @@ either express or implied. See the licenses for the specific language governing
 permissions and limitations under those licenses.
 
 This is not an official Google product.
+
+## Relevant work
+- [Particle Video Revisited: Tracking Through Occlusions Using Point Trajectories](https://github.com/aharley/pips)
