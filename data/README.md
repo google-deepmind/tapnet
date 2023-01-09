@@ -2,7 +2,7 @@
 
 The data are contained in pickle files with download links: [Tap-Vid-DAVIS](https://storage.googleapis.com/dm-tapnet/tapvid_davis.zip) and [Tap-Vid-RGB-stacking](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.zip).
 
-For DAVIS, the pickile file contains a dictionary, where each key is a DAVIS video name, and the values are the frames (4D uint8 tensor), the points (float32 tensor with 3 axes; the first is point id, the second is time, and the third is x/y), and the occlusions (bool tensor with 2 axies; the first is point id, the second is time). RGB-Stacking is the same format, except there is no video name, so it is a list of these structures rather than a dictionary.
+For DAVIS, the pickle file contains a dictionary, where each key is a DAVIS video name, and the values are the frames (4D uint8 tensor), the points (float32 tensor with 3 axes; the first is point id, the second is time, and the third is x/y), and the occlusions (bool tensor with 2 axis; the first is point id, the second is time). RGB-Stacking is the same format, except there is no video name, so it is a list of these structures rather than a dictionary.
 
 ## Downloading and Processing Tap-Vid-Kinetics
 
@@ -34,5 +34,3 @@ python3 visualize.py \
   --output_path=<path_to_output_video.mp4> \
   --alsologtostderr
 ```
-
-An exampler shell script can be found in [visualize.sh](visualize.sh).
