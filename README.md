@@ -2,30 +2,17 @@
 
 Full paper available at [https://arxiv.org/abs/2211.03726](https://arxiv.org/abs/2211.03726)
 
-## Downloading and Visualizing Tap-Vid Dataset
-
-There are three datasets to download: [Tap-Vid-DAVIS](https://storage.googleapis.com/dm-tapnet/tapvid_davis.zip), [Tap-Vid-Kinetics](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip), and [Tap-Vid-RGB-stacking](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.zip).
-
-For more details and visualization of the dataset, please see [data section](data).
-
 ## Introduction
 
 TAP-Vid is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans). Here are examples of what is annotated on videos of the DAVIS and Kinetics datasets:
 
 https://user-images.githubusercontent.com/15641194/202213058-f0ce0b13-27bb-45ee-8b61-1f5f8d26c254.mp4
 
-Our full benchmark incorporates 4 datasets: 30 videos from the DAVIS val set, 1000 videos from the Kinetics val set, 50 synthetic robotics videos with perfect ground truth, and point annotations on the large-scale synthetic [Kubric](https://github.com/google-research/kubric/tree/main/challenges/point_tracking) dataset for training.
+Our full benchmark incorporates 4 datasets: 30 videos from the [DAVIS val set](https://storage.googleapis.com/dm-tapnet/tapvid_davis.zip), 1000 videos from the [Kinetics val set](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip), 50 synthetic [Deepmind Robotics videos](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.zip) for evaluation, and (almost infinite) point track ground truth on the large-scale synthetic [Kubric dataset](https://github.com/google-research/kubric/tree/main/challenges/point_tracking) for training.
 
-For more examples, we have the full [TAP-Vid-DAVIS](https://storage.googleapis.com/dm-tapnet/content/davis_ground_truth_v2.html) as well as 10 examples from the synthetic [TAP-Vid-Kubric](https://storage.googleapis.com/dm-tapnet/content/kubric_ground_truth.html) and [TAP-Vid-RGB-Stacking](https://storage.googleapis.com/dm-tapnet/content/rgb_stacking_ground_truth_v2.html) datasets.
+For more details of downloading and visualization of the dataset, please see [data section](https://github.com/deepmind/tapnet/tree/main/data).
 
-We also include a point tracking
-model TAP-Net, with code to train it on Kubric dataset.
-TAP-Net outperforms
-both optical flow and structure-from-motion methods on the
-TAP-Vid benchmark while achieving state-of-the-art performance
-on unsupervised human keypoint tracking on JHMDB, even though
-the model tracks points on clothes and skin rather than the
-joints as intended by the benchmark.
+We also include a point tracking model TAP-Net, with code to train it on Kubric dataset. TAP-Net outperforms both optical flow and structure-from-motion methods on the TAP-Vid benchmark while achieving state-of-the-art performance on unsupervised human keypoint tracking on JHMDB, even though the model tracks points on clothes and skin rather than the joints as intended by the benchmark.
 
 ### Evaluating on TAP-Vid
 
