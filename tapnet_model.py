@@ -168,13 +168,15 @@ def heatmaps_to_points(
   return out_points
 
 
-def create_batch_norm(x: chex.Array, is_training: bool) -> chex.Array:
+def create_batch_norm(
+    x: chex.Array, is_training: bool, cross_replica_axis: Optional[str]
+) -> chex.Array:
   """Function to allow TSM-ResNet to create batch norm layers."""
   return hk.BatchNorm(
       create_scale=True,
       create_offset=True,
       decay_rate=0.9,
-      cross_replica_axis='i',
+      cross_replica_axis=cross_replica_axis,
   )(x, is_training)
 
 
@@ -184,21 +186,28 @@ class TAPNet(hk.Module):
   def __init__(
       self,
       feature_grid_stride: int = 8,
+      num_heads: int = 1,
+      cross_replica_axis: Optional[str] = 'i',
   ):
     """Initialize the model and provide kwargs for the various components.
 
     Args:
       feature_grid_stride: Stride to extract features.  For TSM-ResNet,
         supported values are 8 (default), 16, and 32.
+      num_heads: Number of heads in the cost volume.
+      cross_replica_axis: Which cross replica axis to use for the batch norm.
     """
 
     super().__init__()
 
     self.feature_grid_stride = feature_grid_stride
+    self.num_heads = num_heads
     self.softmax_temperature = 10.0
 
     self.tsm_resnet = tsm_resnet.TSMResNetV2(
-        normalize_fn=create_batch_norm,
+        normalize_fn=functools.partial(
+            create_batch_norm,
+            cross_replica_axis=cross_replica_axis),
         num_frames=TRAIN_SIZE[0],
         channel_shift_fraction=[0.125, 0.125, 0., 0.],
         name='tsm_resnet_video',
@@ -369,13 +378,15 @@ class TAPNet(hk.Module):
             interp,
             in_axes=(3, None),
             out_axes=1,
-        ))(feature_grid, position_in_grid)
-    num_heads = 1
-    feature_grid_heads = einshape('bthw(cd)->bthwcd', feature_grid, d=num_heads)
+        )
+    )(feature_grid, position_in_grid)
+    feature_grid_heads = einshape(
+        'bthw(cd)->bthwcd', feature_grid, d=self.num_heads
+    )
     interp_features_heads = einshape(
         'bn(cd)->bncd',
         interp_features,
-        d=num_heads,
+        d=self.num_heads,
     )
     out = {'feature_grid': feature_grid}
     if get_query_feats:

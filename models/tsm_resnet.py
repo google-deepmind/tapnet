@@ -349,7 +349,7 @@ class TSMResNetV2(hk.Module):
         effect.
       out_num_frames: Whether time is on first axis, for TPU performance
       output_stride: Stride of the final feature grid; possible values are
-        8, 16, or 32.  32 is the standard for TSM-ResNet. Others strides are
+        4, 8, 16, or 32.  32 is the standard for TSM-ResNet. Others strides are
         achieved by converting strided to un-strided convolutions later in the
         network, while increasing the dilation rate for later layers.
 
@@ -397,7 +397,10 @@ class TSMResNetV2(hk.Module):
       net = tsmu.prepare_outputs(net, tsm_mode, num_frames, reduce_mean=False)
       return net
 
-    if output_stride == 8:
+    if output_stride == 4:
+      strides = (1, 1, 1, 1)
+      rates = (1, 2, 4, 8)
+    elif output_stride == 8:
       strides = (1, 2, 1, 1)
       rates = (1, 1, 2, 4)
     elif output_stride == 16:
