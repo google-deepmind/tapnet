@@ -17,6 +17,7 @@
 
 import csv
 import functools
+import io
 import os
 from os import path
 import pickle
@@ -29,21 +30,22 @@ from kubric.challenges.point_tracking import dataset
 import mediapy as media
 import numpy as np
 from PIL import Image
-from scipy import io
+import scipy.io as sio
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-from tapnet import tapnet_model
 from tapnet.utils import transforms
 
 DatasetElement = Mapping[str, Mapping[str, Union[np.ndarray, str]]]
+
+TRAIN_SIZE = (24, 256, 256, 3)
 
 
 def resize_video(video: np.ndarray, output_size: Tuple[int, int]) -> np.ndarray:
   """Resize a video to output_size."""
   # If you have a GPU, consider replacing this with a GPU-enabled resize op,
   # such as a jitted jax.image.resize.  It will make things faster.
-  return media.resize_video(video, tapnet_model.TRAIN_SIZE[1:3])
+  return media.resize_video(video, TRAIN_SIZE[1:3])
 
 
 def compute_tapvid_metrics(
@@ -362,7 +364,7 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
       logging.info('skip %s', video)
       continue
 
-    gt_pose = io.loadmat(tf.io.gfile.GFile(joints, 'rb'))['pos_img']
+    gt_pose = sio.loadmat(tf.io.gfile.GFile(joints, 'rb'))['pos_img']
     gt_pose = np.transpose(gt_pose, [1, 2, 0])
     frames = path.join(gt_dir, 'Rename_Images', video, '*.png')
     framefil = tf.io.gfile.glob(frames)
@@ -394,12 +396,12 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
     gt_pose = transforms.convert_grid_coordinates(
         gt_pose,
         np.array([width, height]),
-        np.array(tapnet_model.TRAIN_SIZE[2:0:-1]),
+        np.array(TRAIN_SIZE[2:0:-1]),
     )
     # Set invalid poses to -1 (outside the frame)
     gt_pose = (1. - invalid) * gt_pose + invalid * (-1.)
 
-    frames = resize_video(frames, tapnet_model.TRAIN_SIZE[1:3])
+    frames = resize_video(frames, TRAIN_SIZE[1:3])
     frames = frames / (255. / 2.) - 1.
     queries = gt_pose[:, 0]
     queries = np.concatenate(
@@ -433,12 +435,13 @@ def create_kubric_eval_train_dataset(
   """Dataset for evaluating performance on Kubric training data."""
   res = dataset.create_point_tracking_dataset(
       split='train',
-      train_size=tapnet_model.TRAIN_SIZE[1:3],
+      train_size=TRAIN_SIZE[1:3],
       batch_dims=[1],
       shuffle_buffer_size=None,
       repeat=False,
       vflip='vflip' in mode,
-      random_crop=False)
+      random_crop=False,
+  )
 
   num_returned = 0
 
@@ -476,14 +479,11 @@ def create_davis_dataset(
 
   for video_name in davis_points_dataset:
     frames = davis_points_dataset[video_name]['video']
-    frames = resize_video(frames, tapnet_model.TRAIN_SIZE[1:3])
+    frames = resize_video(frames, TRAIN_SIZE[1:3])
     frames = frames.astype(np.float32) / 255. * 2. - 1.
     target_points = davis_points_dataset[video_name]['points']
     target_occ = davis_points_dataset[video_name]['occluded']
-    target_points *= np.array([
-        tapnet_model.TRAIN_SIZE[2],
-        tapnet_model.TRAIN_SIZE[1],
-    ])
+    target_points *= np.array([TRAIN_SIZE[2], TRAIN_SIZE[1]])
 
     if query_mode == 'strided':
       converted = sample_queries_strided(target_occ, target_points, frames)
@@ -509,8 +509,7 @@ def create_rgb_stacking_dataset(
     frames = frames.astype(np.float32) / 255. * 2. - 1.
     target_points = example['points']
     target_occ = example['occluded']
-    target_points *= np.array(
-        [tapnet_model.TRAIN_SIZE[2], tapnet_model.TRAIN_SIZE[1]])
+    target_points *= np.array([TRAIN_SIZE[2], TRAIN_SIZE[1]])
 
     if query_mode == 'strided':
       converted = sample_queries_strided(target_occ, target_points, frames)
@@ -523,46 +522,45 @@ def create_rgb_stacking_dataset(
 
 
 def create_kinetics_dataset(
-    kinetics_path: str,
-    query_mode: str = 'strided') -> Iterable[DatasetElement]:
-  """Kinetics point tracking dataset."""
-  csv_path = path.join(kinetics_path, 'tapvid_kinetics.csv')
+    kinetics_path: str, query_mode: str = 'strided'
+) -> Iterable[DatasetElement]:
+  """Dataset for evaluating performance on Kinetics point tracking."""
 
-  point_tracks_all = dict()
-  with tf.io.gfile.GFile(csv_path, 'r') as f:
-    reader = csv.reader(f, delimiter=',')
-    for row in reader:
-      youtube_id = row[0]
-      point_tracks = np.array(row[3:]).reshape(-1, 3)
-      if youtube_id in point_tracks_all:
-        point_tracks_all[youtube_id].append(point_tracks)
+  all_paths = tf.io.gfile.glob(path.join(kinetics_path, '*_of_0010.pkl'))
+  for pickle_path in all_paths:
+    with open(pickle_path, 'rb') as f:
+      data = pickle.load(f)
+      if isinstance(data, dict):
+        data = list(data.values())
+
+    # idx = random.randint(0, len(data) - 1)
+    for idx in range(len(data)):
+      example = data[idx]
+
+      frames = example['video']
+
+      if isinstance(frames[0], bytes):
+        # TAP-Vid is stored and JPEG bytes rather than `np.ndarray`s.
+        def decode(frame):
+          byteio = io.BytesIO(frame)
+          img = Image.open(byteio)
+          return np.array(img)
+
+        frames = np.array([decode(frame) for frame in frames])
+
+      if frames.shape[1] > TRAIN_SIZE[1] or frames.shape[2] > TRAIN_SIZE[2]:
+        frames = resize_video(frames, TRAIN_SIZE[1:3])
+
+      frames = frames.astype(np.float32) / 255.0 * 2.0 - 1.0
+      target_points = example['points']
+      target_occ = example['occluded']
+      target_points *= np.array([TRAIN_SIZE[2], TRAIN_SIZE[1]])
+
+      if query_mode == 'strided':
+        converted = sample_queries_strided(target_occ, target_points, frames)
+      elif query_mode == 'first':
+        converted = sample_queries_first(target_occ, target_points, frames)
       else:
-        point_tracks_all[youtube_id] = [point_tracks]
+        raise ValueError(f'Unknown query mode {query_mode}.')
 
-  if not point_tracks_all:
-    raise ValueError('No Kinetics dataset in directory ' + kinetics_path)
-
-  for video_id in point_tracks_all:
-    video_path = path.join(kinetics_path, 'videos', video_id + '_valid.mp4')
-    frames = media.read_video(video_path)
-    frames = resize_video(frames, tapnet_model.TRAIN_SIZE[1:3])
-    frames = frames.astype(np.float32) / 255. * 2. - 1.
-
-    point_tracks = np.stack(point_tracks_all[video_id], axis=0)
-    point_tracks = point_tracks.astype(np.float32)
-    if frames.shape[0] < point_tracks.shape[1]:
-      logging.info('Warning: short video!')
-      point_tracks = point_tracks[:, :frames.shape[0]]
-    point_tracks, occluded = point_tracks[..., 0:2], point_tracks[..., 2]
-    occluded = occluded > 0
-    target_points = point_tracks * np.array(
-        [tapnet_model.TRAIN_SIZE[2], tapnet_model.TRAIN_SIZE[1]])
-
-    if query_mode == 'strided':
-      converted = sample_queries_strided(occluded, target_points, frames)
-    elif query_mode == 'first':
-      converted = sample_queries_first(occluded, target_points, frames)
-    else:
-      raise ValueError(f'Unknown query mode {query_mode}.')
-
-    yield {'kinetics': converted}
+      yield {'kinetics': converted}
