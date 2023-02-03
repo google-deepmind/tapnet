@@ -27,8 +27,7 @@ import jax.numpy as jnp
 from tapnet.models import tsm_resnet
 from tapnet.utils import transforms
 
-# (num_frames, height, width, channels)
-TRAIN_SIZE = (24, 256, 256, 3)
+TRAIN_SIZE = (24, 256, 256, 3)  # (num_frames, height, width, channels)
 
 
 def interp(x: chex.Array, y: chex.Array) -> chex.Array:
