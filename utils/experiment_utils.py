@@ -28,17 +28,6 @@ import tensorflow as tf
 from tapnet import optimizers
 
 
-def human_readable_size(size: float) -> str:
-  if size >= 1e9:
-    return '%.2fB' % (size / 1e9)
-  elif size >= 1e6:
-    return '%.2fM' % (size / 1e6)
-  elif size >= 1e3:
-    return '%.2fK' % (size / 1e3)
-  else:
-    return '%s' % size
-
-
 def get_lr_schedule(
     total_steps: int,
     optimizer_config: config_dict.ConfigDict,
