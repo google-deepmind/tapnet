@@ -25,7 +25,7 @@ NORM_NAMES = ["layer_norm", "batch_norm", "_bn", "linear_classifier"]
 
 
 def _weight_decay_exclude(
-    exclude_names: Optional[Sequence[Text]] = None
+    exclude_names: Optional[Sequence[Text]] = None,
 ) -> Callable[[str, str, jnp.ndarray], bool]:
   """Logic for deciding which parameters to include for weight decay..
 
@@ -58,7 +58,7 @@ class AddWeightDecayState(NamedTuple):
 
 def add_weight_decay(
     weight_decay: float,
-    exclude_names: Optional[Sequence[Text]] = None
+    exclude_names: Optional[Sequence[Text]] = None,
 ) -> optax.GradientTransformation:
   """Add parameter scaled by `weight_decay` to the `updates`.
 
