@@ -410,7 +410,7 @@ class SupervisedPointPrediction(task.Task):
       for qchunk in range(0, query_feats.shape[1], query_chunk_size):
         qchunk_lo = qchunk
         qchunk_hi = qchunk + query_chunk_size
-        im_shp = inputs[input_key]['video'].shape
+        im_shp = inputs[input_key]['video'].shape  # pytype: disable=attribute-error  # numpy-scalars
         all_pairs_dots = jnp.einsum(
             'bnc,bthwc->bnthw',
             query_feats[:, qchunk_lo:qchunk_hi],
@@ -420,7 +420,7 @@ class SupervisedPointPrediction(task.Task):
             all_pairs_dots * self.softmax_temperature,
             axis=(2, 3, 4),
         )
-        im_shp = inputs[input_key]['video'].shape
+        im_shp = inputs[input_key]['video'].shape  # pytype: disable=attribute-error  # numpy-scalars
         point_track = inputs[input_key]['target_points'][
             :, qchunk_lo:qchunk_hi, ..., :
         ]
@@ -608,7 +608,7 @@ class SupervisedPointPrediction(task.Task):
 
       # We again chunk the queries to save memory; these einsums are big.
       for qchunk in range(0, query_feats.shape[1], query_chunk_size):
-        im_shp = inputs[input_key]['video'].shape
+        im_shp = inputs[input_key]['video'].shape  # pytype: disable=attribute-error  # numpy-scalars
         # Compute pairwise dot products between queries and all other features
         all_pairs_dots = jnp.einsum(
             'bnc,bthwc->bnthw',
@@ -1131,4 +1131,4 @@ class SupervisedPointPrediction(task.Task):
     media.write_video(output_video_path, painted_frames, fps=fps)
     logging.info('Inference result saved to %s', output_video_path)
 
-    return {'': 0}
+    return {'': 0}  # pytype: disable=bad-return-type  # numpy-scalars

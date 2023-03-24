@@ -161,7 +161,7 @@ class Experiment(experiment.AbstractExperiment):
   # | |_| | | (_| | | | | |
   #  \__|_|  \__,_|_|_| |_|
   #
-  def step(
+  def step(  # pytype: disable=signature-mismatch  # numpy-scalars
       self,
       global_step: chex.Array,
       rng: chex.PRNGKey,
@@ -370,9 +370,9 @@ class Experiment(experiment.AbstractExperiment):
     params = optax.apply_updates(params, updates)
 
     n_params = 0
-    for k in params.keys():
+    for k in params.keys():  # pytype: disable=attribute-error  # numpy-scalars
       for l in params[k]:
-        n_params = n_params + np.prod(params[k][l].shape)
+        n_params = n_params + np.prod(params[k][l].shape)  # pytype: disable=attribute-error  # numpy-scalars
 
     # Scalars to log (note: we log the mean across all hosts/devices).
     scalars.update({
@@ -389,7 +389,7 @@ class Experiment(experiment.AbstractExperiment):
   # |  __/\ V / (_| | |
   #  \___| \_/ \__,_|_|
   #
-  def evaluate(
+  def evaluate(  # pytype: disable=signature-mismatch  # numpy-scalars
       self,
       global_step: chex.Array,
       rng: chex.PRNGKey,

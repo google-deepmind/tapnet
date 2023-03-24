@@ -72,7 +72,7 @@ def prepare_outputs(
   else:
     raise ValueError('`tsm_mode` should be \'tpu\' or \'gpu\' or '
                      f'\'deflated_0.x\' ({tsm_mode} given)')
-  return outputs
+  return outputs  # pytype: disable=bad-return-type  # numpy-scalars
 
 
 def apply_temporal_shift(
