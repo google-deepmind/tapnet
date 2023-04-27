@@ -25,146 +25,10 @@ import jax
 import jax.numpy as jnp
 
 from tapnet.models import tsm_resnet
+from tapnet.utils import model_utils
 from tapnet.utils import transforms
 
 TRAIN_SIZE = (24, 256, 256, 3)  # (num_frames, height, width, channels)
-
-
-def interp(x: chex.Array, y: chex.Array) -> chex.Array:
-  """Bilinear interpolation.
-
-  Args:
-    x: Grid of features to be interpolated, of shape [height, width]
-    y: Points to be interpolated, of shape [num_points, 2], where each point is
-      [y, x] in pixel coordinates, or [num_points, 3], where each point is
-      [z, y, x].  Note that x and y are assumed to be raster coordinates:
-      i.e. (0, 0) refers to the upper-left corner of the upper-left pixel.
-      z, however, is assumed to be frame coordinates, so 0 is the first frame,
-      and 0.5 is halfway between the first and second frames.
-
-  Returns:
-    The interpolated value, of shape [num_points].
-  """
-  # If the coordinate format is [z,y,x], we need to handle the z coordinate
-  # differently per the docstring.
-  if y.shape[-1] == 3:
-    y = jnp.concatenate([y[..., 0:1], y[..., 1:] - 0.5], axis=-1)
-  else:
-    y = y - 0.5
-
-  return jax.scipy.ndimage.map_coordinates(
-      x,
-      jnp.transpose(y),
-      order=1,
-      mode='nearest',
-  )
-
-
-def soft_argmax_heatmap(
-    softmax_val: chex.Array,
-    threshold: chex.Numeric = 5,
-) -> chex.Array:
-  """Computes the soft argmax a heatmap.
-
-  Finds the argmax grid cell, and then returns the average coordinate of
-  surrounding grid cells, weighted by the softmax.
-
-  Args:
-    softmax_val: A heatmap of shape [height, width], containing all positive
-      values summing to 1 across the entire grid.
-    threshold: The radius of surrounding cells to consider when computing the
-      average.
-
-  Returns:
-    The soft argmax, which is a single point [x,y] in grid coordinates.
-  """
-  x, y = jnp.meshgrid(
-      jnp.arange(softmax_val.shape[1]),
-      jnp.arange(softmax_val.shape[0]),
-  )
-  coords = jnp.stack([x + 0.5, y + 0.5], axis=-1)
-  argmax_pos = jnp.argmax(jnp.reshape(softmax_val, -1))
-  pos = jnp.reshape(coords, [-1, 2])[argmax_pos, jnp.newaxis, jnp.newaxis, :]
-  valid = (
-      jnp.sum(
-          jnp.square(coords - pos),
-          axis=-1,
-          keepdims=True,
-      ) < jnp.square(threshold))
-  weighted_sum = jnp.sum(
-      coords * valid * softmax_val[:, :, jnp.newaxis],
-      axis=(0, 1),
-  )
-  sum_of_weights = (
-      jnp.maximum(
-          jnp.sum(valid * softmax_val[:, :, jnp.newaxis], axis=(0, 1)),
-          1e-12,
-      ))
-  return weighted_sum / sum_of_weights
-
-
-def heatmaps_to_points(
-    all_pairs_softmax: chex.Array,
-    image_shape: chex.Shape,
-    threshold: chex.Numeric = 5,
-    query_points: Optional[chex.Array] = None,
-) -> chex.Array:
-  """Given a batch of heatmaps, compute a soft argmax.
-
-  If query points are given, constrain that the query points are returned
-  verbatim.
-
-  Args:
-    all_pairs_softmax: A set of heatmaps, of shape [batch, num_points, time,
-      height, width].
-    image_shape: The shape of the original image that the feature grid was
-      extracted from.  This is needed to properly normalize coordinates.
-    threshold: Threshold for the soft argmax operation.
-    query_points (optional): If specified, we assume these points are given as
-      ground truth and we reproduce them exactly.  This is a set of points of
-      shape [batch, num_points, 3], where each entry is [t, y, x] in frame/
-      raster coordinates.
-
-  Returns:
-    predicted points, of shape [batch, num_points, time, 2], where each point is
-      [x, y] in raster coordinates.  These are the result of a soft argmax ecept
-      where the query point is specified, in which case the query points are
-      returned verbatim.
-  """
-  # soft_argmax_heatmap operates over a single heatmap.  We vmap it across
-  # batch, num_points, and frames.
-  vmap_sah = soft_argmax_heatmap
-  for _ in range(3):
-    vmap_sah = jax.vmap(vmap_sah, (0, None))
-  out_points = vmap_sah(all_pairs_softmax, threshold)
-
-  feature_grid_shape = all_pairs_softmax.shape[1:]
-  # Note: out_points is now [x, y]; we need to divide by [width, height].
-  # image_shape[3] is width and image_shape[2] is height.
-  out_points = transforms.convert_grid_coordinates(
-      out_points,
-      feature_grid_shape[3:1:-1],
-      image_shape[3:1:-1],
-  )
-  assert feature_grid_shape[1] == image_shape[1]
-  if query_points is not None:
-    # The [..., 0:1] is because we only care about the frame index.
-    query_frame = transforms.convert_grid_coordinates(
-        query_points,
-        image_shape[1:4],
-        feature_grid_shape[1:4],
-        coordinate_format='tyx',
-    )[..., 0:1]
-    is_query_point = jnp.equal(
-        jnp.array(jnp.round(query_frame), jnp.int32),
-        jnp.arange(image_shape[1], dtype=jnp.int32)[jnp.newaxis,
-                                                    jnp.newaxis, :],
-    )
-    out_points = out_points * (
-        1.0 - is_query_point[:, :, :, jnp.newaxis]
-    ) + query_points[:, :, jnp.newaxis, 2:0:-1] * is_query_point[:, :, :,
-                                                                 jnp.newaxis]
-  return out_points
 
 
 def create_batch_norm(
@@ -292,7 +156,9 @@ class TAPNet(hk.Module):
     pos = mods['hid2'](occlusion)
     pos = jax.nn.softmax(pos * self.softmax_temperature, axis=(-2, -3))
     pos = einshape('t(bn)hw1->bnthw', pos, n=shape[2])
-    points = heatmaps_to_points(pos, im_shp, query_points=query_points)
+    points = model_utils.heatmaps_to_points(
+        pos, im_shp, query_points=query_points
+    )
 
     occlusion = mods['hid3'](occlusion)
     occlusion = jnp.mean(occlusion, axis=(-2, -3))
@@ -374,7 +240,7 @@ class TAPNet(hk.Module):
     )
     interp_features = jax.vmap(
         jax.vmap(
-            interp,
+            model_utils.interp,
             in_axes=(3, None),
             out_axes=1,
         )

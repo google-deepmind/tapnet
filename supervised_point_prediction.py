@@ -29,58 +29,20 @@ import matplotlib.pyplot as plt
 import mediapy as media
 from ml_collections import config_dict
 import numpy as np
+import optax
 import tensorflow_datasets as tfds
 import tensorflow as tf
 
 from tapnet import evaluation_datasets
-from tapnet import tapnet_model
 from tapnet import task
 from tapnet.data import viz_utils
+from tapnet.utils import model_utils
 from tapnet.utils import transforms
 
 matplotlib.use('Agg')
 
-
-def sigmoid_cross_entropy(
-    logits: chex.Array,
-    labels: chex.Array,
-    reduction: Optional[str] = None,
-) -> chex.Array:
-  """Computes sigmoid cross entropy given logits and multiple class labels."""
-  log_p = jax.nn.log_sigmoid(logits)
-  # log(1 - sigmoid(x)) = log_sigmoid(-x), the latter is more numerically stable
-  log_not_p = jax.nn.log_sigmoid(-logits)
-  loss = -labels * log_p - (1.0 - labels) * log_not_p
-  result = jnp.asarray(loss)
-  if reduction:
-    if reduction == 'mean':
-      result = jnp.mean(result)
-    else:
-      raise ValueError(f'Wrong reduction name {reduction}')
-  return result
-
-
-def huber_loss(
-    tracks: chex.Array,
-    target_points: chex.Array,
-    occluded: chex.Numeric,
-) -> chex.Array:
-  """Huber loss for point trajectories."""
-  error = tracks - target_points
-  # Huber loss with a threshold of 4 pixels
-  distsqr = jnp.sum(jnp.square(error), axis=-1)
-  dist = jnp.sqrt(distsqr + 1e-12)  # add eps to prevent nan
-  delta = 4.0
-  loss_huber = jnp.where(
-      dist < delta,
-      distsqr / 2,
-      delta * (jnp.abs(dist) - delta / 2),
-  )
-  loss_huber *= 1.0 - occluded
-
-  loss_huber = jnp.mean(loss_huber, axis=[1, 2])
-
-  return loss_huber
+# (num_frames, height, width)
+TRAIN_SIZE = (24, 256, 256)
 
 
 def plot_tracks_v2(
@@ -377,21 +339,20 @@ class SupervisedPointPrediction(task.Task):
     loss_scalars = {}
     loss = 0
     if self.prediction_algo in ['cost_volume_regressor']:
-      loss_huber = huber_loss(
+      loss_huber = model_utils.huber_loss(
           output['tracks'],
           inputs[input_key]['target_points'],
           inputs[input_key]['occluded'],
       )
       # For the original experiments, the loss was defined on coordinates in the
       # range [-1, 1], so convert them into that scale.
-      loss_huber = loss_huber * 4.0 / np.prod(tapnet_model.TRAIN_SIZE[1:3])
+      loss_huber = loss_huber * 4.0 / np.prod(TRAIN_SIZE[1:3])
       loss_huber = jnp.mean(loss_huber)
 
-      loss_occ = sigmoid_cross_entropy(
-          output['occlusion'],
-          jnp.array(inputs[input_key]['occluded'], jnp.float32),
-          reduction='mean',
+      loss_occ = optax.sigmoid_binary_cross_entropy(
+          output['occluision'], inputs[input_key]['occluded']
       )
+      loss_occ = jnp.mean(loss_occ)
 
       loss = loss_huber * 100.0 + loss_occ
 
@@ -437,7 +398,7 @@ class SupervisedPointPrediction(task.Task):
         #
         # Note: grid positions are in [x, y] format, but interp needs
         # coordinates in [y, x] format.
-        interp_softmax = jax.vmap(jax.vmap(jax.vmap(tapnet_model.interp)))(
+        interp_softmax = jax.vmap(jax.vmap(jax.vmap(model_utils.interp)))(
             all_pairs_softmax,
             position_in_grid2[..., ::-1],
         )
@@ -590,10 +551,8 @@ class SupervisedPointPrediction(task.Task):
     if self.prediction_algo in ['cost_volume_regressor']:
       # Outputs are already in the correct format for cost_volume_regressor.
       tracks = output['tracks']
-      loss_occ = sigmoid_cross_entropy(
-          output['occlusion'],
-          jnp.array(inputs[input_key]['occluded'], jnp.float32),
-          reduction=None,
+      loss_occ = optax.sigmoid_binary_cross_entropy(
+          output['occlusion'], inputs[input_key]['occluded']
       )
       loss_occ = jnp.mean(loss_occ, axis=(1, 2))
       occlusion = output['occlusion']
@@ -619,7 +578,7 @@ class SupervisedPointPrediction(task.Task):
         query_point_chunk = inputs[input_key]['query_points'][
             :, qchunk : qchunk + query_chunk_size
         ]
-        tracks = tapnet_model.heatmaps_to_points(
+        tracks = model_utils.heatmaps_to_points(
             jax.nn.softmax(
                 all_pairs_dots * self.softmax_temperature,
                 axis=(-1, -2),
@@ -646,7 +605,7 @@ class SupervisedPointPrediction(task.Task):
         )
         # vmap over channels, duplicating the coordinates
         vmap_interp = jax.vmap(
-            tapnet_model.interp, in_axes=(3, None), out_axes=1
+            model_utils.interp, in_axes=(3, None), out_axes=1
         )
         # vmap over frames, using the same queries for each frame
         vmap_interp = jax.vmap(vmap_interp, in_axes=(None, 0), out_axes=0)
@@ -689,7 +648,7 @@ class SupervisedPointPrediction(task.Task):
         # Again, take the soft argmax to see if we come back to the place we
         # started from.
         # inverse_tracks is [batch_size, chunk, num_frames, 2]
-        inverse_tracks = tapnet_model.heatmaps_to_points(
+        inverse_tracks = model_utils.heatmaps_to_points(
             jax.nn.softmax(
                 all_pairs_dots * self.softmax_temperature,
                 axis=(-2, -1),
@@ -778,12 +737,12 @@ class SupervisedPointPrediction(task.Task):
     gt_target_points = inputs[input_key]['target_points']
     query_points = inputs[input_key]['query_points']
 
-    loss_huber = huber_loss(
+    loss_huber = model_utils.huber_loss(
         tracks,
         gt_target_points,
         gt_occluded,
     )
-    loss_huber = loss_huber * 4.0 / np.prod(tapnet_model.TRAIN_SIZE[1:3])
+    loss_huber = loss_huber * 4.0 / np.prod(TRAIN_SIZE[1:3])
     loss_scalars['position_loss'] = loss_huber
 
     pred_occ = occlusion_logits > 0
@@ -1016,7 +975,7 @@ class SupervisedPointPrediction(task.Task):
         ])
         pix_pts = transforms.convert_grid_coordinates(
             pix_pts,
-            (tapnet_model.TRAIN_SIZE[2], tapnet_model.TRAIN_SIZE[1]),
+            (TRAIN_SIZE[2], TRAIN_SIZE[1]),
             grid_size,
         )
         mean_scalars = self._eval_jhmdb(
