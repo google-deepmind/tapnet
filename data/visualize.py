@@ -27,7 +27,7 @@ import mediapy as media
 import numpy as np
 from PIL import Image
 
-from tapnet.data import viz_utils
+from tapnet.utils import viz_utils
 
 FLAGS = flags.FLAGS
 

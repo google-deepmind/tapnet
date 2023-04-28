@@ -25,7 +25,6 @@ import jax
 import jax.numpy as jnp
 from jaxline import utils
 import matplotlib
-import matplotlib.pyplot as plt
 import mediapy as media
 from ml_collections import config_dict
 import numpy as np
@@ -35,164 +34,14 @@ import tensorflow as tf
 
 from tapnet import evaluation_datasets
 from tapnet import task
-from tapnet.data import viz_utils
 from tapnet.utils import model_utils
 from tapnet.utils import transforms
+from tapnet.utils import viz_utils
 
 matplotlib.use('Agg')
 
 # (num_frames, height, width)
 TRAIN_SIZE = (24, 256, 256)
-
-
-def plot_tracks_v2(
-    rgb: np.ndarray,
-    points: np.ndarray,
-    occluded: np.ndarray,
-    gt_points: Optional[np.ndarray] = None,
-    gt_occluded: Optional[np.ndarray] = None,
-    trackgroup: Optional[np.ndarray] = None,
-) -> np.ndarray:
-  """Plot tracks with matplotlib."""
-  disp = []
-  cmap = plt.cm.hsv  # pytype: disable=module-attr
-
-  z_list = (
-      np.arange(points.shape[0]) if trackgroup is None else np.array(trackgroup)
-  )
-  # random permutation of the colors so nearby points in the list can get
-  # different colors
-  z_list = np.random.permutation(np.max(z_list) + 1)[z_list]
-  colors = cmap(z_list / (np.max(z_list) + 1))
-  figure_dpi = 64
-
-  figs = []
-  for i in range(rgb.shape[0]):
-    fig = plt.figure(
-        figsize=(256 / figure_dpi, 256 / figure_dpi),
-        dpi=figure_dpi,
-        frameon=False,
-        facecolor='w',
-    )
-    figs.append(fig)
-    ax = fig.add_subplot()
-    ax.axis('off')
-    ax.imshow(rgb[i] / 255.0)
-    colalpha = np.concatenate(
-        [colors[:, :-1], 1 - occluded[:, i : i + 1]],
-        axis=1,
-    )
-    plt.scatter(points[:, i, 0], points[:, i, 1], s=3, c=colalpha)
-    occ2 = occluded[:, i : i + 1]
-    if gt_occluded is not None:
-      occ2 *= 1 - gt_occluded[:, i : i + 1]
-    colalpha = np.concatenate([colors[:, :-1], occ2], axis=1)
-
-    plt.scatter(
-        points[:, i, 0],
-        points[:, i, 1],
-        s=20,
-        facecolors='none',
-        edgecolors=colalpha,
-    )
-    if gt_points is not None:
-      colalpha = np.concatenate(
-          [colors[:, :-1], 1 - gt_occluded[:, i : i + 1]], axis=1
-      )
-      plt.scatter(
-          gt_points[:, i, 0],
-          gt_points[:, i, 1],
-          s=15,
-          c=colalpha,
-          marker='D',
-      )
-
-    plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-    plt.margins(0, 0)
-    fig.canvas.draw()
-    width, height = fig.get_size_inches() * fig.get_dpi()
-    img = np.frombuffer(
-        fig.canvas.tostring_rgb(),
-        dtype='uint8',
-    ).reshape(int(height), int(width), 3)
-    disp.append(np.copy(img))
-
-  for fig in figs:
-    plt.close(fig)
-  return np.stack(disp, axis=0)
-
-
-def plot_tracks_v3(
-    rgb: np.ndarray,
-    points: np.ndarray,
-    occluded: np.ndarray,
-    gt_points: np.ndarray,
-    gt_occluded: np.ndarray,
-    trackgroup: Optional[np.ndarray] = None,
-) -> np.ndarray:
-  """Plot tracks in a 2x2 grid."""
-  if trackgroup is None:
-    trackgroup = np.arange(points.shape[0])
-  else:
-    trackgroup = np.array(trackgroup)
-
-  utg = np.unique(trackgroup)
-  chunks = np.array_split(utg, 4)
-  plots = []
-  for ch in chunks:
-    valid = np.any(trackgroup[:, np.newaxis] == ch[np.newaxis, :], axis=1)
-
-    new_trackgroup = np.argmax(
-        trackgroup[valid][:, np.newaxis] == ch[np.newaxis, :], axis=1
-    )
-    plots.append(
-        plot_tracks_v2(
-            rgb,
-            points[valid],
-            occluded[valid],
-            None if gt_points is None else gt_points[valid],
-            None if gt_points is None else gt_occluded[valid],
-            new_trackgroup,
-        )
-    )
-  p1 = np.concatenate(plots[0:2], axis=2)
-  p2 = np.concatenate(plots[2:4], axis=2)
-  return np.concatenate([p1, p2], axis=1)
-
-
-def write_visualization(
-    video: np.ndarray,
-    points: np.ndarray,
-    occluded: np.ndarray,
-    visualization_path: Sequence[str],
-    gt_points: Optional[np.ndarray] = None,
-    gt_occluded: Optional[np.ndarray] = None,
-    trackgroup: Optional[np.ndarray] = None,
-):
-  """Write a visualization."""
-  for i in range(video.shape[0]):
-    logging.info('rendering...')
-
-    video_frames = plot_tracks_v3(
-        video[i],
-        points[i],
-        occluded[i],
-        gt_points[i] if gt_points is not None else None,
-        gt_occluded[i] if gt_occluded is not None else None,
-        trackgroup[i] if trackgroup is not None else None,
-    )
-
-    logging.info('writing...')
-    with media.VideoWriter(
-        visualization_path[i],
-        shape=video_frames.shape[-3:-1],
-        fps=10,
-        codec='h264',
-        bps=400000,
-    ) as video_writer:
-      for j in range(video_frames.shape[0]):
-        fr = video_frames[j]
-        video_writer.add_image(fr.astype(np.uint8))
 
 
 class SupervisedPointPrediction(task.Task):
@@ -996,7 +845,7 @@ class SupervisedPointPrediction(task.Task):
             f'{outdir}/{x}.mp4'
             for x in range(batch_size * batch_id, batch_size * (batch_id + 1))
         ]
-        write_visualization(
+        viz_utils.write_visualization(
             (inputs[input_key]['video'] + 1.0) * (255.0 / 2.0),
             pix_pts,
             jax.nn.sigmoid(viz['occlusion']),
