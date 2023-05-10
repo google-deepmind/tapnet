@@ -17,7 +17,7 @@
 
 import functools
 from os import path
-from typing import Iterable, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Tuple
 
 from absl import logging
 import chex
@@ -56,8 +56,14 @@ class SupervisedPointPrediction(task.Task):
       self,
       config: config_dict.ConfigDict,
       input_key: str = 'kubric',
-      contrastive_loss_weight: float = 0.05,
+      model_key: str = 'tapnet_model',
       prediction_algo: str = 'cost_volume_regressor',
+      softmax_temperature: float = 10.0,
+      contrastive_loss_weight: float = 0.05,
+      position_loss_weight: float = 100.0,
+      expected_dist_thresh: float = 8.0,
+      train_chunk_size: int = 32,
+      eval_chunk_size: int = 16,
   ):
     """Constructs a task for supervised learning on Kubric.
 
@@ -66,21 +72,35 @@ class SupervisedPointPrediction(task.Task):
         the paths for checkpoints and datasets.
       input_key: The forward pass takes an input dict.  Inference or learning
         will be performed on input[input_key]['video']
-      contrastive_loss_weight: Weight for the additional contrastive loss that's
-        applied alongside the trajectory prediction loss.
+      model_key: The model to use from shared_modules
       prediction_algo: specifies the network architecture to use to make
         predictions.  Can be 'cost_volume_regressor' for the algorithm presented
         in the TAPNet paper, or 'cost_volume_cycle_consistency' for the VFS-Like
         algorithm presented in the earlier Kubric paper.
+      softmax_temperature: temperature applied to cost volume before softmax.
+        This is only used with cost_volume_cycle_consistency.
+      contrastive_loss_weight: Weight for the additional contrastive loss that's
+        applied alongside the trajectory prediction loss.
+      position_loss_weight: Weight for position loss.
+      expected_dist_thresh: threshold for expected distance. Will be ignored if
+        the model does not return expected_dist.
+      train_chunk_size: Compute predictions on this many queries simultaneously.
+        This saves memory as the cost volumes can be very large.
+      eval_chunk_size: Compute predictions on this many queries simultaneously.
+        This saves memory as the cost volumes can be very large.
     """
 
     super().__init__()
-
+    self.config = config
     self.input_key = input_key
+    self.model_key = model_key
     self.prediction_algo = prediction_algo
     self.contrastive_loss_weight = contrastive_loss_weight
-    self.config = config
-    self.softmax_temperature = 10.0
+    self.softmax_temperature = softmax_temperature
+    self.position_loss_weight = position_loss_weight
+    self.expected_dist_thresh = expected_dist_thresh
+    self.train_chunk_size = train_chunk_size
+    self.eval_chunk_size = eval_chunk_size
 
   def forward_fn(
       self,
@@ -88,8 +108,8 @@ class SupervisedPointPrediction(task.Task):
       is_training: bool,
       shared_modules: Optional[Mapping[str, task.SharedModule]] = None,
       input_key: Optional[str] = None,
-      query_chunk_size: int = 16,
-      get_query_feats: bool = True,
+      query_chunk_size: int = 32,
+      get_query_feats: bool = False,
   ) -> Mapping[str, chex.Array]:
     """Forward pass for predicting point tracks.
 
@@ -103,7 +123,7 @@ class SupervisedPointPrediction(task.Task):
         coordinates in frame/raster coordinates.
       is_training: Is the model in training mode.
       shared_modules: Haiku modules, injected by experiment.py.
-        shared_modules['tapnet_model'] should be a TAPNetModel.
+        shared_modules['tapnet_model'] should be a JointModel.
       input_key: Run on inputs[input_key]['video']. If None, use the input_key
         from the constructor.
       query_chunk_size: Compute predictions on this many queries simultaneously.
@@ -111,7 +131,7 @@ class SupervisedPointPrediction(task.Task):
       get_query_feats: If True, also return features for each query.
 
     Returns:
-      Result dict produced by calling the tapnet model. See tapnet_model.py.
+      Result dict produced by calling the joint model. See tapnet_model.py.
     """
     if input_key is None:
       input_key = self.input_key
@@ -121,7 +141,7 @@ class SupervisedPointPrediction(task.Task):
         'cost_volume_regressor',
         'cost_volume_cycle_consistency',
     ]:
-      return shared_modules['tapnet_model'](
+      return shared_modules[self.model_key](
           frames,
           is_training=is_training,
           query_points=inputs[input_key]['query_points'],
@@ -178,64 +198,93 @@ class SupervisedPointPrediction(task.Task):
     if input_key is None:
       input_key = self.input_key
 
-    query_chunk_size = 16
-
     output, state = functools.partial(
         wrapped_forward_fn,
         input_key=input_key,
-        query_chunk_size=query_chunk_size,
+        query_chunk_size=self.train_chunk_size,
     )(params, state, rng, inputs, is_training=is_training)
+
+    def tapnet_loss(
+        points, occlusion, target_points, target_occ, expected_dist=None
+    ):
+      loss_huber = model_utils.huber_loss(points, target_points, target_occ)
+      # For the original paper, the loss was defined on coordinates in the
+      # range [-1, 1], so convert them into that scale.
+      loss_huber = loss_huber * 4.0 / TRAIN_SIZE[1] / TRAIN_SIZE[2]
+      loss_huber = jnp.mean(loss_huber) * self.position_loss_weight
+
+      if expected_dist is None:
+        loss_prob = 0.0
+      else:
+        loss_prob = model_utils.prob_loss(
+            jax.lax.stop_gradient(points),
+            expected_dist,
+            target_points,
+            target_occ,
+            self.expected_dist_thresh,
+        )
+        loss_prob = jnp.mean(loss_prob)
+
+      loss_occ = optax.sigmoid_binary_cross_entropy(occlusion, target_occ)
+      loss_occ = jnp.mean(loss_occ)
+      return loss_huber, loss_occ, loss_prob
+
     loss_scalars = {}
-    loss = 0
+    loss = 0.0
     if self.prediction_algo in ['cost_volume_regressor']:
-      loss_huber = model_utils.huber_loss(
+      loss_huber, loss_occ, loss_prob = tapnet_loss(
           output['tracks'],
+          output['occlusion'],
           inputs[input_key]['target_points'],
           inputs[input_key]['occluded'],
+          output['expected_dist'] if 'expected_dist' in output else None,
       )
-      # For the original experiments, the loss was defined on coordinates in the
-      # range [-1, 1], so convert them into that scale.
-      loss_huber = loss_huber * 4.0 / np.prod(TRAIN_SIZE[1:3])
-      loss_huber = jnp.mean(loss_huber)
+      loss = loss_huber + loss_occ + loss_prob
+      loss_scalars['position_loss'] = loss_huber
+      loss_scalars['occlusion_loss'] = loss_occ
+      if 'expected_dist' in output:
+        loss_scalars['prob_loss'] = loss_prob
 
-      loss_occ = optax.sigmoid_binary_cross_entropy(
-          output['occluision'], inputs[input_key]['occluded']
-      )
-      loss_occ = jnp.mean(loss_occ)
+      if 'unrefined_tracks' in output:
+        for l in range(len(output['unrefined_tracks'])):
+          loss_huber, loss_occ, loss_prob = tapnet_loss(
+              output['unrefined_tracks'][l],
+              output['unrefined_occlusion'][l],
+              inputs[input_key]['target_points'],
+              inputs[input_key]['occluded'],
+              output['unrefined_expected_dist'][l]
+              if 'unrefined_expected_dist' in output
+              else None,
+          )
+          loss += loss_huber + loss_occ + loss_prob
+          loss_scalars[f'position_loss_{l}'] = loss_huber
+          loss_scalars[f'occlusion_loss_{l}'] = loss_occ
+          if 'unrefined_expected_dist' in output:
+            loss_scalars[f'prob_loss_{l}'] = loss_prob
 
-      loss = loss_huber * 100.0 + loss_occ
-
-      loss_scalars = dict(position_loss=loss_huber, occlusion_loss=loss_occ)
-    if self.prediction_algo in [
-        'cost_volume_cycle_consistency',
-    ]:
+    if self.prediction_algo in ['cost_volume_cycle_consistency']:
       feature_grid = output['feature_grid']
-
       query_feats = output['query_feats']
 
       loss_contrast = []
 
       # This computes the contrastive loss from the paper.  We break the set of
       # queries up into chunks in order to save memory.
-      for qchunk in range(0, query_feats.shape[1], query_chunk_size):
-        qchunk_lo = qchunk
-        qchunk_hi = qchunk + query_chunk_size
-        im_shp = inputs[input_key]['video'].shape  # pytype: disable=attribute-error  # numpy-scalars
+      for qchunk in range(0, query_feats.shape[1], self.train_chunk_size):
+        qchunk_low = qchunk
+        qchunk_high = qchunk + self.train_chunk_size
         all_pairs_dots = jnp.einsum(
             'bnc,bthwc->bnthw',
-            query_feats[:, qchunk_lo:qchunk_hi],
+            query_feats[:, qchunk_low:qchunk_high],
             feature_grid,
         )
         all_pairs_softmax = jax.nn.log_softmax(
-            all_pairs_dots * self.softmax_temperature,
-            axis=(2, 3, 4),
+            all_pairs_dots * self.softmax_temperature, axis=(2, 3, 4)
         )
         im_shp = inputs[input_key]['video'].shape  # pytype: disable=attribute-error  # numpy-scalars
-        point_track = inputs[input_key]['target_points'][
-            :, qchunk_lo:qchunk_hi, ..., :
-        ]
+        target_points = inputs[input_key]['target_points']
         position_in_grid2 = transforms.convert_grid_coordinates(
-            point_track,
+            target_points[:, qchunk_low:qchunk_high],
             im_shp[3:1:-1],
             feature_grid.shape[3:1:-1],
         )
@@ -252,12 +301,10 @@ class SupervisedPointPrediction(task.Task):
             position_in_grid2[..., ::-1],
         )
 
+        target_occ = inputs[input_key]['occluded']
+        target_occ = target_occ[:, qchunk_low:qchunk_high]
         loss_contrast.append(
-            jnp.mean(
-                interp_softmax
-                * (1.0 - inputs[input_key]['occluded'][:, qchunk_lo:qchunk_hi]),
-                axis=-1,
-            )
+            jnp.mean(interp_softmax * (1.0 - target_occ), axis=-1)
         )
 
       loss_contrast = -jnp.mean(jnp.concatenate(loss_contrast, 1))
@@ -331,7 +378,7 @@ class SupervisedPointPrediction(task.Task):
           )
       )
 
-      logging.info('[Step %d] Eval scalars: %s', global_step, scalars)
+    logging.info('[Step %d] Eval scalars: %s', global_step, scalars)
     return scalars
 
   def _infer_batch(
@@ -342,8 +389,7 @@ class SupervisedPointPrediction(task.Task):
       rng: chex.PRNGKey,
       wrapped_forward_fn: task.WrappedForwardFn,
       input_key: Optional[str] = None,
-      query_chunk_size: int = 16,
-  ) -> Tuple[chex.Array, chex.Array, Mapping[str, chex.Array]]:
+  ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Runs inference on a single batch and compute metrics.
 
     For cost_volume_regressor we return the outputs directly inferred from the
@@ -374,26 +420,21 @@ class SupervisedPointPrediction(task.Task):
         applying hk.transform to self.forward_fn.
       input_key: Run on inputs[input_key]['video']. If None, use the input_key
         from the constructor.
-      query_chunk_size: Run computation on this many queries at a time to save
-        memory.
 
     Returns:
-      A 3-tuple consisting of the occlusion logits, of shape
+      A 2-tuple consisting of the occlusion logits, of shape
         [batch, num_queries, num_frames], the predicted position, of shape
         [batch, num_queries, num_frames, 2], and a dict of loss scalars.
     """
     # Features for each query point are required when using cycle consistency.
     get_query_feats = self.prediction_algo in ['cost_volume_cycle_consistency']
-    output, _ = functools.partial(
-        wrapped_forward_fn,
-        input_key=input_key,
-    )(
+    output, _ = functools.partial(wrapped_forward_fn, input_key=input_key)(
         params,
         state,
         rng,
         inputs,
         is_training=False,
-        query_chunk_size=query_chunk_size,
+        query_chunk_size=self.eval_chunk_size,
         get_query_feats=get_query_feats,
     )
     loss_scalars = {}
@@ -415,22 +456,21 @@ class SupervisedPointPrediction(task.Task):
       all_occlusion = []
 
       # We again chunk the queries to save memory; these einsums are big.
-      for qchunk in range(0, query_feats.shape[1], query_chunk_size):
-        im_shp = inputs[input_key]['video'].shape  # pytype: disable=attribute-error  # numpy-scalars
+      for qchunk in range(0, query_feats.shape[1], self.eval_chunk_size):
         # Compute pairwise dot products between queries and all other features
         all_pairs_dots = jnp.einsum(
             'bnc,bthwc->bnthw',
-            query_feats[:, qchunk : qchunk + query_chunk_size],
+            query_feats[:, qchunk : qchunk + self.eval_chunk_size],
             feature_grid,
         )
         # Compute the soft argmax for each frame
         query_point_chunk = inputs[input_key]['query_points'][
-            :, qchunk : qchunk + query_chunk_size
+            :, qchunk : qchunk + self.eval_chunk_size
         ]
+        im_shp = inputs[input_key]['video'].shape  # pytype: disable=attribute-error  # numpy-scalars
         tracks = model_utils.heatmaps_to_points(
             jax.nn.softmax(
-                all_pairs_dots * self.softmax_temperature,
-                axis=(-1, -2),
+                all_pairs_dots * self.softmax_temperature, axis=(-1, -2)
             ),
             im_shp,
             query_points=query_point_chunk,
@@ -443,8 +483,7 @@ class SupervisedPointPrediction(task.Task):
             tracks[..., :1].shape,
         )
         position_in_grid = jnp.concatenate(
-            [frame_id, tracks[..., ::-1]],
-            axis=-1,
+            [frame_id, tracks[..., ::-1]], axis=-1
         )
         position_in_grid = transforms.convert_grid_coordinates(
             position_in_grid,
@@ -467,12 +506,11 @@ class SupervisedPointPrediction(task.Task):
         # contains the query.
         # query_frame is [batch_size, num_queries]
         position_in_grid = jnp.concatenate(
-            [frame_id, tracks[..., ::-1]],
-            axis=-1,
+            [frame_id, tracks[..., ::-1]], axis=-1
         )
         query_frame = transforms.convert_grid_coordinates(
             inputs[input_key]['query_points'][
-                :, qchunk : qchunk + query_chunk_size, ...
+                :, qchunk : qchunk + self.eval_chunk_size, ...
             ],
             im_shp[1:4],
             feature_grid.shape[1:4],
@@ -489,9 +527,7 @@ class SupervisedPointPrediction(task.Task):
         # For each output point along the track, compare the features with all
         # features in the frame that the query came from
         all_pairs_dots = jnp.einsum(
-            'bntc,bnhwc->bnthw',
-            interp_features,
-            target_features,
+            'bntc,bnhwc->bnthw', interp_features, target_features
         )
 
         # Again, take the soft argmax to see if we come back to the place we
@@ -504,15 +540,10 @@ class SupervisedPointPrediction(task.Task):
             ),
             im_shp,
         )
-        dist = jnp.sum(
-            jnp.square(
-                inverse_tracks
-                - inputs[input_key]['query_points'][
-                    :, qchunk : qchunk + query_chunk_size, jnp.newaxis, 2:0:-1
-                ]
-            ),
-            axis=-1,
-        )
+        query_points = inputs[input_key]['query_points']
+        query_points = query_points[:, qchunk : qchunk + self.eval_chunk_size]
+        dist = jnp.square(inverse_tracks - query_points[jnp.newaxis, 2:0:-1])
+        dist = jnp.sum(dist, axis=-1)
         occlusion = dist > jnp.square(48.0)
         # We need to return logits, but the cycle consistency rule is binary.
         # So we just convert the binary values into large real values.
@@ -524,7 +555,10 @@ class SupervisedPointPrediction(task.Task):
       tracks = jnp.concatenate(all_tracks, axis=1)
       occlusion = jnp.concatenate(all_occlusion, axis=1)
 
-    return occlusion, tracks, loss_scalars
+    outputs = {'tracks': tracks, 'occlusion': occlusion}
+    if 'expected_dist' in output:
+      outputs['expected_dist'] = output['expected_dist']
+    return outputs, loss_scalars
 
   def _eval_batch(
       self,
@@ -571,14 +605,8 @@ class SupervisedPointPrediction(task.Task):
         [batch, num_queries, num_frames] and the predicted position, of shape
         [batch, num_queries, num_frames, 2].
     """
-    occlusion_logits, tracks, loss_scalars = self._infer_batch(
-        params,
-        state,
-        inputs,
-        rng,
-        wrapped_forward_fn,
-        input_key,
-        query_chunk_size=16,
+    outputs, loss_scalars = self._infer_batch(
+        params, state, inputs, rng, wrapped_forward_fn, input_key
     )
     loss_scalars = {**loss_scalars}  # Mutable copy.
 
@@ -586,15 +614,17 @@ class SupervisedPointPrediction(task.Task):
     gt_target_points = inputs[input_key]['target_points']
     query_points = inputs[input_key]['query_points']
 
-    loss_huber = model_utils.huber_loss(
-        tracks,
-        gt_target_points,
-        gt_occluded,
-    )
+    tracks = outputs['tracks']
+    loss_huber = model_utils.huber_loss(tracks, gt_target_points, gt_occluded)
     loss_huber = loss_huber * 4.0 / np.prod(TRAIN_SIZE[1:3])
     loss_scalars['position_loss'] = loss_huber
 
-    pred_occ = occlusion_logits > 0
+    occlusion_logits = outputs['occlusion']
+    pred_occ = jax.nn.sigmoid(occlusion_logits)
+    if 'expected_dist' in outputs:
+      expected_dist = outputs['expected_dist']
+      pred_occ = 1 - (1 - pred_occ) * (1 - jax.nn.sigmoid(expected_dist))
+    pred_occ = pred_occ > 0.5  # threshold
     query_mode = 'first' if 'q_first' in mode else 'strided'
 
     metrics = evaluation_datasets.compute_tapvid_metrics(
@@ -689,12 +719,10 @@ class SupervisedPointPrediction(task.Task):
 
       # input is shape [15, clip_len, 2]
       invalid_x = np.logical_or(
-          gt_poses[:, 0:1, 0] < 0,
-          gt_poses[:, 0:1, 0] >= width,
+          gt_poses[:, 0:1, 0] < 0, gt_poses[:, 0:1, 0] >= width
       )
       invalid_y = np.logical_or(
-          gt_poses[:, 0:1, 1] < 0,
-          gt_poses[:, 0:1, 1] >= height,
+          gt_poses[:, 0:1, 1] < 0, gt_poses[:, 0:1, 1] >= height
       )
       invalid = np.logical_or(invalid_x, invalid_y)
       joint_visible = np.logical_not(np.tile(invalid, [1, gt_poses.shape[1]]))
@@ -778,12 +806,7 @@ class SupervisedPointPrediction(task.Task):
     summed_scalars = None
     batch_id = 0
 
-    outdir = path.join(
-        self.config.checkpoint_dir,
-        mode,
-        str(global_step),
-    )
-
+    outdir = path.join(self.config.checkpoint_dir, mode, str(global_step))
     logging.info('Saving videos to %s', outdir)
 
     try:
@@ -818,10 +841,9 @@ class SupervisedPointPrediction(task.Task):
         write_viz = write_viz and (global_step % 10 == 0)
       if 'eval_jhmdb' in mode:
         pix_pts = viz['tracks']
-        grid_size = np.array([
-            inputs[input_key]['im_size'][1],
-            inputs[input_key]['im_size'][0],
-        ])
+        grid_size = np.array(
+            [inputs[input_key]['im_size'][1], inputs[input_key]['im_size'][0]]
+        )
         pix_pts = transforms.convert_grid_coordinates(
             pix_pts,
             (TRAIN_SIZE[2], TRAIN_SIZE[1]),
@@ -839,7 +861,7 @@ class SupervisedPointPrediction(task.Task):
       if write_viz:
         pix_pts = viz['tracks']
         targ_pts = None
-        if 'eval_kinetics_points' in mode:
+        if 'eval_kinetics' in mode:
           targ_pts = inputs[input_key]['target_points']
         outname = [
             f'{outdir}/{x}.mp4'
@@ -857,7 +879,6 @@ class SupervisedPointPrediction(task.Task):
             else None,
         )
       del viz
-
       batch_id += 1
       logging.info('eval batch: %d', batch_id)
 
@@ -917,23 +938,22 @@ class SupervisedPointPrediction(task.Task):
         }
     }
 
-    occlusion_logits, tracks, _ = self._infer_batch(
+    outputs, _ = self._infer_batch(
         params,
         state,
         inputs,
         rng,
         wrapped_forward_fn,
         self.input_key,
-        query_chunk_size=16,
     )
-    occluded = occlusion_logits > 0
+    occluded = outputs['occlusion'] > 0
 
     video = (video + 1) * 255 / 2
     video = video.astype(np.uint8)
 
     painted_frames = viz_utils.paint_point_track(
         video,
-        tracks[0],
+        outputs['tracks'][0],
         ~occluded[0],
     )
     media.write_video(output_video_path, painted_frames, fps=fps)

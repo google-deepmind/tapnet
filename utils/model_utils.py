@@ -50,7 +50,7 @@ def prob_loss(
     expd: chex.Array,
     target_points: chex.Array,
     occluded: chex.Array,
-    expected_dist_thresh: int = 8,
+    expected_dist_thresh: float = 8.0,
 ):
   """Loss for classifying if a point is within pixel threshold of its target."""
   # Points with an error larger than 8 pixels are likely to be useless; marking
