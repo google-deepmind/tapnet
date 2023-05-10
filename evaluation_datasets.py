@@ -56,7 +56,11 @@ def compute_tapvid_metrics(
     pred_tracks: np.ndarray,
     query_mode: str,
 ) -> Mapping[str, np.ndarray]:
-  """Computes TAP-Vid metrics (Jaccard, Pts. Within Thresh, Occ. Acc.)
+  """Computes TAP-Vid metrics (Jaccard, Pts.
+
+  Within Thresh, Occ.
+
+  Acc.)
 
   See the TAP-Vid paper for details on the metric computation.  All inputs are
   given in raster coordinates.  The first three arguments should be the direct
@@ -72,14 +76,14 @@ def compute_tapvid_metrics(
   Args:
      query_points: The query points, an in the format [t, y, x].  Its size is
        [b, n, 3], where b is the batch size and n is the number of queries
-     gt_occluded: A boolean array of shape [b, n, t], where t is the number
-       of frames.  True indicates that the point is occluded.
-     gt_tracks: The target points, of shape [b, n, t, 2].  Each point is
-       in the format [x, y]
-     pred_occluded: A boolean array of predicted occlusions, in the same
-       format as gt_occluded.
-     pred_tracks: An array of track predictions from your algorithm, in the
-       same format as gt_tracks.
+     gt_occluded: A boolean array of shape [b, n, t], where t is the number of
+       frames.  True indicates that the point is occluded.
+     gt_tracks: The target points, of shape [b, n, t, 2].  Each point is in the
+       format [x, y]
+     pred_occluded: A boolean array of predicted occlusions, in the same format
+       as gt_occluded.
+     pred_tracks: An array of track predictions from your algorithm, in the same
+       format as gt_tracks.
      query_mode: Either 'first' or 'strided', depending on how queries are
        sampled.  If 'first', we assume the prior knowledge that all points
        before the query point are occluded, and these are removed from the
@@ -96,7 +100,6 @@ def compute_tapvid_metrics(
         threshold
       average_pts_within_thresh: average across pts_within_{x}
       average_jaccard: average across jaccard_{x}
-
   """
 
   metrics = {}
@@ -147,14 +150,14 @@ def compute_tapvid_metrics(
         is_correct & evaluation_points,
         axis=(1, 2),
     )
-    count_visible_points = np.sum(
-        visible & evaluation_points, axis=(1, 2))
+    count_visible_points = np.sum(visible & evaluation_points, axis=(1, 2))
     frac_correct = count_correct / count_visible_points
     metrics['pts_within_' + str(thresh)] = frac_correct
     all_frac_within.append(frac_correct)
 
     true_positives = np.sum(
-        is_correct & pred_visible & evaluation_points, axis=(1, 2))
+        is_correct & pred_visible & evaluation_points, axis=(1, 2)
+    )
 
     # The denominator of the jaccard metric is the true positives plus
     # false positives plus false negatives.  However, note that true positives
@@ -201,17 +204,20 @@ def latex_table(mean_scalars: Mapping[str, float]) -> str:
         'pts_within_8',
         'pts_within_16',
     ]
-    header = ('AJ & $<\\delta^{x}_{avg}$ & OA & Jac. $\\delta^{0}$ & ' +
-              'Jac. $\\delta^{1}$ & Jac. $\\delta^{2}$ & ' +
-              'Jac. $\\delta^{3}$ & Jac. $\\delta^{4}$ & $<\\delta^{0}$ & ' +
-              '$<\\delta^{1}$ & $<\\delta^{2}$ & $<\\delta^{3}$ & ' +
-              '$<\\delta^{4}$')
+    header = (
+        'AJ & $<\\delta^{x}_{avg}$ & OA & Jac. $\\delta^{0}$ & '
+        + 'Jac. $\\delta^{1}$ & Jac. $\\delta^{2}$ & '
+        + 'Jac. $\\delta^{3}$ & Jac. $\\delta^{4}$ & $<\\delta^{0}$ & '
+        + '$<\\delta^{1}$ & $<\\delta^{2}$ & $<\\delta^{3}$ & '
+        + '$<\\delta^{4}$'
+    )
   else:
     latex_fields = ['PCK@0.1', 'PCK@0.2', 'PCK@0.3', 'PCK@0.4', 'PCK@0.5']
     header = ' & '.join(latex_fields)
 
   body = ' & '.join(
-      [f'{float(np.array(mean_scalars[x]*100)):.3}' for x in latex_fields])
+      [f'{float(np.array(mean_scalars[x]*100)):.3}' for x in latex_fields]
+  )
   return '\n'.join([header, body])
 
 
@@ -258,8 +264,9 @@ def sample_queries_strided(
     mask = target_occluded[:, i] == 0
     query = np.stack(
         [
-            i * np.ones(target_occluded.shape[0:1]), target_points[:, i, 1],
-            target_points[:, i, 0]
+            i * np.ones(target_occluded.shape[0:1]),
+            target_points[:, i, 1],
+            target_points[:, i, 0],
         ],
         axis=-1,
     )
@@ -270,16 +277,11 @@ def sample_queries_strided(
     total += np.array(np.sum(target_occluded[:, i] == 0))
 
   return {
-      'video':
-          frames[np.newaxis, ...],
-      'query_points':
-          np.concatenate(queries, axis=0)[np.newaxis, ...],
-      'target_points':
-          np.concatenate(tracks, axis=0)[np.newaxis, ...],
-      'occluded':
-          np.concatenate(occs, axis=0)[np.newaxis, ...],
-      'trackgroup':
-          np.concatenate(trackgroups, axis=0)[np.newaxis, ...],
+      'video': frames[np.newaxis, ...],
+      'query_points': np.concatenate(queries, axis=0)[np.newaxis, ...],
+      'target_points': np.concatenate(tracks, axis=0)[np.newaxis, ...],
+      'occluded': np.concatenate(occs, axis=0)[np.newaxis, ...],
+      'trackgroup': np.concatenate(trackgroups, axis=0)[np.newaxis, ...],
   }
 
 
@@ -399,10 +401,10 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
         np.array(TRAIN_SIZE[2:0:-1]),
     )
     # Set invalid poses to -1 (outside the frame)
-    gt_pose = (1. - invalid) * gt_pose + invalid * (-1.)
+    gt_pose = (1.0 - invalid) * gt_pose + invalid * (-1.0)
 
     frames = resize_video(frames, TRAIN_SIZE[1:3])
-    frames = frames / (255. / 2.) - 1.
+    frames = frames / (255.0 / 2.0) - 1.0
     queries = gt_pose[:, 0]
     queries = np.concatenate(
         [queries[..., 0:1] * 0, queries[..., ::-1]],
@@ -413,7 +415,7 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
       # sequence (usually because the person disappears).  In this case,
       # truncate the video.
       logging.warning('short video!!')
-      frames = frames[:gt_pose.shape[1]]
+      frames = frames[: gt_pose.shape[1]]
 
     converted = {
         'video': frames[np.newaxis, ...],
@@ -469,21 +471,39 @@ def create_kubric_eval_dataset(mode: str) -> Iterable[DatasetElement]:
 
 
 def create_davis_dataset(
-    davis_points_path: str,
-    query_mode: str = 'strided') -> Iterable[DatasetElement]:
+    davis_points_path: str, query_mode: str = 'strided', full_resolution=False
+) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on DAVIS data."""
   pickle_path = davis_points_path
 
   with tf.io.gfile.GFile(pickle_path, 'rb') as f:
     davis_points_dataset = pickle.load(f)
 
-  for video_name in davis_points_dataset:
-    frames = davis_points_dataset[video_name]['video']
-    frames = resize_video(frames, TRAIN_SIZE[1:3])
-    frames = frames.astype(np.float32) / 255. * 2. - 1.
+  if full_resolution:
+    ds, _ = tfds.load(
+        'davis/full_resolution', split='validation', with_info=True
+    )
+    to_iterate = tfds.as_numpy(ds)
+  else:
+    to_iterate = davis_points_dataset.keys()
+
+  for tmp in to_iterate:
+    if full_resolution:
+      frames = tmp['video']['frames']
+      video_name = tmp['metadata']['video_name'].decode()
+    else:
+      video_name = tmp
+      frames = davis_points_dataset[video_name]['video']
+      frames = resize_video(frames, TRAIN_SIZE[1:3])
+
+    frames = frames.astype(np.float32) / 255.0 * 2.0 - 1.0
     target_points = davis_points_dataset[video_name]['points']
     target_occ = davis_points_dataset[video_name]['occluded']
-    target_points *= np.array([TRAIN_SIZE[2], TRAIN_SIZE[1]])
+    target_points = transforms.convert_grid_coordinates(
+        target_points,
+        np.array([1.0, 1.0]),
+        np.array([frames.shape[-2], frames.shape[-3]]),
+    )
 
     if query_mode == 'strided':
       converted = sample_queries_strided(target_occ, target_points, frames)
@@ -496,8 +516,8 @@ def create_davis_dataset(
 
 
 def create_rgb_stacking_dataset(
-    robotics_points_path: str,
-    query_mode: str = 'strided') -> Iterable[DatasetElement]:
+    robotics_points_path: str, query_mode: str = 'strided'
+) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on robotics data."""
   pickle_path = robotics_points_path
 
@@ -506,7 +526,7 @@ def create_rgb_stacking_dataset(
 
   for example in robotics_points_dataset:
     frames = example['video']
-    frames = frames.astype(np.float32) / 255. * 2. - 1.
+    frames = frames.astype(np.float32) / 255.0 * 2.0 - 1.0
     target_points = example['points']
     target_occ = example['occluded']
     target_points *= np.array([TRAIN_SIZE[2], TRAIN_SIZE[1]])
