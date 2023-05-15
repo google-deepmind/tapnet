@@ -17,15 +17,16 @@
 
 from typing import Sequence
 
+import chex
 import numpy as np
 
 
 def convert_grid_coordinates(
-    coords: np.ndarray,
+    coords: chex.Array,
     input_grid_size: Sequence[int],
     output_grid_size: Sequence[int],
     coordinate_format: str = 'xy',
-) -> np.ndarray:
+) -> chex.Array:
   """Convert image coordinates between image grids of different sizes.
 
   By default, it assumes that the image corners are aligned.  Therefore,

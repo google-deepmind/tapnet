@@ -38,6 +38,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from tapnet import supervised_point_prediction
+from tapnet import tapir_model
 from tapnet import tapnet_model
 from tapnet import task
 from tapnet.utils import experiment_utils as exputils
@@ -113,9 +114,11 @@ class Experiment(experiment.AbstractExperiment):
     self._train_input = None
     self._eval_input = None
 
-    self.point_prediction = supervised_point_prediction.SupervisedPointPrediction(
-        config,
-        **config.supervised_point_prediction_kwargs)
+    self.point_prediction = (
+        supervised_point_prediction.SupervisedPointPrediction(
+            config, **config.supervised_point_prediction_kwargs
+        )
+    )
 
     def forward(*args, is_training=True, **kwargs):
       shared_modules = self._construct_shared_modules()
@@ -146,6 +149,7 @@ class Experiment(experiment.AbstractExperiment):
     """
     shared_module_constructors = {
         'tapnet_model': tapnet_model.TAPNet,
+        'tapir_model': tapir_model.TAPIR,
     }
     shared_modules = {}
 
