@@ -58,10 +58,10 @@ class SupervisedPointPrediction(task.Task):
       input_key: str = 'kubric',
       model_key: str = 'tapnet_model',
       prediction_algo: str = 'cost_volume_regressor',
-      softmax_temperature: float = 10.0,
+      softmax_temperature: float = 20.0,
       contrastive_loss_weight: float = 0.05,
       position_loss_weight: float = 100.0,
-      expected_dist_thresh: float = 8.0,
+      expected_dist_thresh: float = 6.0,
       train_chunk_size: int = 32,
       eval_chunk_size: int = 16,
   ):
@@ -625,8 +625,8 @@ class SupervisedPointPrediction(task.Task):
       expected_dist = outputs['expected_dist']
       pred_occ = 1 - (1 - pred_occ) * (1 - jax.nn.sigmoid(expected_dist))
     pred_occ = pred_occ > 0.5  # threshold
-    query_mode = 'first' if 'q_first' in mode else 'strided'
 
+    query_mode = 'first' if 'q_first' in mode else 'strided'
     metrics = evaluation_datasets.compute_tapvid_metrics(
         query_points=query_points,
         gt_occluded=gt_occluded,
@@ -834,7 +834,7 @@ class SupervisedPointPrediction(task.Task):
       batch_size = inputs[input_key]['video'].shape[0]  # pytype: disable=attribute-error  # 'video' entry is array-valued
       num_samples += batch_size
       scalars, viz = eval_batch_fn(params, state, inputs, rng)
-      write_viz = batch_id < 10
+      write_viz = batch_id < 0
       if 'eval_davis_points' in mode or 'eval_robotics_points' in mode:
         # Only write videos sometimes for the small datasets; otherwise
         # there will be a crazy number of videos dumped.
