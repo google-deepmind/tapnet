@@ -264,6 +264,7 @@ class TAPIR(hk.Module):
       self,
       bilinear_interp_with_depthwise_conv: bool = False,
       num_pips_iter: int = 4,
+      pyramid_level: int = 1,
       mixer_hidden_dim: int = 512,
       num_mixer_blocks: int = 12,
       mixer_kernel_shape: int = 3,
@@ -338,6 +339,129 @@ class TAPIR(hk.Module):
         bilinear_interp_with_depthwise_conv
     )
     self.parallelize_query_extraction = parallelize_query_extraction
+
+    self.num_pips_iter = num_pips_iter
+    self.pyramid_level = pyramid_level
+    self.patch_size = patch_size
+    self.softmax_temperature = softmax_temperature
+
+  def tracks_from_cost_volume(
+      self,
+      interp_feature: chex.Array,
+      feature_grid: chex.Array,
+      query_points: Optional[chex.Array],
+      im_shp: Optional[chex.Shape] = None,
+  ) -> Tuple[chex.Array, chex.Array, chex.Array]:
+    """Converts features into tracks by computing a cost volume.
+
+    The computed cost volume will have shape
+      [batch, num_queries, time, height, width], which can be very
+      memory intensive.
+
+    Args:
+      interp_feature: A tensor of features for each query point, of shape
+        [batch, num_queries, channels, heads].
+      feature_grid: A tensor of features for the video, of shape [batch, time,
+        height, width, channels, heads].
+      query_points: When computing tracks, we assume these points are given as
+        ground truth and we reproduce them exactly.  This is a set of points of
+        shape [batch, num_points, 3], where each entry is [t, y, x] in frame/
+        raster coordinates.
+      im_shp: The shape of the original image, i.e., [batch, num_frames, time,
+        height, width, 3].
+
+    Returns:
+      A 2-tuple of the inferred points (of shape
+        [batch, num_points, num_frames, 2] where each point is [x, y]) and
+        inferred occlusion (of shape [batch, num_points, num_frames], where
+        each is a logit where higher means occluded)
+    """
+
+    mods = self.cost_volume_track_mods
+    # Note: time is first axis to prevent the TPU from padding
+    cost_volume = jnp.einsum(
+        'bnc,bthwc->tbnhw',
+        interp_feature,
+        feature_grid,
+    )
+    shape = cost_volume.shape
+    batch_size, num_points = cost_volume.shape[1:3]
+
+    cost_volume = einshape('tbnhw->(tbn)hw1', cost_volume)
+
+    occlusion = mods['hid1'](cost_volume)
+    occlusion = jax.nn.relu(occlusion)
+
+    pos = mods['hid2'](occlusion)
+    pos_rshp = einshape('(tb)hw1->t(b)hw1', pos, t=shape[0])
+
+    pos = einshape('t(bn)hw1->bnthw', pos_rshp, b=batch_size, n=num_points)
+    pos = jax.nn.softmax(pos * self.softmax_temperature, axis=(-2, -1))
+    points = model_utils.heatmaps_to_points(
+        pos, im_shp, query_points=query_points
+    )
+
+    occlusion = mods['hid3'](occlusion)
+    occlusion = jax.nn.relu(occlusion)
+    occlusion = jnp.mean(occlusion, axis=(-2, -3))
+    occlusion = mods['hid4'](occlusion)
+    occlusion = jax.nn.relu(occlusion)
+    occlusion = mods['occ_out'](occlusion)
+    expected_dist = einshape(
+        '(tbn)1->bnt', occlusion[..., 1:2], n=shape[2], t=shape[0]
+    )
+    occlusion = einshape(
+        '(tbn)1->bnt', occlusion[..., 0:1], n=shape[2], t=shape[0]
+    )
+    return points, occlusion, expected_dist
+
+  def refine_pips(
+      self,
+      target_feature,
+      frame_features,
+      pyramid,
+      pos_guess,
+      occ_guess,
+      expd_guess,
+      orig_hw,
+      last_iter=None,
+      mixer_iter=0.0,
+      resize_hw=None,
+      causal_context=None,
+      get_causal_context=False,
+  ):
+    # frame_features is batch, num_frames, height, width, channels
+    # target_features is batch, num_points, channels
+    # pos_guess is batch, num_points, num_frames,2
+    orig_h, orig_w = orig_hw
+    resized_h, resized_w = resize_hw
+
+    corrs_pyr = []
+    assert len(target_feature) == len(pyramid)
+    for pyridx, (query, grid) in enumerate(zip(target_feature, pyramid)):
+      # note: interp needs [y,x]
+      coords = transforms.convert_grid_coordinates(
+          pos_guess, (orig_w, orig_h), grid.shape[-2:-4:-1]
+      )[..., ::-1]
+      last_iter_query = None
+      if last_iter is not None:
+        if pyridx == 0:
+          last_iter_query = last_iter[..., : self.highres_dim]
+        else:
+          last_iter_query = last_iter[..., self.highres_dim :]
+      if not self.bilinear_interp_with_depthwise_conv:
+        # on CPU, gathers are cheap and matmuls are expensive
+        ctxx, ctxy = jnp.meshgrid(jnp.arange(-3, 4), jnp.arange(-3, 4))
+        ctx = jnp.stack([ctxy, ctxx], axis=-1)
+        ctx = jnp.reshape(ctx, [-1, 2])
+        coords2 = (
+            coords[:, :, :, jnp.newaxis, :]
+            + ctx[jnp.newaxis, jnp.newaxis, jnp.newaxis, ...]
+        )
+        # grid is batch, frames, height, width, channels
+        # coords is batch, num_points, frames, spatial, x/y
+        # neighborhood = batch, num_points, frames, patch_height, patch_width,
+        # channels
         neighborhood = jax.vmap(  # across batch
             jax.vmap(  # across frames
                 jax.vmap(  # across patch context size
@@ -768,10 +892,18 @@ class TAPIR(hk.Module):
             query_features.hires[feature_level][:, perm_chunk],
             query_features.lowres[feature_level][:, perm_chunk],
         ]
+        for _ in range(self.pyramid_level):
+          queries.append(queries[-1])
         pyramid = [
             feature_grids.hires[feature_level],
             feature_grids.lowres[feature_level],
         ]
+        for _ in range(self.pyramid_level):
+          pyramid.append(
+              hk.avg_pool(
+                  pyramid[-1], [1, 1, 2, 2, 1], [1, 1, 2, 2, 1], 'VALID'
+              )
+          )
 
         # Note: even when the pyramids are higher resolution, the points are
         # all scaled according to the original resolution.  This is because
@@ -847,7 +979,7 @@ class TAPIR(hk.Module):
       target_points: Optional[chex.Array] = None,
       target_occluded: Optional[chex.Array] = None,
       refinement_resolutions: Optional[List[Tuple[int, int]]] = None,
-  ) -> Mapping[str, Any]:
+  ) -> Mapping[str, chex.Array]:
     """Runs a forward pass of the model.
 
     Args:
