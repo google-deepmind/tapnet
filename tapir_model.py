@@ -976,8 +976,6 @@ class TAPIR(hk.Module):
       query_points: chex.Array,
       query_chunk_size: Optional[int] = None,
       get_query_feats: bool = False,
-      target_points: Optional[chex.Array] = None,
-      target_occluded: Optional[chex.Array] = None,
       refinement_resolutions: Optional[List[Tuple[int, int]]] = None,
   ) -> Mapping[str, chex.Array]:
     """Runs a forward pass of the model.
@@ -990,8 +988,6 @@ class TAPIR(hk.Module):
         chunks of this size to save memory.
       get_query_feats: Return query features for other losses like contrastive.
         Not supported in the current version.
-      target_points: Target points for computing extra losses
-      target_occluded: Target occlusion for computing extra losses
       refinement_resolutions: A list of (height, width) tuples.  Refinement will
         be repeated at each specified resolution, in order to achieve high
         accuracy on resolutions higher than what TAPIR was trained on. If None,
@@ -1005,8 +1001,9 @@ class TAPIR(hk.Module):
         tracks: predicted point locations, of shape
           [batch, num_queries, num_frames, 2], where each point is [x, y]
           in raster coordinates
-        losses: if target_points and target_occluded are included, this will
-          contain per-iteration losses for all but the final step.
+        expected_dist: uncertainty estimate logits, of shape
+          [batch, num_queries, num_frames], where higher indicates more likely
+          to be far from the correct answer.
     """
     if get_query_feats:
       raise ValueError('Get query feats not supported in TAPIR.')
