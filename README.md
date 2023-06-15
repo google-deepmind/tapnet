@@ -55,8 +55,7 @@ to install JAX version with CUDA.
 You can then run a pretrained causal TAPIR model on a live camera and select points to track:
 
 ```bash
-python3 ./tapnet/realtime_demo.py \
-  --checkpoint_path=./tapnet/checkpoints/causal_tapir_checkpoint.npy \
+python3 ./tapnet/live_demo.py \
 ```
 
 In our tests, we achieved ~17 fps on 480x480 images on a quadro RTX 4000.
