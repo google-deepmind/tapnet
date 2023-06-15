@@ -57,7 +57,7 @@ def prob_loss(
   # them as occluded will actually improve Jaccard metrics and give
   # qualitatively better results.
   err = jnp.sum(jnp.square(tracks - target_points), axis=-1)
-  invalid = err > expected_dist_thresh**2
+  invalid = (err > expected_dist_thresh**2).astype(expd.dtype)
   logprob = optax.sigmoid_binary_cross_entropy(expd, invalid)
   logprob *= 1.0 - occluded
   logprob = jnp.mean(logprob, axis=[1, 2])
