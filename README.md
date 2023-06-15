@@ -1,4 +1,39 @@
-# TAP-Vid: A Benchmark for Tracking Any Point in a Video
+# Table of Contents
+
+- [TAP-Vid](#TAP-Vid)
+- [TAP-Net](#Installation for TAP-Net training and inference)
+- [TAPIR](#TAPIR)
+
+## TAPIR: Tracking Any Point with per-frame Initialization and temporal Refinement
+
+Full paper available at []()
+
+<p align="center"><img width=50% src="assets/tapir_benchmark.png"></p>
+
+## Introduction
+
+We present a novel model for Tracking Any Point (TAP)that effectively tracks any queried point on any physical surface throughout a video sequence.  Our approach employstwo stages:  (1) a matching stage, which independently locates a suitable candidate point match for the query pointon every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model surpasses all baseline methods by a significant margin on the TAP-Vid benchmark,as demonstrated by an approximate 20% absolute average Jaccard (AJ) improvement on DAVIS. Our model facilitates fast inference on long video sequences, tracking 50 points across 50 256×256 frames in just 0.3 seconds. Visualizations, source code, and pretrained models can be found at [https://deepmind-tapir.github.io](https://deepmind-tapir.github.io).
+
+## Colab Demo
+
+You can run colab demos to see how TAPIR works. You can also upload your own video and try point tracking with TAPIR.
+We provide two colab demos:
+
+1. [The offline TAPIR colab demo](https://colab.sandbox.google.com/drive/1rYwh-U4hz1KVh3vrYzAq20x4IOG__K6g): This is the most powerful TAPIR model that relies on context from both history and future. We mainly report the results of this model in the paper.
+2. [The online TAPIR colab demo](https://colab.sandbox.google.com/drive/1z11ECNRMDNJkEACcDIoVpq7JBWBSqcU8): This is the sequential TAPIR model that allows for online tracking on points, which can be run in realtime on a GPU platform.
+
+## Live Demo
+
+You can run a pretrained causal TAPIR model on a live camera and select points to track:
+
+```bash
+python3 ./tapnet/realtime_demo.py \
+  --checkpoint_path=./tapnet/checkpoints/causal_tapir_checkpoint.npy \
+```
+
+It runs at ~17 fps on 480x480 images on a quadro RTX 4000.
+
+## TAP-Vid: A Benchmark for Tracking Any Point in a Video
 
 Full paper available at [https://arxiv.org/abs/2211.03726](https://arxiv.org/abs/2211.03726)
 
