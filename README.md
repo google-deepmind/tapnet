@@ -1,45 +1,69 @@
-# Table of Contents
+Welcome to the official Google Deepmind repository for Tracking Any Point (TAP), home
+of the TAP-Vid Dataset and our top-performing TAPIR model.
 
-- [TAP-Vid](#TAP-Vid)
-- [TAP-Net](#Installation for TAP-Net training and inference)
-- [TAPIR](#TAPIR)
+[TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query pointon every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
 
-## TAPIR: Tracking Any Point with per-frame Initialization and temporal Refinement
+[TAP-Vid](https://arxiv.org/abs/2211.03726) is a benchmark for models that
+perform this task, with a collection of ground-truth points for both real and
+synthetic videos.
 
-Full paper available at []()
+This repository contains the following:
 
-<p align="center"><img width=50% src="assets/tapir_benchmark.png"></p>
+- [TAPIR Demos](#tapir-demos), both online using Colab and by cloning this
+  repo
+- [TAP-Vid](#tap-vid-benchmark) dataset and evaluation code
+- [Instructions for training](#installation-for-tap-net-training-and-inference) both TAP-Net (the baseline presented in the TAP-Vid paper) and the TAPIR model on Kubric
 
-## Introduction
+## TAPIR Demos
 
-We present a novel model for Tracking Any Point (TAP)that effectively tracks any queried point on any physical surface throughout a video sequence.  Our approach employstwo stages:  (1) a matching stage, which independently locates a suitable candidate point match for the query pointon every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model surpasses all baseline methods by a significant margin on the TAP-Vid benchmark,as demonstrated by an approximate 20% absolute average Jaccard (AJ) improvement on DAVIS. Our model facilitates fast inference on long video sequences, tracking 50 points across 50 256×256 frames in just 0.3 seconds. Visualizations, source code, and pretrained models can be found at [https://deepmind-tapir.github.io](https://deepmind-tapir.github.io).
+The simplest way to run TAPIR is to use our Colab demos online.  You can also
+clone this repo and run TAPIR on your own hardware, including a realtime demo.
 
-## Colab Demo
+### Colab Demo
 
 You can run colab demos to see how TAPIR works. You can also upload your own video and try point tracking with TAPIR.
 We provide two colab demos:
 
-1. [The offline TAPIR colab demo](https://colab.sandbox.google.com/drive/1rYwh-U4hz1KVh3vrYzAq20x4IOG__K6g): This is the most powerful TAPIR model that relies on context from both history and future. We mainly report the results of this model in the paper.
+1. [The standard TAPIR colab demo](https://colab.sandbox.google.com/drive/1rYwh-U4hz1KVh3vrYzAq20x4IOG__K6g): This is the most powerful TAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
 2. [The online TAPIR colab demo](https://colab.sandbox.google.com/drive/1z11ECNRMDNJkEACcDIoVpq7JBWBSqcU8): This is the sequential TAPIR model that allows for online tracking on points, which can be run in realtime on a GPU platform.
 
-## Live Demo
+### Running TAPIR Locally
 
-You can run a pretrained causal TAPIR model on a live camera and select points to track:
+Clone the repository:
+
+```git clone https://github.com/deepmind/tapnet.git```
+
+Add current path (parent directory of where TapNet is installed)
+to ```PYTHONPATH```:
+
+```export PYTHONPATH=`(cd ../ && pwd)`:`pwd`:$PYTHONPATH```
+
+Switch to the project directory:
+
+```cd tapnet```
+
+Install requirements for inference:
+
+```pip install -r requirements_inference.txt```
+
+If you want to use CUDA, make sure you install the drivers and a version
+of JAX that's compatible with your CUDA and CUDNN versions.
+Refer to
+[the jax manual](https://github.com/google/jax#pip-installation-gpu-cuda)
+to install JAX version with CUDA.
+
+You can then run a pretrained causal TAPIR model on a live camera and select points to track:
 
 ```bash
 python3 ./tapnet/realtime_demo.py \
   --checkpoint_path=./tapnet/checkpoints/causal_tapir_checkpoint.npy \
 ```
 
-It runs at ~17 fps on 480x480 images on a quadro RTX 4000.
+In our tests, we achieved ~17 fps on 480x480 images on a quadro RTX 4000.
 
-## TAP-Vid: A Benchmark for Tracking Any Point in a Video
+## TAP-Vid Benchmark
 
-Full paper available at [https://arxiv.org/abs/2211.03726](https://arxiv.org/abs/2211.03726)
-
-## Introduction
-
-TAP-Vid is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans). Here are examples of what is annotated on videos of the DAVIS and Kinetics datasets:
+[TAP-Vid](https://arxiv.org/abs/2211.03726) is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans). Here are examples of what is annotated on videos of the DAVIS and Kinetics datasets:
 
 https://user-images.githubusercontent.com/15641194/202213058-f0ce0b13-27bb-45ee-8b61-1f5f8d26c254.mp4
 
@@ -102,7 +126,7 @@ difference according to our metrics.
 ## Comparison of Tracking With and Without Optical Flow
 When annotating videos, we interpolate between the sparse points that the annotators choose by finding tracks which minimize the discrepancy with the optical flow while still connecting the chosen points. To validate that this is indeed improving results, we annotated several DAVIS videos twice and [compare them side by side](https://storage.googleapis.com/dm-tapnet/content/flow_tracker.html), once using the flow-based interpolation, and again using a naive linear interpolation, which simply moves the point at a constant velocity between points.
 
-## Installation for TAP-Net training and inference
+## TAP-Net and TAPIR training and inference
 
 Install ffmpeg on your machine:
 
@@ -152,13 +176,17 @@ To launch experiment run the command:
 
 ```python ./experiment.py --config ./configs/tapnet_config.py```
 
+or
+
+```python ./experiment.py --config ./configs/tapir_config.py```
+
 ## Evaluation
 
 You can run evaluation for a particular dataset (i.e. tapvid_davis) using the command:
 
 ```bash
 python3 ./tapnet/experiment.py \
-  --config=./tapnet/configs/tapnet_config.py \
+  --config=./tapnet/configs/tapir_config.py \
   --jaxline_mode=eval_davis_points \
   --config.checkpoint_dir=./tapnet/checkpoint/ \
   --config.experiment_kwargs.config.davis_points_path=/path/to/tapvid_davis.pkl
