@@ -149,6 +149,9 @@ def get_frame(video_capture):
     image = image[trunc:-trunc]
   return r_val, image
 
+print("Welcome to the TAPIR live demo.")
+print("Please note that if the framerate is low (<~12 fps), TAPIR performance")
+print("may degrade and you may need a more powerful GPU.")
 
 print("Loading checkpoint...")
 # --------------------
