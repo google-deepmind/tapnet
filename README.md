@@ -24,19 +24,14 @@ clone this repo and run TAPIR on your own hardware, including a realtime demo.
 You can run colab demos to see how TAPIR works. You can also upload your own video and try point tracking with TAPIR.
 We provide two colab demos:
 
-1. [The standard TAPIR colab demo](https://colab.sandbox.google.com/drive/1rYwh-U4hz1KVh3vrYzAq20x4IOG__K6g): This is the most powerful TAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
-2. [The online TAPIR colab demo](https://colab.sandbox.google.com/drive/1z11ECNRMDNJkEACcDIoVpq7JBWBSqcU8): This is the sequential TAPIR model that allows for online tracking on points, which can be run in realtime on a GPU platform.
+1. [The standard TAPIR colab demo](https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb): This is the most powerful TAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
+2. [The online TAPIR colab demo](https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb): This is the sequential TAPIR model that allows for online tracking on points, which can be run in realtime on a GPU platform.
 
 ### Running TAPIR Locally
 
 Clone the repository:
 
 ```git clone https://github.com/deepmind/tapnet.git```
-
-Add current path (parent directory of where TapNet is installed)
-to ```PYTHONPATH```:
-
-```export PYTHONPATH=`(cd ../ && pwd)`:`pwd`:$PYTHONPATH```
 
 Switch to the project directory:
 
@@ -45,6 +40,18 @@ Switch to the project directory:
 Install requirements for inference:
 
 ```pip install -r requirements_inference.txt```
+
+Download the checkpoint
+
+```bash
+mkdir checkpoints
+wget -P checkpoints https://storage.googleapis.com/dm-tapnet/causal_tapir_checkpoint.npy
+```
+
+Add current path (parent directory of where TapNet is installed)
+to ```PYTHONPATH```:
+
+```export PYTHONPATH=`(cd ../ && pwd)`:`pwd`:$PYTHONPATH```
 
 If you want to use CUDA, make sure you install the drivers and a version
 of JAX that's compatible with your CUDA and CUDNN versions.
@@ -55,6 +62,7 @@ to install JAX version with CUDA.
 You can then run a pretrained causal TAPIR model on a live camera and select points to track:
 
 ```bash
+cd ..
 python3 ./tapnet/live_demo.py \
 ```
 
