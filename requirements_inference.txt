@@ -1,5 +1,3 @@
-notebook
-jupyter_http_over_ws
 chex
 jax
 jaxline
@@ -11,5 +9,3 @@ matplotlib
 mediapy
 opencv-python
 einshape
-tensorflow
-tensorflow-datasets
