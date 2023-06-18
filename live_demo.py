@@ -204,20 +204,20 @@ print("Compiling jax functions (this may take a while...)")
 query_points = jnp.zeros([NUM_POINTS, 3], dtype=jnp.float32)
 query_features, _ = online_init_apply(
     frames=preprocess_frames(frame[None, None]),
-    query_points=query_points[None, 0:1],
+    points=query_points[None, 0:1],
 )
 jax.block_until_ready(query_features)
 
 query_features, _ = online_init_apply(
     frames=preprocess_frames(frame[None, None]),
-    query_points=query_points[None],
+    points=query_points[None],
 )
 causal_state = construct_initial_causal_state(
     NUM_POINTS, len(query_features.resolutions) - 1
 )
 (prediction, causal_state), _ = online_predict_apply(
     frames=preprocess_frames(frame[None, None]),
-    query_features=query_features,
+    features=query_features,
     causal_context=causal_state,
 )
 
@@ -253,7 +253,7 @@ while rval:
 
     init_query_features, _ = online_init_apply(
         frames=preprocess_frames(frame[None, None]),
-        query_points=query_points[None, None],
+        points=query_points[None, None],
     )
     init_causal_state = construct_initial_causal_state(
         1, len(query_features.resolutions) - 1
@@ -280,7 +280,7 @@ while rval:
   if pos:
     (prediction, causal_state), _ = online_predict_apply(
         frames=preprocess_frames(frame[None, None]),
-        query_features=query_features,
+        features=query_features,
         causal_context=causal_state,
     )
     track = prediction["tracks"][0, :, 0]
