@@ -12,7 +12,7 @@ This repository contains the following:
 - [TAPIR Demos](#tapir-demos), both online using Colab and by cloning this
   repo
 - [TAP-Vid](#tap-vid-benchmark) dataset and evaluation code
-- [Instructions for training](#installation-for-tap-net-training-and-inference) both TAP-Net (the baseline presented in the TAP-Vid paper) and the TAPIR model on Kubric
+- [Instructions for training](#tap-net-and-tapir-training-and-inference) both TAP-Net (the baseline presented in the TAP-Vid paper) and the TAPIR model on Kubric
 
 ## TAPIR Demos
 
@@ -56,7 +56,7 @@ to ```PYTHONPATH```:
 If you want to use CUDA, make sure you install the drivers and a version
 of JAX that's compatible with your CUDA and CUDNN versions.
 Refer to
-[the jax manual](https://github.com/google/jax#pip-installation-gpu-cuda)
+[the jax manual](https://github.com/google/jax#installation)
 to install JAX version with CUDA.
 
 You can then run a pretrained causal TAPIR model on a live camera and select points to track:
@@ -169,7 +169,7 @@ Install requirements:
 If you want to use CUDA, make sure you install the drivers and a version
 of JAX that's compatible with your CUDA and CUDNN versions.
 Refer to
-[the jax manual](https://github.com/google/jax#pip-installation-gpu-cuda)
+[the jax manual](https://github.com/google/jax#installation)
 to install JAX version with CUDA.
 
 ## Usage
