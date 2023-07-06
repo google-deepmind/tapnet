@@ -1,7 +1,7 @@
 Welcome to the official Google Deepmind repository for Tracking Any Point (TAP), home
 of the TAP-Vid Dataset and our top-performing TAPIR model.
 
-[TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query pointon every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
+[TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query point on every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
 
 [TAP-Vid](https://arxiv.org/abs/2211.03726) is a benchmark for models that
 perform this task, with a collection of ground-truth points for both real and
@@ -57,7 +57,7 @@ If you want to use CUDA, make sure you install the drivers and a version
 of JAX that's compatible with your CUDA and CUDNN versions.
 Refer to
 [the jax manual](https://github.com/google/jax#installation)
-to install JAX version with CUDA.
+to install the correct JAX version with CUDA.
 
 You can then run a pretrained causal TAPIR model on a live camera and select points to track:
 
@@ -76,7 +76,7 @@ https://user-images.githubusercontent.com/15641194/202213058-f0ce0b13-27bb-45ee-
 
 Our full benchmark incorporates 4 datasets: 30 videos from the [DAVIS val set](https://storage.googleapis.com/dm-tapnet/tapvid_davis.zip), 1000 videos from the [Kinetics val set](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip), 50 synthetic [Deepmind Robotics videos](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.zip) for evaluation, and (almost infinite) point track ground truth on the large-scale synthetic [Kubric dataset](https://github.com/google-research/kubric/tree/main/challenges/point_tracking) for training.
 
-For more details of downloading and visualization of the dataset, please see [data section](https://github.com/deepmind/tapnet/tree/main/data).
+For more details of downloading and visualization of the dataset, please see the [data section](https://github.com/deepmind/tapnet/tree/main/data).
 
 We also include a point tracking model TAP-Net, with code to train it on Kubric dataset. TAP-Net outperforms both optical flow and structure-from-motion methods on the TAP-Vid benchmark while achieving state-of-the-art performance on unsupervised human keypoint tracking on JHMDB, even though the model tracks points on clothes and skin rather than the joints as intended by the benchmark.
 
@@ -117,11 +117,11 @@ before computing metrics. Such predictions would, however, be evaluated as a sep
 
 In our storage datasets, (x, y) coordinates are typically in normalized raster
 coordinates: i.e., (0, 0) is the upper-left corner of the upper-left pixel, and
-(1, 1) is the lower-left corner of the lower-right pixel.  Our code, however,
+(1, 1) is the lower-right corner of the lower-right pixel.  Our code, however,
 immediately converts these to regular raster coordinates, matching the output of
 the Kubric reader: (0, 0) is the upper-left corner of the upper-left pixel,
 while (h, w) is the lower-right corner of the lower-right pixel, where h is the
-image height in pixels, and w is the respctive width.
+image height in pixels, and w is the respective width.
 
 When working with 2D coordinates, we typically store them in the order (x, y).
 However, we typically work with 3D coordinates in the order (t, y, x), where
@@ -131,7 +131,9 @@ second frames.  Please take care with this: one pixel error can make a
 difference according to our metrics.
 
 ## Comparison of Tracking With and Without Optical Flow
-When annotating videos, we interpolate between the sparse points that the annotators choose by finding tracks which minimize the discrepancy with the optical flow while still connecting the chosen points. To validate that this is indeed improving results, we annotated several DAVIS videos twice and [compare them side by side](https://storage.googleapis.com/dm-tapnet/content/flow_tracker.html), once using the flow-based interpolation, and again using a naive linear interpolation, which simply moves the point at a constant velocity between points.
+When annotating videos for the TAP-Vid benchmark, we use a track assist algorithm interpolates between the sparse points that the annotators click, since requiring annotators to click every frame is prohibitively expensive.  Specifically, we find tracks which minimize the discrepancy with the optical flow while still connecting the chosen points.  Annotators will then check the interpolations and repeat the annotation until they observe no drift.
+
+To validate that this is a better approach than a simple linear interpolation between clicked points, we annotated several DAVIS videos twice and [compare them side by side](https://storage.googleapis.com/dm-tapnet/content/flow_tracker.html), once using the flow-based interpolation, and again using a naive linear interpolation, which simply moves the point at a constant velocity between points.
 
 ## TAP-Net and TAPIR training and inference
 
@@ -170,7 +172,7 @@ If you want to use CUDA, make sure you install the drivers and a version
 of JAX that's compatible with your CUDA and CUDNN versions.
 Refer to
 [the jax manual](https://github.com/google/jax#installation)
-to install JAX version with CUDA.
+to install the correct JAX version with CUDA.
 
 ## Usage
 
