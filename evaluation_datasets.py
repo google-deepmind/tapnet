@@ -104,21 +104,19 @@ def compute_tapvid_metrics(
 
   metrics = {}
 
-  # Don't evaluate the query point.  Numpy doesn't have one_hot, so we
-  # replicate it by indexing into an identity matrix.
-  one_hot_eye = np.eye(gt_tracks.shape[2])
+  eye = np.eye(gt_tracks.shape[2], dtype=np.int32)
+  if query_mode == 'first':
+    # evaluate frames after the query frame
+    query_frame_to_eval_frames = np.cumsum(eye, axis=1) - eye
+  elif query_mode == 'strided':
+    # evaluate all frames except the query frame
+    query_frame_to_eval_frames = 1 - eye
+  else:
+    raise ValueError('Unknown query mode ' + query_mode)
+
   query_frame = query_points[..., 0]
   query_frame = np.round(query_frame).astype(np.int32)
-  evaluation_points = one_hot_eye[query_frame] == 0
-
-  # If we're using the first point on the track as a query, don't evaluate the
-  # other points.
-  if query_mode == 'first':
-    for i in range(gt_occluded.shape[0]):
-      index = np.where(gt_occluded[i] == 0)[0][0]
-      evaluation_points[i, :index] = False
-  elif query_mode != 'strided':
-    raise ValueError('Unknown query mode ' + query_mode)
+  evaluation_points = query_frame_to_eval_frames[query_frame] > 0
 
   # Occlusion accuracy is simply how often the predicted occlusion equals the
   # ground truth.
