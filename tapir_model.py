@@ -16,7 +16,7 @@
 """TAPIR model definition."""
 
 import functools
-from typing import Any, Dict, List, Mapping, Optional, Tuple, NamedTuple, Sequence
+from typing import Any, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
 import chex
 from einshape import jax_einshape as einshape
@@ -27,8 +27,6 @@ import jax.numpy as jnp
 from tapnet.models import resnet
 from tapnet.utils import model_utils
 from tapnet.utils import transforms
-
-TRAIN_SIZE = (24, 256, 256, 3)  # (num_frames, height, width, channels)
 
 
 def layernorm(x):
@@ -272,6 +270,7 @@ class TAPIR(hk.Module):
       softmax_temperature: float = 20.0,
       use_causal_conv: bool = False,
       parallelize_query_extraction: bool = False,
+      initial_resolution: Tuple[int, int] = (256, 256),
       name: str = 'tapir',
   ):
     super().__init__(name=name)
@@ -344,6 +343,7 @@ class TAPIR(hk.Module):
     self.pyramid_level = pyramid_level
     self.patch_size = patch_size
     self.softmax_temperature = softmax_temperature
+    self.initial_resolution = initial_resolution
 
   def tracks_from_cost_volume(
       self,
@@ -591,10 +591,10 @@ class TAPIR(hk.Module):
 
     if refinement_resolutions is None:
       refinement_resolutions = model_utils.generate_default_resolutions(
-          video.shape[2:4], TRAIN_SIZE[1:3]
+          video.shape[2:4], self.initial_resolution
       )
 
-    all_required_resolutions = [(TRAIN_SIZE[1], TRAIN_SIZE[2])]
+    all_required_resolutions = [self.initial_resolution]
     all_required_resolutions.extend(refinement_resolutions)
 
     feature_grid = []
@@ -820,7 +820,7 @@ class TAPIR(hk.Module):
     def train2orig(x):
       return transforms.convert_grid_coordinates(
           x,
-          TRAIN_SIZE[2:0:-1],
+          self.initial_resolution[::-1],
           video_size[::-1],
           coordinate_format='xy',
       )
@@ -840,7 +840,9 @@ class TAPIR(hk.Module):
 
     infer = functools.partial(
         self.tracks_from_cost_volume,
-        im_shp=feature_grids.lowres[0].shape[0:2] + TRAIN_SIZE[1:],
+        im_shp=feature_grids.lowres[0].shape[0:2]
+        + self.initial_resolution
+        + (3,),
     )
 
     num_queries = query_features.lowres[0].shape[1]
@@ -870,7 +872,7 @@ class TAPIR(hk.Module):
         infer_query_points = transforms.convert_grid_coordinates(
             infer_query_points,
             (num_frames,) + video_size,
-            (num_frames,) + TRAIN_SIZE[1:-1],
+            (num_frames,) + self.initial_resolution,
             coordinate_format='tyx',
         )
       else:
@@ -920,7 +922,7 @@ class TAPIR(hk.Module):
             points,
             occlusion,
             expected_dist,
-            orig_hw=TRAIN_SIZE[1:3],
+            orig_hw=self.initial_resolution,
             last_iter=mixer_feats,
             mixer_iter=i,
             resize_hw=feature_grids.resolutions[feature_level],

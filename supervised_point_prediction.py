@@ -40,9 +40,6 @@ from tapnet.utils import viz_utils
 
 matplotlib.use('Agg')
 
-# (num_frames, height, width)
-TRAIN_SIZE = (24, 256, 256)
-
 
 class SupervisedPointPrediction(task.Task):
   """A task for predicting point tracks and training on ground-truth.
@@ -60,10 +57,12 @@ class SupervisedPointPrediction(task.Task):
       prediction_algo: str = 'cost_volume_regressor',
       softmax_temperature: float = 20.0,
       contrastive_loss_weight: float = 0.05,
-      position_loss_weight: float = 100.0,
+      position_loss_weight: float = 400.0,
       expected_dist_thresh: float = 6.0,
       train_chunk_size: int = 32,
       eval_chunk_size: int = 16,
+      eval_inference_resolution=(256, 256),
+      eval_metrics_resolution=(256, 256),
   ):
     """Constructs a task for supervised learning on Kubric.
 
@@ -88,6 +87,11 @@ class SupervisedPointPrediction(task.Task):
         This saves memory as the cost volumes can be very large.
       eval_chunk_size: Compute predictions on this many queries simultaneously.
         This saves memory as the cost volumes can be very large.
+      eval_inference_resolution: The video resolution during model inference in
+        (height, width). It can be different from the training resolution.
+      eval_metrics_resolution: The video resolution during evaluation metric
+        computation in (height, width). Point tracks will be re-scaled to this
+        resolution.
     """
 
     super().__init__()
@@ -101,6 +105,8 @@ class SupervisedPointPrediction(task.Task):
     self.expected_dist_thresh = expected_dist_thresh
     self.train_chunk_size = train_chunk_size
     self.eval_chunk_size = eval_chunk_size
+    self.eval_inference_resolution = eval_inference_resolution
+    self.eval_metrics_resolution = eval_metrics_resolution
 
   def forward_fn(
       self,
@@ -205,12 +211,12 @@ class SupervisedPointPrediction(task.Task):
     )(params, state, rng, inputs, is_training=is_training)
 
     def tapnet_loss(
-        points, occlusion, target_points, target_occ, expected_dist=None
+        points, occlusion, target_points, target_occ, shape, expected_dist=None
     ):
       loss_huber = model_utils.huber_loss(points, target_points, target_occ)
       # For the original paper, the loss was defined on coordinates in the
       # range [-1, 1], so convert them into that scale.
-      loss_huber = loss_huber * 4.0 / TRAIN_SIZE[1] / TRAIN_SIZE[2]
+      loss_huber = loss_huber / shape[1] / shape[2]
       loss_huber = jnp.mean(loss_huber) * self.position_loss_weight
 
       if expected_dist is None:
@@ -238,6 +244,7 @@ class SupervisedPointPrediction(task.Task):
           output['occlusion'],
           inputs[input_key]['target_points'],
           inputs[input_key]['occluded'],
+          inputs[input_key]['video'].shape,  # pytype: disable=attribute-error  # numpy-scalars
           output['expected_dist'] if 'expected_dist' in output else None,
       )
       loss = loss_huber + loss_occ + loss_prob
@@ -253,6 +260,7 @@ class SupervisedPointPrediction(task.Task):
               output['unrefined_occlusion'][l],
               inputs[input_key]['target_points'],
               inputs[input_key]['occluded'],
+              inputs[input_key]['video'].shape,  # pytype: disable=attribute-error  # numpy-scalars
               output['unrefined_expected_dist'][l]
               if 'unrefined_expected_dist' in output
               else None,
@@ -506,9 +514,6 @@ class SupervisedPointPrediction(task.Task):
         # For each query point, extract the features for the frame which
         # contains the query.
         # query_frame is [batch_size, num_queries]
-        position_in_grid = jnp.concatenate(
-            [frame_id, tracks[..., ::-1]], axis=-1
-        )
         query_frame = transforms.convert_grid_coordinates(
             inputs[input_key]['query_points'][
                 :, qchunk : qchunk + self.eval_chunk_size, ...
@@ -617,7 +622,7 @@ class SupervisedPointPrediction(task.Task):
 
     tracks = outputs['tracks']
     loss_huber = model_utils.huber_loss(tracks, gt_target_points, gt_occluded)
-    loss_huber = loss_huber * 4.0 / np.prod(TRAIN_SIZE[1:3])
+    loss_huber = loss_huber / np.prod(inputs[input_key]['video'].shape[1:3])
     loss_scalars['position_loss'] = loss_huber
 
     occlusion_logits = outputs['occlusion']
@@ -626,6 +631,27 @@ class SupervisedPointPrediction(task.Task):
       expected_dist = outputs['expected_dist']
       pred_occ = 1 - (1 - pred_occ) * (1 - jax.nn.sigmoid(expected_dist))
     pred_occ = pred_occ > 0.5  # threshold
+
+    if self.eval_inference_resolution != self.eval_metrics_resolution:
+      # Resize prediction and groundtruth to standard evaluation resolution
+      query_points = transforms.convert_grid_coordinates(
+          query_points,
+          input[input_key]['video'].shape[1:3],  # pytype: disable=unsupported-operands
+          self.eval_metrics_resolution,
+          coordinate_format='tyx',
+      )
+      gt_target_points = transforms.convert_grid_coordinates(
+          gt_target_points,
+          input[input_key]['video'].shape[1:3],  # pytype: disable=unsupported-operands
+          self.eval_metrics_resolution,
+          coordinate_format='xy',
+      )
+      tracks = transforms.convert_grid_coordinates(
+          tracks,
+          input[input_key]['video'].shape[1:3],  # pytype: disable=unsupported-operands
+          self.eval_metrics_resolution,
+          coordinate_format='xy',
+      )
 
     query_mode = 'first' if 'q_first' in mode else 'strided'
     metrics = evaluation_datasets.compute_tapvid_metrics(
@@ -667,24 +693,34 @@ class SupervisedPointPrediction(task.Task):
     """
     query_mode = 'first' if 'q_first' in mode else 'strided'
     if 'eval_kubric_train' in mode:
-      yield from evaluation_datasets.create_kubric_eval_train_dataset(mode)
+      yield from evaluation_datasets.create_kubric_eval_train_dataset(
+          mode, train_size=self.config.datasets.kubric_kwargs.train_size
+      )
     elif 'eval_kubric' in mode:
-      yield from evaluation_datasets.create_kubric_eval_dataset(mode)
+      yield from evaluation_datasets.create_kubric_eval_dataset(
+          mode, train_size=self.config.datasets.kubric_kwargs.train_size
+      )
     elif 'eval_davis_points' in mode:
       yield from evaluation_datasets.create_davis_dataset(
-          self.config.davis_points_path, query_mode=query_mode
+          self.config.davis_points_path,
+          query_mode=query_mode,
+          resolution=self.eval_inference_resolution,
       )
     elif 'eval_jhmdb' in mode:
       yield from evaluation_datasets.create_jhmdb_dataset(
-          self.config.jhmdb_path
+          self.config.jhmdb_path, resolution=self.eval_inference_resolution
       )
     elif 'eval_robotics_points' in mode:
       yield from evaluation_datasets.create_rgb_stacking_dataset(
-          self.config.robotics_points_path, query_mode=query_mode
+          self.config.robotics_points_path,
+          query_mode=query_mode,
+          resolution=self.eval_inference_resolution,
       )
     elif 'eval_kinetics_points' in mode:
       yield from evaluation_datasets.create_kinetics_dataset(
-          self.config.kinetics_points_path, query_mode=query_mode
+          self.config.kinetics_points_path,
+          query_mode=query_mode,
+          resolution=self.eval_inference_resolution,
       )
     else:
       raise ValueError(f'Unrecognized eval mode {mode}')
@@ -815,14 +851,14 @@ class SupervisedPointPrediction(task.Task):
     except FileExistsError:
       print(f'Path {outdir} exists. Skip creating a new dir.')
 
-    if 'eval_jhmdb' in mode:
-      input_key = 'jhmdb'
+    if 'eval_kinetics' in mode:
+      input_key = 'kinetics'
     elif 'eval_davis_points' in mode:
       input_key = 'davis'
+    elif 'eval_jhmdb' in mode:
+      input_key = 'jhmdb'
     elif 'eval_robotics_points' in mode:
       input_key = 'robotics'
-    elif 'eval_kinetics_points' in mode:
-      input_key = 'kinetics'
     else:
       input_key = 'kubric'
     eval_batch_fn = functools.partial(
@@ -847,7 +883,10 @@ class SupervisedPointPrediction(task.Task):
         )
         pix_pts = transforms.convert_grid_coordinates(
             pix_pts,
-            (TRAIN_SIZE[2], TRAIN_SIZE[1]),
+            (
+                self.eval_inference_resolution[1],
+                self.eval_inference_resolution[0],
+            ),
             grid_size,
         )
         mean_scalars = self._eval_jhmdb(

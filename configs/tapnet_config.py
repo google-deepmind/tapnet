@@ -17,8 +17,6 @@
 from jaxline import base_config
 from ml_collections import config_dict
 
-from tapnet import tapnet_model
-
 
 # We define the experiment launch config in the same file as the experiment to
 # keep things self-contained in a single file.
@@ -81,7 +79,7 @@ def get_config() -> config_dict.ConfigDict:
                   kubric_kwargs=dict(
                       batch_dims=8,
                       shuffle_buffer_size=128,
-                      train_size=tapnet_model.TRAIN_SIZE[1:3],
+                      train_size=(256, 256),
                   ),
               ),
               supervised_point_prediction_kwargs=dict(

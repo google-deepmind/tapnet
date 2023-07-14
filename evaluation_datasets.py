@@ -22,7 +22,7 @@ import os
 from os import path
 import pickle
 import random
-from typing import Iterable, Mapping, Tuple, Union
+from typing import Iterable, Mapping, Optional, Tuple, Union
 
 from absl import logging
 
@@ -38,14 +38,12 @@ from tapnet.utils import transforms
 
 DatasetElement = Mapping[str, Mapping[str, Union[np.ndarray, str]]]
 
-TRAIN_SIZE = (24, 256, 256, 3)
-
 
 def resize_video(video: np.ndarray, output_size: Tuple[int, int]) -> np.ndarray:
   """Resize a video to output_size."""
   # If you have a GPU, consider replacing this with a GPU-enabled resize op,
   # such as a jitted jax.image.resize.  It will make things faster.
-  return media.resize_video(video, TRAIN_SIZE[1:3])
+  return media.resize_video(video, output_size[1:3])
 
 
 def compute_tapvid_metrics(
@@ -329,9 +327,10 @@ def sample_queries_first(
   }
 
 
-def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
+def create_jhmdb_dataset(
+    jhmdb_path: str, resolution: Optional[Tuple[int, int]] = (256, 256)
+) -> Iterable[DatasetElement]:
   """JHMDB dataset, including fields required for PCK evaluation."""
-  gt_dir = jhmdb_path
   videos = []
   for file in tf.io.gfile.listdir(path.join(gt_dir, 'splits')):
     # JHMDB file containing the first split, which is standard for this type of
@@ -393,21 +392,22 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
     invalid = invalid[:, :, np.newaxis].astype(np.float32)
     gt_pose_orig = gt_pose
 
-    gt_pose = transforms.convert_grid_coordinates(
-        gt_pose,
-        np.array([width, height]),
-        np.array(TRAIN_SIZE[2:0:-1]),
-    )
-    # Set invalid poses to -1 (outside the frame)
-    gt_pose = (1.0 - invalid) * gt_pose + invalid * (-1.0)
-
-    frames = resize_video(frames, TRAIN_SIZE[1:3])
+    if resolution is not None and resolution != frames.shape[1:3]:
+      frames = resize_video(frames, resolution)
     frames = frames / (255.0 / 2.0) - 1.0
     queries = gt_pose[:, 0]
     queries = np.concatenate(
         [queries[..., 0:1] * 0, queries[..., ::-1]],
         axis=-1,
     )
+    gt_pose = transforms.convert_grid_coordinates(
+        gt_pose,
+        np.array([width, height]),
+        np.array([frames.shape[2], frames.shape[1]]),
+    )
+    # Set invalid poses to -1 (outside the frame)
+    gt_pose = (1.0 - invalid) * gt_pose + invalid * (-1.0)
+
     if gt_pose.shape[1] < frames.shape[0]:
       # Some videos have pose sequences that are shorter than the frame
       # sequence (usually because the person disappears).  In this case,
@@ -430,12 +430,13 @@ def create_jhmdb_dataset(jhmdb_path: str) -> Iterable[DatasetElement]:
 
 def create_kubric_eval_train_dataset(
     mode: str,
+    train_size: Tuple[int, int] = (256, 256),
     max_dataset_size: int = 100,
 ) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on Kubric training data."""
   res = dataset.create_point_tracking_dataset(
       split='train',
-      train_size=TRAIN_SIZE[1:3],
+      train_size=train_size,
       batch_dims=[1],
       shuffle_buffer_size=None,
       repeat=False,
@@ -444,7 +445,6 @@ def create_kubric_eval_train_dataset(
   )
 
   num_returned = 0
-
   for data in res[0]():
     if num_returned >= max_dataset_size:
       break
@@ -452,10 +452,13 @@ def create_kubric_eval_train_dataset(
     yield {'kubric': data}
 
 
-def create_kubric_eval_dataset(mode: str) -> Iterable[DatasetElement]:
+def create_kubric_eval_dataset(
+    mode: str, train_size: Tuple[int, int] = (256, 256)
+) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on Kubric val data."""
   res = dataset.create_point_tracking_dataset(
       split='validation',
+      train_size=train_size,
       batch_dims=[1],
       shuffle_buffer_size=None,
       repeat=False,
@@ -469,7 +472,10 @@ def create_kubric_eval_dataset(mode: str) -> Iterable[DatasetElement]:
 
 
 def create_davis_dataset(
-    davis_points_path: str, query_mode: str = 'strided', full_resolution=False
+    davis_points_path: str,
+    query_mode: str = 'strided',
+    full_resolution=False,
+    resolution: Optional[Tuple[int, int]] = (256, 256),
 ) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on DAVIS data."""
   pickle_path = davis_points_path
@@ -492,16 +498,13 @@ def create_davis_dataset(
     else:
       video_name = tmp
       frames = davis_points_dataset[video_name]['video']
-      frames = resize_video(frames, TRAIN_SIZE[1:3])
+      if resolution is not None and resolution != frames.shape[1:3]:
+        frames = resize_video(frames, resolution)
 
     frames = frames.astype(np.float32) / 255.0 * 2.0 - 1.0
     target_points = davis_points_dataset[video_name]['points']
     target_occ = davis_points_dataset[video_name]['occluded']
-    target_points = transforms.convert_grid_coordinates(
-        target_points,
-        np.array([1.0, 1.0]),
-        np.array([frames.shape[-2], frames.shape[-3]]),
-    )
+    target_points = target_points * np.array([frames.shape[2], frames.shape[1]])
 
     if query_mode == 'strided':
       converted = sample_queries_strided(target_occ, target_points, frames)
@@ -514,7 +517,9 @@ def create_davis_dataset(
 
 
 def create_rgb_stacking_dataset(
-    robotics_points_path: str, query_mode: str = 'strided'
+    robotics_points_path: str,
+    query_mode: str = 'strided',
+    resolution: Optional[Tuple[int, int]] = (256, 256),
 ) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on robotics data."""
   pickle_path = robotics_points_path
@@ -524,10 +529,12 @@ def create_rgb_stacking_dataset(
 
   for example in robotics_points_dataset:
     frames = example['video']
+    if resolution is not None and resolution != frames.shape[1:3]:
+      frames = resize_video(frames, resolution)
     frames = frames.astype(np.float32) / 255.0 * 2.0 - 1.0
     target_points = example['points']
     target_occ = example['occluded']
-    target_points *= np.array([TRAIN_SIZE[2], TRAIN_SIZE[1]])
+    target_points = target_points * np.array([frames.shape[2], frames.shape[1]])
 
     if query_mode == 'strided':
       converted = sample_queries_strided(target_occ, target_points, frames)
@@ -540,7 +547,8 @@ def create_rgb_stacking_dataset(
 
 
 def create_kinetics_dataset(
-    kinetics_path: str, query_mode: str = 'strided'
+    kinetics_path: str, query_mode: str = 'strided',
+    resolution: Optional[Tuple[int, int]] = (256, 256),
 ) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on Kinetics point tracking."""
 
@@ -566,13 +574,13 @@ def create_kinetics_dataset(
 
         frames = np.array([decode(frame) for frame in frames])
 
-      if frames.shape[1] > TRAIN_SIZE[1] or frames.shape[2] > TRAIN_SIZE[2]:
-        frames = resize_video(frames, TRAIN_SIZE[1:3])
+      if resolution is not None and resolution != frames.shape[1:3]:
+        frames = resize_video(frames, resolution)
 
       frames = frames.astype(np.float32) / 255.0 * 2.0 - 1.0
       target_points = example['points']
       target_occ = example['occluded']
-      target_points *= np.array([TRAIN_SIZE[2], TRAIN_SIZE[1]])
+      target_points *= np.array([frames.shape[2], frames.shape[1]])
 
       if query_mode == 'strided':
         converted = sample_queries_strided(target_occ, target_points, frames)

@@ -28,8 +28,6 @@ from tapnet.models import tsm_resnet
 from tapnet.utils import model_utils
 from tapnet.utils import transforms
 
-TRAIN_SIZE = (24, 256, 256, 3)  # (num_frames, height, width, channels)
-
 
 def create_batch_norm(
     x: chex.Array, is_training: bool, cross_replica_axis: Optional[str]
@@ -51,6 +49,7 @@ class TAPNet(hk.Module):
       feature_grid_stride: int = 8,
       num_heads: int = 1,
       cross_replica_axis: Optional[str] = 'i',
+      num_frames: int = 24,
   ):
     """Initialize the model and provide kwargs for the various components.
 
@@ -59,6 +58,7 @@ class TAPNet(hk.Module):
         supported values are 8 (default), 16, and 32.
       num_heads: Number of heads in the cost volume.
       cross_replica_axis: Which cross replica axis to use for the batch norm.
+      num_frames: Number of frames passed into TSM-ResNet.
     """
 
     super().__init__()
@@ -69,10 +69,10 @@ class TAPNet(hk.Module):
 
     self.tsm_resnet = tsm_resnet.TSMResNetV2(
         normalize_fn=functools.partial(
-            create_batch_norm,
-            cross_replica_axis=cross_replica_axis),
-        num_frames=TRAIN_SIZE[0],
-        channel_shift_fraction=[0.125, 0.125, 0., 0.],
+            create_batch_norm, cross_replica_axis=cross_replica_axis
+        ),
+        num_frames=num_frames,
+        channel_shift_fraction=[0.125, 0.125, 0.0, 0.0],
         name='tsm_resnet_video',
     )
 

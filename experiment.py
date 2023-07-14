@@ -91,13 +91,13 @@ class Experiment(experiment.AbstractExperiment):
     and 'kubric'.
 
     Args:
-      mode: either 'train' (for training) or one of the recognized eval
-        modes (see Experiment.evaluate).
+      mode: either 'train' (for training) or one of the recognized eval modes
+        (see Experiment.evaluate).
       init_rng: jax.random.PRNGKey for random number generation.
       config: config options.  See configs/tapnet_config.py for an example.
     """
 
-    super(Experiment, self).__init__(mode=mode, init_rng=init_rng)
+    super().__init__(mode=mode, init_rng=init_rng)
 
     self.mode = mode
     self.init_rng = init_rng
@@ -179,15 +179,14 @@ class Experiment(experiment.AbstractExperiment):
 
     inputs = next(self._train_input)
 
-    self._params, self._state, self._opt_state, scalars = (
-        self._update_func(
-            self._params,
-            self._state,
-            self._opt_state,
-            inputs,
-            rng,
-            global_step,
-        ))
+    self._params, self._state, self._opt_state, scalars = self._update_func(
+        self._params,
+        self._state,
+        self._opt_state,
+        inputs,
+        rng,
+        global_step,
+    )
 
     scalars = utils.get_first(scalars)
 
