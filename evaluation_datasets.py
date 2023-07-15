@@ -443,9 +443,10 @@ def create_kubric_eval_train_dataset(
       vflip='vflip' in mode,
       random_crop=False,
   )
+  np_ds = tfds.as_numpy(res)
 
   num_returned = 0
-  for data in res[0]():
+  for data in np_ds:
     if num_returned >= max_dataset_size:
       break
     num_returned += 1
