@@ -113,7 +113,9 @@ def load_checkpoint(checkpoint_path):
 
 
 def build_online_model_init(frames, points):
-  model = tapir_model.TAPIR(use_causal_conv=True)
+  model = tapir_model.TAPIR(
+      use_causal_conv=True, bilinear_interp_with_depthwise_conv=False
+  )
   feature_grids = model.get_feature_grids(frames, is_training=False)
   features = model.get_query_features(
       frames,
@@ -126,7 +128,9 @@ def build_online_model_init(frames, points):
 
 def build_online_model_predict(frames, features, causal_context):
   """Compute point tracks and occlusions given frames and query points."""
-  model = tapir_model.TAPIR(use_causal_conv=True)
+  model = tapir_model.TAPIR(
+      use_causal_conv=True, bilinear_interp_with_depthwise_conv=False
+  )
   feature_grids = model.get_feature_grids(frames, is_training=False)
   trajectories = model.estimate_trajectories(
       frames.shape[-3:-1],
