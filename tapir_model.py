@@ -155,9 +155,9 @@ class PIPSMLPMixer(hk.Module):
 
 def construct_patch_kernel(pos, grid_size, patch_size=7):
   """A conv kernel that performs bilinear interpolation for a point."""
-  # pos is n-by-2, [x,y]
+  # pos is n-by-2, [y,x]
   # grid_size is [heigh,width]
-  # result is [1,n,kernel_width,kernel_height]
+  # result is [1,n,kernel_height,kernel_width]
   pos = pos + (patch_size) / 2 - 1
 
   def gen_bump(pos, num):
@@ -168,19 +168,19 @@ def construct_patch_kernel(pos, grid_size, patch_size=7):
         0, 1 - jnp.abs(res[jnp.newaxis, :] - pos[:, jnp.newaxis])
     )
 
-  x_bump = gen_bump(pos[:, 0], grid_size[1] - patch_size + 1)
-  y_bump = gen_bump(pos[:, 1], grid_size[0] - patch_size + 1)
-  # because it's a conv we need to reverse the spatial axis
+  x_bump = gen_bump(pos[:, 1], grid_size[1] - patch_size + 1)
+  y_bump = gen_bump(pos[:, 0], grid_size[0] - patch_size + 1)
+
   kernel = (
-      x_bump[:, jnp.newaxis, :, jnp.newaxis]
-      * y_bump[:, jnp.newaxis, jnp.newaxis, :]
+      x_bump[:, jnp.newaxis, jnp.newaxis, :]
+      * y_bump[:, jnp.newaxis, :, jnp.newaxis]
   )
   return kernel
 
 
 def extract_patch_depthwise_conv(pos, corrs, patch_size=7):
   """Use a depthwise conv to extract a patch via bilinear interpolation."""
-  # pos is n-by-2, [x,y], raster coordinates
+  # pos is n-by-2, [y,x], raster coordinates
   # arr is [num_points, height, width]
   # result is [num_points, height, width]
   # add an extra batch axis because conv needs it
