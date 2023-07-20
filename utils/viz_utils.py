@@ -26,7 +26,7 @@ import numpy as np
 
 
 # Generate random colormaps for visualizing different points.
-def _get_colors(num_colors: int) -> List[Tuple[int, int, int]]:
+def get_colors(num_colors: int) -> List[Tuple[int, int, int]]:
   """Gets colormap for points."""
   colors = []
   for i in np.arange(0.0, 360.0, 360.0 / num_colors):
@@ -45,6 +45,7 @@ def paint_point_track(
     frames: np.ndarray,
     point_tracks: np.ndarray,
     visibles: np.ndarray,
+    colormap: Optional[List[Tuple[int, int, int]]] = None,
 ) -> np.ndarray:
   """Converts a sequence of points to color code video.
 
@@ -52,12 +53,14 @@ def paint_point_track(
     frames: [num_frames, height, width, 3], np.uint8, [0, 255]
     point_tracks: [num_points, num_frames, 2], np.float32, [0, width / height]
     visibles: [num_points, num_frames], bool
+    colormap: colormap for points, each point has a different RGB color.
 
   Returns:
     video: [num_frames, height, width, 3], np.uint8, [0, 255]
   """
   num_points, num_frames = point_tracks.shape[0:2]
-  colormap = _get_colors(num_colors=num_points)
+  if colormap is None:
+    colormap = get_colors(num_colors=num_points)
   height, width = frames.shape[1:3]
   dot_size_as_fraction_of_min_edge = 0.015
   radius = int(round(min(height, width) * dot_size_as_fraction_of_min_edge))
