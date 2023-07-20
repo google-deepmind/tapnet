@@ -9,3 +9,5 @@ matplotlib
 mediapy
 opencv-python
 einshape
+ipympl
+tqdm
