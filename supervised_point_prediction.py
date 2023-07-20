@@ -70,7 +70,7 @@ class SupervisedPointPrediction(task.Task):
       config: a ConfigDict for configuring this experiment, notably including
         the paths for checkpoints and datasets.
       input_key: The forward pass takes an input dict.  Inference or learning
-        will be performed on input[input_key]['video']
+        will be performed on inputs[input_key]['video']
       model_key: The model to use from shared_modules
       prediction_algo: specifies the network architecture to use to make
         predictions.  Can be 'cost_volume_regressor' for the algorithm presented
@@ -636,19 +636,19 @@ class SupervisedPointPrediction(task.Task):
       # Resize prediction and groundtruth to standard evaluation resolution
       query_points = transforms.convert_grid_coordinates(
           query_points,
-          input[input_key]['video'].shape[1:3],  # pytype: disable=unsupported-operands
+          inputs[input_key]['video'].shape[1:3],
           self.eval_metrics_resolution,
           coordinate_format='tyx',
       )
       gt_target_points = transforms.convert_grid_coordinates(
           gt_target_points,
-          input[input_key]['video'].shape[1:3],  # pytype: disable=unsupported-operands
+          inputs[input_key]['video'].shape[1:3],
           self.eval_metrics_resolution,
           coordinate_format='xy',
       )
       tracks = transforms.convert_grid_coordinates(
           tracks,
-          input[input_key]['video'].shape[1:3],  # pytype: disable=unsupported-operands
+          inputs[input_key]['video'].shape[1:3],
           self.eval_metrics_resolution,
           coordinate_format='xy',
       )
