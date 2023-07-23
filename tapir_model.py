@@ -343,7 +343,7 @@ class TAPIR(hk.Module):
     self.pyramid_level = pyramid_level
     self.patch_size = patch_size
     self.softmax_temperature = softmax_temperature
-    self.initial_resolution = initial_resolution
+    self.initial_resolution = tuple(initial_resolution)
 
   def tracks_from_cost_volume(
       self,
