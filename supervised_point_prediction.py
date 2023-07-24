@@ -636,19 +636,19 @@ class SupervisedPointPrediction(task.Task):
       # Resize prediction and groundtruth to standard evaluation resolution
       query_points = transforms.convert_grid_coordinates(
           query_points,
-          (1,) + inputs[input_key]['video'].shape[1:3],  # (1, height, width)
+          (1,) + inputs[input_key]['video'].shape[2:4],  # (1, height, width)
           (1,) + self.eval_metrics_resolution,  # (1, height, width)
           coordinate_format='tyx',
       )
       gt_target_points = transforms.convert_grid_coordinates(
           gt_target_points,
-          inputs[input_key]['video'].shape[2:0:-1],  # (width, height)
+          inputs[input_key]['video'].shape[3:1:-1],  # (width, height)
           self.eval_metrics_resolution[::-1],  # (width, height)
           coordinate_format='xy',
       )
       tracks = transforms.convert_grid_coordinates(
           tracks,
-          inputs[input_key]['video'].shape[2:0:-1],  # (width, height)
+          inputs[input_key]['video'].shape[3:1:-1],  # (width, height)
           self.eval_metrics_resolution[::-1],  # (width, height)
           coordinate_format='xy',
       )
