@@ -41,7 +41,7 @@ def _weight_decay_exclude(
   if exclude_names is None:
     exclude_names = ["b"]
 
-  def include(module_name: Text, name: Text, value: jnp.array):
+  def include(module_name: Text, name: Text, value: jnp.ndarray):
     del value
     # Do not weight decay the parameters of normalization blocks.
     if any([norm_name in module_name for norm_name in NORM_NAMES]):
