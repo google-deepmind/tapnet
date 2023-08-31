@@ -137,23 +137,6 @@ def plot_tracks_v2(
       np.arange(points.shape[0]) if trackgroup is None else np.array(trackgroup)
   )
 
-  # only select the first per trackgroup
-  used = set()
-  valid = []
-  for x in z_list:
-    if x not in used:
-      valid.append(True)
-      used.add(x)
-    else:
-      valid.append(False)
-  valid = np.array(valid)
-  points = points[valid]
-  occluded = occluded[valid]
-  if gt_points is not None:
-    gt_points = gt_points[valid]
-    gt_occluded = gt_occluded[valid]
-  z_list = z_list[valid]
-
   # random permutation of the colors so nearby points in the list can get
   # different colors
   z_list = np.random.permutation(np.max(z_list) + 1)[z_list]
