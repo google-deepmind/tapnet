@@ -722,6 +722,22 @@ class SupervisedPointPrediction(task.Task):
           query_mode=query_mode,
           resolution=self.eval_inference_resolution,
       )
+    elif 'eval_robotap' in mode:
+      yield from evaluation_datasets.create_csv_dataset(
+          dataset_name='robotap',
+          csv_path=self.config.robotap_csv_path,
+          video_base_path=self.config.robotap_video_path,
+          query_mode=query_mode,
+          resolution=self.eval_inference_resolution,
+      )
+    elif 'eval_perception_test' in mode:
+      yield from evaluation_datasets.create_csv_dataset(
+          dataset_name='perception_test',
+          csv_path=self.config.perception_test_csv_path,
+          video_base_path=self.config.perception_test_video_path,
+          query_mode=query_mode,
+          resolution=self.eval_inference_resolution,
+      )
     else:
       raise ValueError(f'Unrecognized eval mode {mode}')
 
@@ -859,6 +875,10 @@ class SupervisedPointPrediction(task.Task):
       input_key = 'jhmdb'
     elif 'eval_robotics_points' in mode:
       input_key = 'robotics'
+    elif 'eval_robotap' in mode:
+      input_key = 'robotap'
+    elif 'eval_perception_test' in mode:
+      input_key = 'perception_test'
     else:
       input_key = 'kubric'
     eval_batch_fn = functools.partial(

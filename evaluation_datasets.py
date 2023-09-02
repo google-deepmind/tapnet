@@ -591,3 +591,78 @@ def create_kinetics_dataset(
         raise ValueError(f'Unknown query mode {query_mode}.')
 
       yield {'kinetics': converted}
+
+
+def create_csv_dataset(
+    dataset_name: str,
+    csv_path: str,
+    video_base_path: str,
+    query_mode: str = 'strided',
+    resolution: Optional[Tuple[int, int]] = (256, 256),
+    max_video_frames: Optional[int] = 1000,
+) -> Iterable[DatasetElement]:
+  """Create an evaluation iterator out of human annotations and videos.
+
+  Args:
+    dataset_name: Name to the dataset.
+    csv_path: Path to annotations csv.
+    video_base_path: Path to annotated videos.
+    query_mode: sample query points from first frame or strided.
+    resolution: The video resolution in (height, width).
+    max_video_frames: Max length of annotated video.
+
+  Yields:
+    Samples for evaluation.
+  """
+  point_tracks_all = dict()
+  with tf.io.gfile.GFile(csv_path, 'r') as f:
+    reader = csv.reader(f, delimiter=',')
+    for row in reader:
+      video_id = row[0]
+      point_tracks = np.array(row[1:]).reshape(-1, 3)
+      if video_id in point_tracks_all:
+        point_tracks_all[video_id].append(point_tracks)
+      else:
+        point_tracks_all[video_id] = [point_tracks]
+
+  for video_id in point_tracks_all:
+    if video_id.endswith('.mp4'):
+      video_path = path.join(video_base_path, video_id)
+    else:
+      video_path = path.join(video_base_path, video_id + '.mp4')
+    frames = media.read_video(video_path)
+    if resolution is not None and resolution != frames.shape[1:3]:
+      frames = media.resize_video(frames, resolution)
+    frames = frames.astype(np.float32) / 255.0 * 2.0 - 1.0
+
+    point_tracks = np.stack(point_tracks_all[video_id], axis=0)
+    point_tracks = point_tracks.astype(np.float32)
+    if frames.shape[0] < point_tracks.shape[1]:
+      logging.info('Warning: short video!')
+      point_tracks = point_tracks[:, : frames.shape[0]]
+    point_tracks, occluded = point_tracks[..., 0:2], point_tracks[..., 2]
+    occluded = occluded > 0
+    target_points = point_tracks * np.array([frames.shape[2], frames.shape[1]])
+
+    num_splits = int(np.ceil(frames.shape[0] / max_video_frames))
+    if num_splits > 1:
+      print(f'Going to split the video {video_id} into {num_splits}')
+    for i in range(num_splits):
+      start_index = i * frames.shape[0] // num_splits
+      end_index = (i + 1) * frames.shape[0] // num_splits
+      sub_occluded = occluded[:, start_index:end_index]
+      sub_target_points = target_points[:, start_index:end_index]
+      sub_frames = frames[start_index:end_index]
+
+      if query_mode == 'strided':
+        converted = sample_queries_strided(
+            sub_occluded, sub_target_points, sub_frames
+        )
+      elif query_mode == 'first':
+        converted = sample_queries_first(
+            sub_occluded, sub_target_points, sub_frames
+        )
+      else:
+        raise ValueError(f'Unknown query mode {query_mode}.')
+
+      yield {dataset_name: converted}
