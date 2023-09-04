@@ -57,7 +57,7 @@ class SupervisedPointPrediction(task.Task):
       prediction_algo: str = 'cost_volume_regressor',
       softmax_temperature: float = 20.0,
       contrastive_loss_weight: float = 0.05,
-      position_loss_weight: float = 400.0,
+      position_loss_weight: float = 0.05,
       expected_dist_thresh: float = 6.0,
       train_chunk_size: int = 32,
       eval_chunk_size: int = 16,
@@ -213,10 +213,14 @@ class SupervisedPointPrediction(task.Task):
     def tapnet_loss(
         points, occlusion, target_points, target_occ, shape, expected_dist=None
     ):
+      # Huber loss is by default measured under 256x256 resolution
+      points = transforms.convert_grid_coordinates(
+          points, shape[3:1:-1], (256, 256), coordinate_format='xy'
+      )
+      target_points = transforms.convert_grid_coordinates(
+          target_points, shape[3:1:-1], (256, 256), coordinate_format='xy'
+      )
       loss_huber = model_utils.huber_loss(points, target_points, target_occ)
-      # For the original paper, the loss was defined on coordinates in the
-      # range [-1, 1], so convert them into that scale.
-      loss_huber = loss_huber / shape[1] / shape[2]
       loss_huber = jnp.mean(loss_huber) * self.position_loss_weight
 
       if expected_dist is None:
@@ -621,8 +625,15 @@ class SupervisedPointPrediction(task.Task):
     query_points = inputs[input_key]['query_points']
 
     tracks = outputs['tracks']
-    loss_huber = model_utils.huber_loss(tracks, gt_target_points, gt_occluded)
-    loss_huber = loss_huber / np.prod(inputs[input_key]['video'].shape[1:3])
+    # Huber loss is by default measured under 256x256 resolution
+    shape = inputs[input_key]['video'].shape
+    target_points = transforms.convert_grid_coordinates(
+        gt_target_points, shape[3:1:-1], (256, 256), coordinate_format='xy'
+    )
+    points = transforms.convert_grid_coordinates(
+        tracks, shape[3:1:-1], (256, 256), coordinate_format='xy'
+    )
+    loss_huber = model_utils.huber_loss(points, target_points, gt_occluded)
     loss_scalars['position_loss'] = loss_huber
 
     occlusion_logits = outputs['occlusion']
