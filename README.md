@@ -1,17 +1,19 @@
 Welcome to the official Google Deepmind repository for Tracking Any Point (TAP), home
-of the TAP-Vid Dataset and our top-performing TAPIR model.
+of the TAP-Vid Dataset, our top-performing TAPIR model, and our RoboTAP extension.
 
-[TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query point on every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
-
-[TAP-Vid](https://arxiv.org/abs/2211.03726) is a benchmark for models that
+[TAP-Vid](https://tapvid.github.io) is a benchmark for models that
 perform this task, with a collection of ground-truth points for both real and
 synthetic videos.
 
+[TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query point on every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
+
+[RoboTAP](https://robotap.github.io) is a system which utilizes TAPIR point tracks to execute robotics manipulation tasks through efficient immitation in the real world. It also includes a dataset with ground-truth points annotated on real robotics manipulation videos.
+
 This repository contains the following:
 
-- [TAPIR Demos](#tapir-demos), both online using Colab and by cloning this
-  repo
+- [TAPIR Demos](#tapir-demos), both online using Colab and by cloning this repo
 - [TAP-Vid](#tap-vid-benchmark) dataset and evaluation code
+- [RoboTAP](#robotap) dataset and point track based clustering code
 - [Instructions for training](#tap-net-and-tapir-training-and-inference) both TAP-Net (the baseline presented in the TAP-Vid paper) and the TAPIR model on Kubric
 
 ## TAPIR Demos
@@ -70,7 +72,7 @@ In our tests, we achieved ~17 fps on 480x480 images on a quadro RTX 4000.
 
 ## TAP-Vid Benchmark
 
-[TAP-Vid](https://arxiv.org/abs/2211.03726) is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans). Here are examples of what is annotated on videos of the DAVIS and Kinetics datasets:
+[TAP-Vid](https://tapvid.github.io) is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans). Here are examples of what is annotated on videos of the DAVIS and Kinetics datasets:
 
 https://user-images.githubusercontent.com/15641194/202213058-f0ce0b13-27bb-45ee-8b61-1f5f8d26c254.mp4
 
@@ -130,12 +132,23 @@ y and x are raster coordinates as above, but t is in frame coordinates, i.e.
 second frames.  Please take care with this: one pixel error can make a
 difference according to our metrics.
 
-## Comparison of Tracking With and Without Optical Flow
+### Comparison of Tracking With and Without Optical Flow
+
 When annotating videos for the TAP-Vid benchmark, we use a track assist algorithm interpolates between the sparse points that the annotators click, since requiring annotators to click every frame is prohibitively expensive.  Specifically, we find tracks which minimize the discrepancy with the optical flow while still connecting the chosen points.  Annotators will then check the interpolations and repeat the annotation until they observe no drift.
 
 To validate that this is a better approach than a simple linear interpolation between clicked points, we annotated several DAVIS videos twice and [compare them side by side](https://storage.googleapis.com/dm-tapnet/content/flow_tracker.html), once using the flow-based interpolation, and again using a naive linear interpolation, which simply moves the point at a constant velocity between points.
 
-## TAP-Net and TAPIR training and inference
+## RoboTAP Benchmark and Point Track based Clustering
+
+[RoboTAP](https://robotap.github.io/) is a following work of TAP-Vid and TAPIR that demonstrates point tracking models are important for robotics.
+
+The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip) follows the same annotation format as TAP-Vid, but is released as an addition to TAP-Vid. In terms of domain, RoboTAP dataset is mostly similar to TAP-Vid-RGB-Stacking, with a key difference that all robotics videos are real and manually annotated. Video sources and object categories are also more diversified. The benchmark dataset includes 265 videos, serving for evaluation purpose only.
+
+For more details of downloading and visualization of the dataset, please see the [data section](https://github.com/deepmind/tapnet/tree/main/data).
+
+[Point track based clustering colab demo](https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb): You can run this colab demo to see how point track based clustering works. Given an input video, the point tracks are extracted from TAPIR and further separated into different clusters according to different motion patterns. This is purely based on the low level motion and does not depend on any semantics or segmentation labels. You can also upload your own video and try point track based clustering.
+
+## TAP-Net and TAPIR Training and Inference
 
 Install ffmpeg on your machine:
 
@@ -203,7 +216,7 @@ python3 ./tapnet/experiment.py \
 
 Available eval datasets are listed in `supervised_point_prediction.py`.
 
-## Download a baseline checkpoint
+## Download a Baseline Checkpoint
 
 `tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable
 using our NumpyFileCheckpointer. You can download a checkpoint
@@ -231,7 +244,7 @@ The inference only serves as an example. It will resize the video to 256x256 res
 
 Also note that the current checkpoint is trained under 256x256 resolution and has not been trained for other resolutions.
 
-## Citing this work
+## Citing this Work
 
 Please use the following bibtex entry to cite our work:
 
@@ -245,8 +258,24 @@ Please use the following bibtex entry to cite our work:
   year = {2022},
 }
 ```
+```
+@article{doersch2023tapir,
+  title={TAPIR: Tracking Any Point with per-frame Initialization and temporal Refinement},
+  author={Doersch, Carl and Yang, Yi and Vecerik, Mel and Gokay, Dilara and Gupta, Ankush and Aytar, Yusuf and Carreira, Joao and Zisserman, Andrew},
+  journal={ICCV},
+  year={2023}
+}
+```
+```
+@article{vecerik2023robotap,
+  title={RoboTAP: Tracking Arbitrary Points for Few-Shot Visual Imitation},
+  author={Vecerik, Mel and Doersch, Carl and Yang, Yi and Davchev, Todor and Aytar, Yusuf and Zhou, Guangyao and Hadsell, Raia and Agapito, Lourdes and Scholz, Jon},
+  journal={arXiv preprint arXiv:2308.15975},
+  year={2023}
+}
+```
 
-## License and disclaimer
+## License and Disclaimer
 
 Copyright 2022 DeepMind Technologies Limited
 
@@ -269,6 +298,3 @@ either express or implied. See the licenses for the specific language governing
 permissions and limitations under those licenses.
 
 This is not an official Google product.
-
-## Relevant work
-- [Particle Video Revisited: Tracking Through Occlusions Using Point Trajectories](https://github.com/aharley/pips)

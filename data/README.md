@@ -25,7 +25,13 @@ python3 generate_tapvid.py \
   --alsologtostderr
 ```
 
-## Visualizing TAP-Vid Dataset
+## Downloading RoboTAP
+
+The data are contained in pickle files with download links: [RoboTAP](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip).
+
+RoboTAP follows the same annotation format as TAP-Vid-DAVIS and TAP-Vid-RGB-stacking. The pickle file contains a dictionary, where each key is a video name, and the values are the frames (4D uint8 tensor), the points (float32 tensor with 3 axes; the first is point id, the second is time, and the third is x/y), and the occlusions (bool tensor with 2 axis; the first is point id, the second is time).
+
+## Visualizing TAP-Vid and RoboTAP Dataset
 
 We also provide a script generating an MP4 with the points painted on top of the frames. The script will work with any of the pickle files. A random clip is chosen from all the available ones and all the point tracks are painted.
 
