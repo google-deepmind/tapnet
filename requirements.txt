@@ -3,7 +3,7 @@ notebook
 jupyter_http_over_ws
 chex
 jax
-jaxline
+jaxline~=0.0.7
 optax
 dm-haiku
 dm-tree
