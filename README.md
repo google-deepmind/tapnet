@@ -1,19 +1,21 @@
-Welcome to the official Google Deepmind repository for Tracking Any Point (TAP), home
-of the TAP-Vid Dataset, our top-performing TAPIR model, and our RoboTAP extension.
+# Tracking Any Point (TAP)
 
-[TAP-Vid](https://tapvid.github.io) is a benchmark for models that
-perform this task, with a collection of ground-truth points for both real and
+[[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)]
+
+https://deepmind-tapir.github.io/static/videos/swaying.mp4
+
+Welcome to the official Google Deepmind repository for Tracking Any Point (TAP), home of the TAP-Vid Dataset, our top-performing TAPIR model, and our RoboTAP extension.
+
+- [TAP-Vid](https://tapvid.github.io) is a benchmark for models that perform this task, with a collection of ground-truth points for both real and
 synthetic videos.
-
-[TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query point on every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
-
-[RoboTAP](https://robotap.github.io) is a system which utilizes TAPIR point tracks to execute robotics manipulation tasks through efficient immitation in the real world. It also includes a dataset with ground-truth points annotated on real robotics manipulation videos.
+- [TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query point on every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
+- [RoboTAP](https://robotap.github.io) is a system which utilizes TAPIR point tracks to execute robotics manipulation tasks through efficient immitation in the real world. It also includes a dataset with ground-truth points annotated on real robotics manipulation videos.
 
 This repository contains the following:
 
-- [TAPIR Demos](#tapir-demos), both online using Colab and by cloning this repo
-- [TAP-Vid](#tap-vid-benchmark) dataset and evaluation code
-- [RoboTAP](#robotap) dataset and point track based clustering code
+- [TAPIR Demos](#tapir-demos) both online using Colab and by cloning this repo
+- [TAP-Vid Benchmark](#tap-vid-benchmark) dataset and evaluation code
+- [RoboTAP](#roboTAP-benchmark-and-point-track-based-clustering) dataset and point track based clustering code
 - [Instructions for training](#tap-net-and-tapir-training-and-inference) both TAP-Net (the baseline presented in the TAP-Vid paper) and the TAPIR model on Kubric
 
 ## TAPIR Demos
@@ -26,10 +28,10 @@ clone this repo and run TAPIR on your own hardware, including a realtime demo.
 You can run colab demos to see how TAPIR works. You can also upload your own video and try point tracking with TAPIR.
 We provide two colab demos:
 
-1. [The standard TAPIR colab demo](https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb): This is the most powerful TAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
-2. [The online TAPIR colab demo](https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb): This is the sequential TAPIR model that allows for online tracking on points, which can be run in realtime on a GPU platform.
+1. <a target="_blank" href="https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
+2. <a target="_blank" href="https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential TAPIR model that allows for online tracking on points, which can be run in realtime on a GPU platform.
 
-### Running TAPIR Locally
+### Live Demo
 
 Clone the repository:
 
@@ -146,7 +148,7 @@ The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.z
 
 For more details of downloading and visualization of the dataset, please see the [data section](https://github.com/deepmind/tapnet/tree/main/data).
 
-[Point track based clustering colab demo](https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb): You can run this colab demo to see how point track based clustering works. Given an input video, the point tracks are extracted from TAPIR and further separated into different clusters according to different motion patterns. This is purely based on the low level motion and does not depend on any semantics or segmentation labels. You can also upload your own video and try point track based clustering.
+<a target="_blank" href="https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> **Point track based clustering**: You can run this colab demo to see how point track based clustering works. Given an input video, the point tracks are extracted from TAPIR and further separated into different clusters according to different motion patterns. This is purely based on the low level motion and does not depend on any semantics or segmentation labels. You can also upload your own video and try point track based clustering.
 
 ## TAP-Net and TAPIR Training and Inference
 
