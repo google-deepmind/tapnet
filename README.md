@@ -4,6 +4,10 @@
 
 https://user-images.githubusercontent.com/15641194/202213058-f0ce0b13-27bb-45ee-8b61-1f5f8d26c254.mp4
 
+
+https://github.com/google-deepmind/tapnet/assets/4534987/057f810a-19b3-4029-a08e-91250deec4c1
+
+
 Welcome to the official Google Deepmind repository for Tracking Any Point (TAP), home of the TAP-Vid Dataset, our top-performing TAPIR model, and our RoboTAP extension.
 
 - [TAP-Vid](https://tapvid.github.io) is a benchmark for models that perform this task, with a collection of ground-truth points for both real and
