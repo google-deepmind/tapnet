@@ -128,8 +128,35 @@ def plot_tracks_v2(
     gt_points: Optional[np.ndarray] = None,
     gt_occluded: Optional[np.ndarray] = None,
     trackgroup: Optional[np.ndarray] = None,
+    point_size: int = 20,
 ) -> np.ndarray:
-  """Plot tracks with matplotlib."""
+  """Plot tracks with matplotlib.
+
+  This function also supports plotting ground truth tracks alongside
+  predictions, and allows you to specify tracks that should be plotted
+  with the same color (trackgroup).  Note that points which are out of
+  bounds will be clipped to be within bounds; mark them as occluded if
+  you don't want them to appear.
+
+  Args:
+    rgb: frames of shape [num_frames, height, width, 3].  Each frame is
+      passed directly to plt.imshow.
+    points: tracks, of shape [num_points, num_frames, 2], np.float32.
+      [0, width / height]
+    occluded: [num_points, num_frames], bool, True if the point is occluded.
+    gt_points: Optional, ground truth tracks to be plotted with diamonds, same
+      shape/dtype as points
+    gt_occluded: Optional, ground truth occlusion values to be plotted with
+      diamonds, same shape/dtype as occluded.
+    trackgroup: Optional, shape [num_points], int: grouping labels for the
+      plotted points.  Points with the same integer label will be plotted
+      with the same color.  Useful for clustering applications.
+    point_size: int, the size of the plotted points, passed as the 's'
+      parameter to matplotlib.
+
+  Returns:
+    video: [num_frames, height, width, 3], np.uint8, [0, 255]
+  """
   disp = []
   cmap = plt.cm.hsv  # pytype: disable=module-attr
 
@@ -146,7 +173,7 @@ def plot_tracks_v2(
   figs = []
   for i in range(rgb.shape[0]):
     fig = plt.figure(
-        figsize=(256 / figure_dpi, 256 / figure_dpi),
+        figsize=(rgb.shape[2] / figure_dpi, rgb.shape[1] / figure_dpi),
         dpi=figure_dpi,
         frameon=False,
         facecolor='w',
@@ -158,7 +185,9 @@ def plot_tracks_v2(
     colalpha = np.concatenate(
         [colors[:, :-1], 1 - occluded[:, i : i + 1]], axis=1
     )
-    plt.scatter(points[:, i, 0], points[:, i, 1], s=9, c=colalpha)
+    points = np.maximum(points, 0.0)
+    points = np.minimum(points, [rgb.shape[2], rgb.shape[1]])
+    plt.scatter(points[:, i, 0], points[:, i, 1], s=point_size, c=colalpha)
     occ2 = occluded[:, i : i + 1]
     if gt_occluded is not None:
       occ2 *= 1 - gt_occluded[:, i : i + 1]
@@ -169,7 +198,11 @@ def plot_tracks_v2(
           [colors[:, :-1], 1 - gt_occluded[:, i : i + 1]], axis=1
       )
       plt.scatter(
-          gt_points[:, i, 0], gt_points[:, i, 1], s=15, c=colalpha, marker='D'
+          gt_points[:, i, 0],
+          gt_points[:, i, 1],
+          s=point_size + 6,
+          c=colalpha,
+          marker='D'
       )
 
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
