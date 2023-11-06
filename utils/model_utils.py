@@ -231,13 +231,13 @@ def generate_default_resolutions(full_size, train_size, num_levels=None):
   if num_levels <= 1:
     return [train_size]
 
-  h, w = full_size[0], full_size[1]
+  h, w = full_size[0:2]
   if h % 8 != 0 or w % 8 != 0:
     print(
         'Warning: output size is not a multiple of 8. Final layer '
         + 'will round size down.'
     )
-  ll_h, ll_w = train_size[0], train_size[1]
+  ll_h, ll_w = train_size[0:2]
 
   sizes = []
   for i in range(num_levels):
@@ -247,3 +247,33 @@ def generate_default_resolutions(full_size, train_size, num_levels=None):
     )
     sizes.append(size)
   return sizes
+
+
+def preprocess_frames(frames):
+  """Preprocess frames to model inputs.
+
+  Args:
+    frames: [num_frames, height, width, 3], [0, 255], np.uint8
+
+  Returns:
+    frames: [num_frames, height, width, 3], [-1, 1], np.float32
+  """
+  frames = frames.astype(np.float32)
+  frames = frames / 255 * 2 - 1
+  return frames
+
+
+def postprocess_occlusions(occlusions, expected_dist):
+  """Postprocess occlusions to boolean visible flag.
+
+  Args:
+    occlusions: [num_points, num_frames], [-inf, inf], np.float32
+    expected_dist: [num_points, num_frames], [-inf, inf], np.float32
+
+  Returns:
+    visibles: [num_points, num_frames], bool
+  """
+  visibles = (1 - jax.nn.sigmoid(occlusions)) * (
+      1 - jax.nn.sigmoid(expected_dist)
+  ) > 0.5
+  return visibles

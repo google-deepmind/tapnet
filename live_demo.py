@@ -24,6 +24,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from tapnet import tapir_model
+from tapnet.utils import model_utils
 
 
 NUM_POINTS = 8
@@ -61,50 +62,6 @@ def construct_initial_causal_state(num_points, num_resolutions):
       k: jnp.zeros(v, dtype=jnp.float32) for k, v in value_shapes.items()
   }
   return [fake_ret] * num_resolutions * 4
-
-
-def preprocess_frames(frames):
-  """Preprocess frames to model inputs.
-
-  Args:
-    frames: [num_frames, height, width, 3], [0, 255], np.uint8
-
-  Returns:
-    frames: [num_frames, height, width, 3], [-1, 1], np.float32
-  """
-  frames = frames.astype(np.float32)
-  frames = frames / 255 * 2 - 1
-  return frames
-
-
-def postprocess_frames(frames):
-  """Postprocess frames back to traditional image format.
-
-  Args:
-    frames: [num_frames, height, width, 3], [-1, 1], np.float32
-
-  Returns:
-    frames: [num_frames, height, width, 3], [0, 255], np.uint8
-  """
-  frames = (frames + 1) / 2 * 255
-  frames = np.round(frames).astype(np.uint8)
-  return frames
-
-
-def postprocess_occlusions(occlusions, exp_dist):
-  """Postprocess occlusions to boolean visible flag.
-
-  Args:
-    occlusions: [num_points, num_frames], [-inf, inf], np.float32
-    exp_dist: [num_points, num_frames], [-inf, inf], np.float32
-
-  Returns:
-    visibles: [num_points, num_frames], bool
-  """
-  # visibles = occlusions < 0
-  pred_occ = jax.nn.sigmoid(occlusions)
-  pred_occ = 1 - (1 - pred_occ) * (1 - jax.nn.sigmoid(exp_dist))
-  return pred_occ < 0.5
 
 
 def load_checkpoint(checkpoint_path):
@@ -207,20 +164,20 @@ print("Compiling jax functions (this may take a while...)")
 # Call one time to compile
 query_points = jnp.zeros([NUM_POINTS, 3], dtype=jnp.float32)
 query_features, _ = online_init_apply(
-    frames=preprocess_frames(frame[None, None]),
+    frames=model_utils.preprocess_frames(frame[None, None]),
     points=query_points[None, 0:1],
 )
 jax.block_until_ready(query_features)
 
 query_features, _ = online_init_apply(
-    frames=preprocess_frames(frame[None, None]),
+    frames=model_utils.preprocess_frames(frame[None, None]),
     points=query_points[None],
 )
 causal_state = construct_initial_causal_state(
     NUM_POINTS, len(query_features.resolutions) - 1
 )
 (prediction, causal_state), _ = online_predict_apply(
-    frames=preprocess_frames(frame[None, None]),
+    frames=model_utils.preprocess_frames(frame[None, None]),
     features=query_features,
     causal_context=causal_state,
 )
@@ -256,7 +213,7 @@ while rval:
     query_points = jnp.array((0,) + pos, dtype=jnp.float32)
 
     init_query_features, _ = online_init_apply(
-        frames=preprocess_frames(frame[None, None]),
+        frames=model_utils.preprocess_frames(frame[None, None]),
         points=query_points[None, None],
     )
     init_causal_state = construct_initial_causal_state(
@@ -283,14 +240,14 @@ while rval:
     next_query_idx = (next_query_idx + 1) % NUM_POINTS
   if pos:
     (prediction, causal_state), _ = online_predict_apply(
-        frames=preprocess_frames(frame[None, None]),
+        frames=model_utils.preprocess_frames(frame[None, None]),
         features=query_features,
         causal_context=causal_state,
     )
     track = prediction["tracks"][0, :, 0]
     occlusion = prediction["occlusion"][0, :, 0]
     expected_dist = prediction["expected_dist"][0, :, 0]
-    visibles = postprocess_occlusions(occlusion, expected_dist)
+    visibles = model_utils.postprocess_occlusions(occlusion, expected_dist)
     track = np.round(track)
 
     for i in range(len(have_point)):
