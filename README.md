@@ -28,9 +28,9 @@ clone this repo and run TAPIR on your own hardware, including a realtime demo.
 You can run colab demos to see how TAPIR works. You can also upload your own video and try point tracking with TAPIR.
 We provide two colab demos:
 
-1. <a target="_blank" href="https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
-2. <a target="_blank" href="https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential TAPIR model that allows for online tracking on points, which can be run in realtime on a GPU platform.
-3. <a target="_blank" href="https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_rainbow_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPIR Rainbow Visualization"/></a> **Rainbow Visualization**: This visualization is used in many of our teaser videos: it does automatic foreground/background segmentation and corrects the tracks for the camera motion, so you can visualize the paths objects take through real space.
+1. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
+2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential TAPIR model that allows for online tracking on points, which can be run in realtime on a GPU platform.
+3. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_rainbow_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPIR Rainbow Visualization"/></a> **Rainbow Visualization**: This visualization is used in many of our teaser videos: it does automatic foreground/background segmentation and corrects the tracks for the camera motion, so you can visualize the paths objects take through real space.
 
 ### Live Demo
 
@@ -149,7 +149,7 @@ The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.z
 
 For more details of downloading and visualization of the dataset, please see the [data section](https://github.com/deepmind/tapnet/tree/main/data).
 
-<a target="_blank" href="https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> **Point track based clustering**: You can run this colab demo to see how point track based clustering works. Given an input video, the point tracks are extracted from TAPIR and further separated into different clusters according to different motion patterns. This is purely based on the low level motion and does not depend on any semantics or segmentation labels. You can also upload your own video and try point track based clustering.
+<a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> **Point track based clustering**: You can run this colab demo to see how point track based clustering works. Given an input video, the point tracks are extracted from TAPIR and further separated into different clusters according to different motion patterns. This is purely based on the low level motion and does not depend on any semantics or segmentation labels. You can also upload your own video and try point track based clustering.
 
 ## TAP-Net and TAPIR Training and Inference
 
