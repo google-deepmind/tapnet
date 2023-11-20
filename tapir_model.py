@@ -271,6 +271,7 @@ class TAPIR(hk.Module):
       use_causal_conv: bool = False,
       parallelize_query_extraction: bool = False,
       initial_resolution: Tuple[int, int] = (256, 256),
+      blocks_per_group: Sequence[int] = (2, 2, 2, 2),
       name: str = 'tapir',
   ):
     super().__init__(name=name)
@@ -282,7 +283,7 @@ class TAPIR(hk.Module):
         resnet_v2=True,
         normalization='instancenorm',
         strides=(1, 2, 2, 1),
-        blocks_per_group=(2, 2, 2, 2),
+        blocks_per_group=blocks_per_group,
         channels_per_group=(64, self.highres_dim, 256, self.lowres_dim),
         use_projection=(True, True, True, True),
         use_max_pool=False,
@@ -723,9 +724,7 @@ class TAPIR(hk.Module):
             )
         )(feature_grid[i], position_in_grid[..., 1:])
         # is_correct_frame is [batch, time, num_points]
-        frame_id = jnp.array(
-            jnp.round(position_in_grid[:, jnp.newaxis, :, 0]), jnp.int32
-        )
+        frame_id = jnp.array(jnp.round(position_in_grid[:, :, 0]), jnp.int32)
         is_correct_frame = jax.nn.one_hot(
             frame_id, feature_grid[i].shape[1], axis=1
         )

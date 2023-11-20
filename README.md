@@ -6,22 +6,21 @@ https://github.com/google-deepmind/tapnet/assets/4534987/9f66b81a-7efb-48e7-a59c
 
 Welcome to the official Google Deepmind repository for Tracking Any Point (TAP), home of the TAP-Vid Dataset, our top-performing TAPIR model, and our RoboTAP extension.
 
-- [TAP-Vid](https://tapvid.github.io) is a benchmark for models that perform this task, with a collection of ground-truth points for both real and
-synthetic videos.
+- [TAP-Vid](https://tapvid.github.io) is a benchmark for models that perform this task, with a collection of ground-truth points for both real and synthetic videos.
 - [TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query point on every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
 - [RoboTAP](https://robotap.github.io) is a system which utilizes TAPIR point tracks to execute robotics manipulation tasks through efficient immitation in the real world. It also includes a dataset with ground-truth points annotated on real robotics manipulation videos.
 
 This repository contains the following:
 
-- [TAPIR Demos](#tapir-demos) both online using Colab and by cloning this repo
-- [TAP-Vid Benchmark](#tap-vid-benchmark) dataset and evaluation code
-- [RoboTAP](#roboTAP-benchmark-and-point-track-based-clustering) dataset and point track based clustering code
-- [Instructions for training](#tap-net-and-tapir-training-and-inference) both TAP-Net (the baseline presented in the TAP-Vid paper) and the TAPIR model on Kubric
+- [TAPIR Demos](#tapir-demos) for both online **colab demo** and offline **real-time demo** by cloning this repo
+- [TAP-Vid Benchmark](#tap-vid-benchmark) for both evaluation **dataset** and evaluation **metrics**
+- [RoboTAP](#roboTAP-benchmark-and-point-track-based-clustering) for both evaluation **dataset** and point track based clustering code
+- [Instructions](#tap-net-and-tapir-training-and-inference) for both **training** TAP-Net (the baseline presented in the TAP-Vid paper) and TAPIR on Kubric
 
 ## TAPIR Demos
 
-The simplest way to run TAPIR is to use our Colab demos online.  You can also
-clone this repo and run TAPIR on your own hardware, including a realtime demo.
+The simplest way to run TAPIR is to use our colab demos online.  You can also
+clone this repo and run TAPIR on your own hardware, including a real-time demo.
 
 ### Colab Demo
 
@@ -29,7 +28,7 @@ You can run colab demos to see how TAPIR works. You can also upload your own vid
 We provide two colab demos:
 
 1. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
-2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential TAPIR model that allows for online tracking on points, which can be run in realtime on a GPU platform.
+2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential causal TAPIR model that allows for online tracking on points, which can be run in real-time on a GPU platform.
 3. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_rainbow_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPIR Rainbow Visualization"/></a> **Rainbow Visualization**: This visualization is used in many of our teaser videos: it does automatic foreground/background segmentation and corrects the tracks for the camera motion, so you can visualize the paths objects take through real space.
 
 ### Live Demo
@@ -77,7 +76,7 @@ In our tests, we achieved ~17 fps on 480x480 images on a quadro RTX 4000.
 
 https://github.com/google-deepmind/tapnet/assets/4534987/ff5fa5e3-ed37-4480-ad39-42a1e2744d8b
 
-[TAP-Vid](https://tapvid.github.io) is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans). Here are examples of what is annotated on videos of the DAVIS and Kinetics datasets:
+[TAP-Vid](https://tapvid.github.io) is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans).
 
 Our full benchmark incorporates 4 datasets: 30 videos from the [DAVIS val set](https://storage.googleapis.com/dm-tapnet/tapvid_davis.zip), 1000 videos from the [Kinetics val set](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip), 50 synthetic [Deepmind Robotics videos](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.zip) for evaluation, and (almost infinite) point track ground truth on the large-scale synthetic [Kubric dataset](https://github.com/google-research/kubric/tree/main/challenges/point_tracking) for training.
 
@@ -137,9 +136,11 @@ difference according to our metrics.
 
 ### Comparison of Tracking With and Without Optical Flow
 
-When annotating videos for the TAP-Vid benchmark, we use a track assist algorithm interpolates between the sparse points that the annotators click, since requiring annotators to click every frame is prohibitively expensive.  Specifically, we find tracks which minimize the discrepancy with the optical flow while still connecting the chosen points.  Annotators will then check the interpolations and repeat the annotation until they observe no drift.
+When annotating videos for the TAP-Vid benchmark, we use a track assist algorithm interpolates between the sparse points that the annotators click, since requiring annotators to click every frame is prohibitively expensive.  Specifically, we find tracks which minimize the discrepancy with the optical flow while still connecting the chosen points. Annotators will then check the interpolations and repeat the annotation until they observe no drift.
 
 To validate that this is a better approach than a simple linear interpolation between clicked points, we annotated several DAVIS videos twice and [compare them side by side](https://storage.googleapis.com/dm-tapnet/content/flow_tracker.html), once using the flow-based interpolation, and again using a naive linear interpolation, which simply moves the point at a constant velocity between points.
+
+<a target="_blank" href="https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/optical_flow_track_assist.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Track Annotation"/></a> **Flow assist point annotation**: You can run this colab demo to see how point tracks are annotated with optical flow assistance.
 
 ## RoboTAP Benchmark and Point Track based Clustering
 
@@ -152,6 +153,8 @@ For more details of downloading and visualization of the dataset, please see the
 <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> **Point track based clustering**: You can run this colab demo to see how point track based clustering works. Given an input video, the point tracks are extracted from TAPIR and further separated into different clusters according to different motion patterns. This is purely based on the low level motion and does not depend on any semantics or segmentation labels. You can also upload your own video and try point track based clustering.
 
 ## TAP-Net and TAPIR Training and Inference
+
+### Installation
 
 Install ffmpeg on your machine:
 
@@ -190,7 +193,7 @@ Refer to
 [the jax manual](https://github.com/google/jax#installation)
 to install the correct JAX version with CUDA.
 
-## Usage
+### Training
 
 The configuration file is located at: ```./configs/tapnet_config.py```.
 
@@ -205,7 +208,7 @@ or
 
 ```python ./experiment.py --config ./configs/tapir_config.py```
 
-## Evaluation
+### Evaluation
 
 You can run evaluation for a particular dataset (i.e. tapvid_davis) using the command:
 
@@ -219,7 +222,7 @@ python3 ./tapnet/experiment.py \
 
 Available eval datasets are listed in `supervised_point_prediction.py`.
 
-## Download a Baseline Checkpoint
+### Download a Baseline Checkpoint
 
 `tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable
 using our NumpyFileCheckpointer. You can download a checkpoint
@@ -227,7 +230,7 @@ using our NumpyFileCheckpointer. You can download a checkpoint
 was obtained via the open-source version of the code, and should closely match
 the one used to write the paper.
 
-## Inference
+### Inference
 
 You can run inference for a particular video (i.e. horsejump-high.mp4) using the command:
 
@@ -245,7 +248,7 @@ python3 ./tapnet/experiment.py \
 
 The inference only serves as an example. It will resize the video to 256x256 resolution, sample 20 random query points on the first frame and track these random points in the rest frames.
 
-Also note that the current checkpoint is trained under 256x256 resolution and has not been trained for other resolutions.
+Note that this uses jaxline for model inference. A more direct way for model inference can be found on the [colab and real-time demos](#tapir-demos).
 
 ## Citing this Work
 
