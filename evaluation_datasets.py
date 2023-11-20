@@ -53,6 +53,7 @@ def compute_tapvid_metrics(
     pred_occluded: np.ndarray,
     pred_tracks: np.ndarray,
     query_mode: str,
+    get_trackwise_metrics: bool = False,
 ) -> Mapping[str, np.ndarray]:
   """Computes TAP-Vid metrics (Jaccard, Pts.
 
@@ -86,6 +87,10 @@ def compute_tapvid_metrics(
        sampled.  If 'first', we assume the prior knowledge that all points
        before the query point are occluded, and these are removed from the
        evaluation.
+     get_trackwise_metrics: if True, the metrics will be computed for every
+       track (rather than every video, which is the default).  This means
+       every output tensor will have an extra axis [batch, num_tracks] rather
+       than simply (batch).
 
   Returns:
       A dict with the following keys:
@@ -99,6 +104,8 @@ def compute_tapvid_metrics(
       average_pts_within_thresh: average across pts_within_{x}
       average_jaccard: average across jaccard_{x}
   """
+
+  summing_axis = (2,) if get_trackwise_metrics else (1, 2)
 
   metrics = {}
 
@@ -120,8 +127,8 @@ def compute_tapvid_metrics(
   # ground truth.
   occ_acc = np.sum(
       np.equal(pred_occluded, gt_occluded) & evaluation_points,
-      axis=(1, 2),
-  ) / np.sum(evaluation_points)
+      axis=summing_axis,
+  ) / np.sum(evaluation_points, axis=summing_axis)
   metrics['occlusion_accuracy'] = occ_acc
 
   # Next, convert the predictions and ground truth positions into pixel
@@ -144,15 +151,17 @@ def compute_tapvid_metrics(
     # ignoring whether they're predicted to be visible.
     count_correct = np.sum(
         is_correct & evaluation_points,
-        axis=(1, 2),
+        axis=summing_axis,
     )
-    count_visible_points = np.sum(visible & evaluation_points, axis=(1, 2))
+    count_visible_points = np.sum(
+        visible & evaluation_points, axis=summing_axis
+    )
     frac_correct = count_correct / count_visible_points
     metrics['pts_within_' + str(thresh)] = frac_correct
     all_frac_within.append(frac_correct)
 
     true_positives = np.sum(
-        is_correct & pred_visible & evaluation_points, axis=(1, 2)
+        is_correct & pred_visible & evaluation_points, axis=summing_axis
     )
 
     # The denominator of the jaccard metric is the true positives plus
@@ -164,10 +173,12 @@ def compute_tapvid_metrics(
     #
     # False positives are simply points that are predicted to be visible,
     # but the ground truth is not visible or too far from the prediction.
-    gt_positives = np.sum(visible & evaluation_points, axis=(1, 2))
+    gt_positives = np.sum(visible & evaluation_points, axis=summing_axis)
     false_positives = (~visible) & pred_visible
     false_positives = false_positives | ((~within_dist) & pred_visible)
-    false_positives = np.sum(false_positives & evaluation_points, axis=(1, 2))
+    false_positives = np.sum(
+        false_positives & evaluation_points, axis=summing_axis
+    )
     jaccard = true_positives / (gt_positives + false_positives)
     metrics['jaccard_' + str(thresh)] = jaccard
     all_jaccard.append(jaccard)
