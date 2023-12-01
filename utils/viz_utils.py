@@ -196,6 +196,8 @@ def plot_tracks_v2(
       occ2 *= 1 - gt_occluded[:, i : i + 1]
 
     if gt_points is not None:
+      gt_points = np.maximum(gt_points, 0.0)
+      gt_points = np.minimum(gt_points, [rgb.shape[2], rgb.shape[1]])
       colalpha = np.concatenate(
           [colors[:, :-1], 1 - gt_occluded[:, i : i + 1]], axis=1
       )
