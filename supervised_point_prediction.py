@@ -210,46 +210,20 @@ class SupervisedPointPrediction(task.Task):
         query_chunk_size=self.train_chunk_size,
     )(params, state, rng, inputs, is_training=is_training)
 
-    def tapnet_loss(
-        points, occlusion, target_points, target_occ, shape, expected_dist=None
-    ):
-      # Huber loss is by default measured under 256x256 resolution
-      points = transforms.convert_grid_coordinates(
-          points, shape[3:1:-1], (256, 256), coordinate_format='xy'
-      )
-      target_points = transforms.convert_grid_coordinates(
-          target_points, shape[3:1:-1], (256, 256), coordinate_format='xy'
-      )
-      loss_huber = model_utils.huber_loss(points, target_points, target_occ)
-      loss_huber = jnp.mean(loss_huber) * self.position_loss_weight
-
-      if expected_dist is None:
-        loss_prob = 0.0
-      else:
-        loss_prob = model_utils.prob_loss(
-            jax.lax.stop_gradient(points),
-            expected_dist,
-            target_points,
-            target_occ,
-            self.expected_dist_thresh,
-        )
-        loss_prob = jnp.mean(loss_prob)
-
-      target_occ = target_occ.astype(occlusion.dtype)  # pytype: disable=attribute-error
-      loss_occ = optax.sigmoid_binary_cross_entropy(occlusion, target_occ)
-      loss_occ = jnp.mean(loss_occ)
-      return loss_huber, loss_occ, loss_prob
-
     loss_scalars = {}
     loss = 0.0
     if self.prediction_algo in ['cost_volume_regressor']:
-      loss_huber, loss_occ, loss_prob = tapnet_loss(
+      loss_huber, loss_occ, loss_prob = model_utils.tapnet_loss(
           output['tracks'],
           output['occlusion'],
           inputs[input_key]['target_points'],
           inputs[input_key]['occluded'],
           inputs[input_key]['video'].shape,  # pytype: disable=attribute-error  # numpy-scalars
-          output['expected_dist'] if 'expected_dist' in output else None,
+          expected_dist=output['expected_dist']
+          if 'expected_dist' in output
+          else None,
+          position_loss_weight=self.position_loss_weight,
+          expected_dist_thresh=self.expected_dist_thresh,
       )
       loss = loss_huber + loss_occ + loss_prob
       loss_scalars['position_loss'] = loss_huber
@@ -259,15 +233,17 @@ class SupervisedPointPrediction(task.Task):
 
       if 'unrefined_tracks' in output:
         for l in range(len(output['unrefined_tracks'])):
-          loss_huber, loss_occ, loss_prob = tapnet_loss(
+          loss_huber, loss_occ, loss_prob = model_utils.tapnet_loss(
               output['unrefined_tracks'][l],
               output['unrefined_occlusion'][l],
               inputs[input_key]['target_points'],
               inputs[input_key]['occluded'],
               inputs[input_key]['video'].shape,  # pytype: disable=attribute-error  # numpy-scalars
-              output['unrefined_expected_dist'][l]
+              expected_dist=output['unrefined_expected_dist'][l]
               if 'unrefined_expected_dist' in output
               else None,
+              position_loss_weight=self.position_loss_weight,
+              expected_dist_thresh=self.expected_dist_thresh,
           )
           loss += loss_huber + loss_occ + loss_prob
           loss_scalars[f'position_loss_{l}'] = loss_huber

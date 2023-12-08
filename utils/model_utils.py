@@ -15,7 +15,7 @@
 
 """Utilities and losses for building and training TAP models."""
 
-from typing import Optional
+from typing import Optional, Sequence
 
 import chex
 import jax
@@ -27,20 +27,24 @@ from tapnet.utils import transforms
 
 
 def huber_loss(
-    tracks: chex.Array, target_points: chex.Array, occluded: chex.Numeric
+    tracks: chex.Array,
+    target_points: chex.Array,
+    occluded: chex.Numeric,
+    delta: float = 4.0,
+    reduction_axes: Optional[Sequence[int]] = (1, 2),
 ) -> chex.Array:
   """Huber loss for point trajectories."""
   error = tracks - target_points
   # Huber loss with a threshold of 4 pixels
   distsqr = jnp.sum(jnp.square(error), axis=-1)
   dist = jnp.sqrt(distsqr + 1e-12)  # add eps to prevent nan
-  delta = 4.0
   loss_huber = jnp.where(
       dist < delta, distsqr / 2, delta * (jnp.abs(dist) - delta / 2)
   )
   loss_huber *= 1.0 - occluded
 
-  loss_huber = jnp.mean(loss_huber, axis=[1, 2])
+  if reduction_axes:
+    loss_huber = jnp.mean(loss_huber, axis=reduction_axes)
 
   return loss_huber
 
@@ -51,6 +55,7 @@ def prob_loss(
     target_points: chex.Array,
     occluded: chex.Array,
     expected_dist_thresh: float = 8.0,
+    reduction_axes: Optional[Sequence[int]] = (1, 2),
 ):
   """Loss for classifying if a point is within pixel threshold of its target."""
   # Points with an error larger than 8 pixels are likely to be useless; marking
@@ -60,8 +65,98 @@ def prob_loss(
   invalid = (err > expected_dist_thresh**2).astype(expd.dtype)
   logprob = optax.sigmoid_binary_cross_entropy(expd, invalid)
   logprob *= 1.0 - occluded
-  logprob = jnp.mean(logprob, axis=[1, 2])
+  if reduction_axes:
+    logprob = jnp.mean(logprob, axis=reduction_axes)
   return logprob
+
+
+def tapnet_loss(
+    points,
+    occlusion,
+    target_points,
+    target_occ,
+    shape,
+    mask=None,
+    expected_dist=None,
+    position_loss_weight=0.05,
+    expected_dist_thresh=6.0,
+    huber_loss_delta=4.0,
+):
+  """TAPNet loss.
+
+  This is a combination of Huber loss on points (points are rescaled to
+  256x256 resolution by convention), occlusion loss, and (if provided) the
+  self-trained loss on the 'uncertainty loss' introduced in TAPIR, where the
+  model predicts whether its own predictions are close to the ground truth
+  (expected_dist)
+
+  Args:
+    points: Tensor of point predictions, shape [b,n,t,2], x/y in raster
+      coordinates.
+    occlusion: Tensor of occlusion prediction logits, shape [b,n,t]
+    target_points: Ground truth points, same format as points.
+    target_occ: Ground truth occlusions, binary, same shape as occlusion.
+    shape: tuple of [n_frames, height, width, channels] of the original video.
+    mask: Optional binary mask of shape [b,n,t] specifying which points should
+      be included in the loss [1 means a point is included]
+    expected_dist: Optional prediction logits for the uncertainty loss. Same
+      format as occlusion.
+    position_loss_weight: Weighting hyperparameter for the position loss
+      relative to the binary cross entropy loss(es)
+    expected_dist_thresh: Threshold for considering a prediction 'close enough'
+      that the model should consider its own prediction correct.  Used in the
+      uncertainty prediction.
+    huber_loss_delta: Delta for where the Huber loss switches from quadratic
+      to linear.
+
+  Returns:
+    loss_huber: Huber loss on points
+    loss_occ: Sigmoid cross entropy on occlusions
+    loss_prob: Sigmoid cross entropy on uncertainty estimate.
+
+  """
+  if not mask:
+    mask = 1.0
+  points = transforms.convert_grid_coordinates(
+      points, shape[3:1:-1], (256, 256), coordinate_format='xy'
+  )
+  target_points = transforms.convert_grid_coordinates(
+      target_points, shape[3:1:-1], (256, 256), coordinate_format='xy'
+  )
+
+  loss_huber = (
+      huber_loss(
+          points,
+          target_points,
+          target_occ,
+          delta=huber_loss_delta,
+          reduction_axes=None,
+      )
+      * mask
+  )
+  loss_huber = jnp.mean(loss_huber) * position_loss_weight
+
+  if expected_dist is None:
+    loss_prob = 0.0
+  else:
+    loss_prob = (
+        prob_loss(
+            jax.lax.stop_gradient(points),
+            expected_dist,
+            target_points,
+            target_occ,
+            expected_dist_thresh,
+            reduction_axes=None,
+        )
+        * mask
+    )
+    loss_prob = jnp.mean(loss_prob)
+
+  target_occ = target_occ.astype(occlusion.dtype)  # pytype: disable=attribute-error
+  loss_occ = optax.sigmoid_binary_cross_entropy(occlusion, target_occ)
+  loss_occ = loss_occ * (2.0 - 1.0 * target_occ) * mask
+  loss_occ = jnp.mean(loss_occ)
+  return loss_huber, loss_occ, loss_prob
 
 
 def interp(x: chex.Array, y: chex.Array, mode: str = 'nearest') -> chex.Array:
