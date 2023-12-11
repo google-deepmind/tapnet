@@ -29,8 +29,10 @@ from tapnet.utils import model_utils
 from tapnet.utils import transforms
 
 
-def layernorm(x):
-  return hk.LayerNorm(axis=-1, create_scale=True, create_offset=False)(x)
+def layernorm(x, create_offset=False):
+  return hk.LayerNorm(axis=-1, create_scale=True, create_offset=create_offset)(
+      x
+  )
 
 
 def depthwise_conv_residual(
@@ -615,11 +617,13 @@ class TAPIR(hk.Module):
           )
 
         curr_resolution = resolution
-        resnet_out = hk.BatchApply(self.resnet)(
-            video_resize, is_training=is_training
-        )
-        latent = resnet_out['resnet_unit_3']
-        hires = resnet_out['resnet_unit_1']
+
+        def rnet_fwd(x):
+          resnet_out = hk.BatchApply(self.resnet)(x, is_training=is_training)
+          return resnet_out['resnet_unit_3'], resnet_out['resnet_unit_1']
+
+        latent, hires = hk.remat(rnet_fwd)(video_resize)
+
         latent = latent / jnp.sqrt(
             jnp.maximum(
                 jnp.sum(jnp.square(latent), axis=-1, keepdims=True),
@@ -858,9 +862,13 @@ class TAPIR(hk.Module):
     inv_perm = jnp.zeros_like(perm)
     inv_perm = inv_perm.at[perm].set(jnp.arange(num_queries))
 
+    # The barrier is a no-op, but it prevents JAX from running the chunks at
+    # the same time by creating a fake dependency between iterations.
+    barrier = 0
+
     for ch in range(0, num_queries, query_chunk_size):
       perm_chunk = perm[ch : ch + query_chunk_size]
-      chunk = query_features.lowres[0][:, perm_chunk]
+      chunk = query_features.lowres[0][:, perm_chunk] + barrier
       if causal_context is not None:
         cc_chunk = jax.tree_map(lambda x: x[:, perm_chunk], causal_context)  # pylint: disable=cell-var-from-loop
       if query_points_in_video is not None:
@@ -944,6 +952,8 @@ class TAPIR(hk.Module):
           mixer_feats = None
           expected_dist = expd_iters[0][-1]
           occlusion = occ_iters[0][-1]
+      # barrier always stays 0, but the JAX compiler doesn't know that.
+      barrier = points[0, 0, 0, 0] > 1e20
 
     occlusion = []
     points = []
