@@ -115,7 +115,7 @@ def tapnet_loss(
     loss_prob: Sigmoid cross entropy on uncertainty estimate.
 
   """
-  if not mask:
+  if mask is None:
     mask = 1.0
   points = transforms.convert_grid_coordinates(
       points, shape[3:1:-1], (256, 256), coordinate_format='xy'
