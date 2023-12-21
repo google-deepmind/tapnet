@@ -30,51 +30,19 @@ from tapnet.utils import model_utils
 NUM_POINTS = 8
 
 
-def construct_initial_causal_state(num_points, num_resolutions):
-  """Construct initial causal state."""
-  value_shapes = {
-      "tapir/~/pips_mlp_mixer/block_1_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_1_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_2_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_2_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_3_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_3_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_4_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_4_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_5_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_5_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_6_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_6_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_7_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_7_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_8_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_8_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_9_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_9_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_10_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_10_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_11_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_11_causal_2": (1, num_points, 2, 2048),
-      "tapir/~/pips_mlp_mixer/block_causal_1": (1, num_points, 2, 512),
-      "tapir/~/pips_mlp_mixer/block_causal_2": (1, num_points, 2, 2048),
-  }
-  fake_ret = {
-      k: jnp.zeros(v, dtype=jnp.float32) for k, v in value_shapes.items()
-  }
-  return [fake_ret] * num_resolutions * 4
-
-
 def load_checkpoint(checkpoint_path):
   ckpt_state = np.load(checkpoint_path, allow_pickle=True).item()
   return ckpt_state["params"], ckpt_state["state"]
 
 
+tapir = tapir_model.TAPIR(
+    use_causal_conv=True, bilinear_interp_with_depthwise_conv=False
+)
+
+
 def build_online_model_init(frames, points):
-  model = tapir_model.TAPIR(
-      use_causal_conv=True, bilinear_interp_with_depthwise_conv=False
-  )
-  feature_grids = model.get_feature_grids(frames, is_training=False)
-  features = model.get_query_features(
+  feature_grids = tapir.get_feature_grids(frames, is_training=False)
+  features = tapir.get_query_features(
       frames,
       is_training=False,
       query_points=points,
@@ -85,11 +53,8 @@ def build_online_model_init(frames, points):
 
 def build_online_model_predict(frames, features, causal_context):
   """Compute point tracks and occlusions given frames and query points."""
-  model = tapir_model.TAPIR(
-      use_causal_conv=True, bilinear_interp_with_depthwise_conv=False
-  )
-  feature_grids = model.get_feature_grids(frames, is_training=False)
-  trajectories = model.estimate_trajectories(
+  feature_grids = tapir.get_feature_grids(frames, is_training=False)
+  trajectories = tapir.estimate_trajectories(
       frames.shape[-3:-1],
       is_training=False,
       feature_grids=feature_grids,
@@ -173,7 +138,7 @@ query_features, _ = online_init_apply(
     frames=model_utils.preprocess_frames(frame[None, None]),
     points=query_points[None],
 )
-causal_state = construct_initial_causal_state(
+causal_state = tapir.construct_initial_causal_state(
     NUM_POINTS, len(query_features.resolutions) - 1
 )
 (prediction, causal_state), _ = online_predict_apply(
@@ -216,25 +181,9 @@ while rval:
         frames=model_utils.preprocess_frames(frame[None, None]),
         points=query_points[None, None],
     )
-    init_causal_state = construct_initial_causal_state(
-        1, len(query_features.resolutions) - 1
-    )
-
-    # cv2.circle(frame, (pos[0], pos[1]), 5, (255,0,0), -1)
     query_frame = False
-
-    def upd(s1, s2):
-      return s1.at[:, next_query_idx : next_query_idx + 1].set(s2)
-
-    causal_state = jax.tree_map(upd, causal_state, init_causal_state)
-    query_features = tapir_model.QueryFeatures(
-        lowres=jax.tree_map(
-            upd, query_features.lowres, init_query_features.lowres
-        ),
-        hires=jax.tree_map(
-            upd, query_features.hires, init_query_features.hires
-        ),
-        resolutions=query_features.resolutions,
+    query_features, causal_state = tapir.update_query_features(
+        query_features, init_query_features, [next_query_idx], causal_state
     )
     have_point[next_query_idx] = True
     next_query_idx = (next_query_idx + 1) % NUM_POINTS
@@ -250,7 +199,7 @@ while rval:
     visibles = model_utils.postprocess_occlusions(occlusion, expected_dist)
     track = np.round(track)
 
-    for i in range(len(have_point)):
+    for i, _ in enumerate(have_point):
       if visibles[i] and have_point[i]:
         cv2.circle(
             frame, (int(track[i, 0]), int(track[i, 1])), 5, (255, 0, 0), -1

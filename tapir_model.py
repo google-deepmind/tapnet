@@ -23,6 +23,7 @@ from einshape import jax_einshape as einshape
 import haiku as hk
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 from tapnet.models import resnet
 from tapnet.utils import model_utils
@@ -336,6 +337,7 @@ class TAPIR(hk.Module):
         kernel_shape=mixer_kernel_shape,
         use_causal_conv=use_causal_conv,
     )
+    self.num_mixer_blocks = num_mixer_blocks
 
     self.bilinear_interp_with_depthwise_conv = (
         bilinear_interp_with_depthwise_conv
@@ -1060,3 +1062,48 @@ class TAPIR(hk.Module):
     )
 
     return out
+
+  def construct_initial_causal_state(self, num_points, num_resolutions=1):
+    """Construct initial causal state."""
+    value_shapes = {}
+    for i in range(self.num_mixer_blocks):
+      if i == 0:
+        block_id = ''
+      else:
+        block_id = str(i) + '_'
+      block_name = f'tapir/~/pips_mlp_mixer/block_{block_id}causal'
+      value_shapes[f'{block_name}_1'] = (1, num_points, 2, 512)
+      value_shapes[f'{block_name}_2'] = (1, num_points, 2, 2048)
+    fake_ret = {
+        k: jnp.zeros(v, dtype=jnp.float32) for k, v in value_shapes.items()
+    }
+    return [fake_ret] * num_resolutions * 4
+
+  def update_query_features(
+      self, query_features, new_query_features, idx_to_update, causal_state=None
+  ):
+    if isinstance(idx_to_update, int):
+      idx_to_update = tuple([idx_to_update])
+    idx_to_update = np.array(idx_to_update)
+
+    def upd(s1, s2):
+      return s1.at[:, idx_to_update].set(s2)
+
+    query_features = QueryFeatures(
+        lowres=jax.tree_map(
+            upd, query_features.lowres, new_query_features.lowres
+        ),
+        hires=jax.tree_map(upd, query_features.hires, new_query_features.hires),
+        resolutions=query_features.resolutions,
+    )
+
+    if causal_state is not None:
+      init_causal_state = self.construct_initial_causal_state(
+          len(idx_to_update), len(query_features.resolutions) - 1
+      )
+
+      causal_state = jax.tree_map(upd, causal_state, init_causal_state)
+
+      return query_features, causal_state
+
+    return query_features
