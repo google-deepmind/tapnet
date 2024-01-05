@@ -400,9 +400,9 @@ class TAPIR(hk.Module):
     occlusion = jax.nn.relu(occlusion)
 
     pos = mods['hid2'](occlusion)
-    pos_rshp = einshape('(tb)hw1->t(b)hw1', pos, t=shape[0])
-
-    pos = einshape('t(bn)hw1->bnthw', pos_rshp, b=batch_size, n=num_points)
+    pos = einshape(
+        '(tbn)hw1->bnthw', pos, t=shape[0], b=batch_size, n=num_points
+    )
     pos = jax.nn.softmax(pos * self.softmax_temperature, axis=(-2, -1))
     points = model_utils.heatmaps_to_points(
         pos, im_shp, query_points=query_points

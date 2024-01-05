@@ -81,6 +81,7 @@ def tapnet_loss(
     position_loss_weight=0.05,
     expected_dist_thresh=6.0,
     huber_loss_delta=4.0,
+    rebalance_factor=None,
 ):
   """TAPNet loss.
 
@@ -108,6 +109,9 @@ def tapnet_loss(
       uncertainty prediction.
     huber_loss_delta: Delta for where the Huber loss switches from quadratic
       to linear.
+    rebalance_factor: visible points are weighted 1+rebalance_factor relative
+      to occluded points.  This prevents biases where the model empirically
+      moves toward predicting occluded points.
 
   Returns:
     loss_huber: Huber loss on points
@@ -154,7 +158,12 @@ def tapnet_loss(
 
   target_occ = target_occ.astype(occlusion.dtype)  # pytype: disable=attribute-error
   loss_occ = optax.sigmoid_binary_cross_entropy(occlusion, target_occ)
-  loss_occ = loss_occ * (2.0 - 1.0 * target_occ) * mask
+  if rebalance_factor is not None:
+    loss_occ = (
+        loss_occ
+        * ((1 + rebalance_factor) - rebalance_factor * target_occ)
+        * mask
+    )
   loss_occ = jnp.mean(loss_occ)
   return loss_huber, loss_occ, loss_prob
 
