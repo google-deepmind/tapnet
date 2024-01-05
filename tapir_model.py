@@ -275,6 +275,7 @@ class TAPIR(hk.Module):
       parallelize_query_extraction: bool = False,
       initial_resolution: Tuple[int, int] = (256, 256),
       blocks_per_group: Sequence[int] = (2, 2, 2, 2),
+      feature_extractor_chunk_size: Optional[int] = None,
       name: str = 'tapir',
   ):
     super().__init__(name=name)
@@ -349,6 +350,7 @@ class TAPIR(hk.Module):
     self.patch_size = patch_size
     self.softmax_temperature = softmax_temperature
     self.initial_resolution = tuple(initial_resolution)
+    self.feature_extractor_chunk_size = feature_extractor_chunk_size
 
   def tracks_from_cost_volume(
       self,
@@ -624,7 +626,22 @@ class TAPIR(hk.Module):
           resnet_out = hk.BatchApply(self.resnet)(x, is_training=is_training)
           return resnet_out['resnet_unit_3'], resnet_out['resnet_unit_1']
 
-        latent, hires = hk.remat(rnet_fwd)(video_resize)
+        if self.feature_extractor_chunk_size is not None:
+          chunk_size = self.feature_extractor_chunk_size
+          latent = []
+          hires = []
+          barrier = 0
+          for i in range(0, video_resize.shape[1], chunk_size):
+            u3, u1 = hk.remat(rnet_fwd)(
+                video_resize[:, i : i + chunk_size] + barrier
+            )
+            latent.append(u3)
+            hires.append(u1)
+            barrier = latent[-1][0, 0, 0, 0, 0] > 1e20
+          latent = jnp.concatenate(latent, axis=1)
+          hires = jnp.concatenate(hires, axis=1)
+        else:
+          latent, hires = hk.remat(rnet_fwd)(video_resize)
 
         latent = latent / jnp.sqrt(
             jnp.maximum(
