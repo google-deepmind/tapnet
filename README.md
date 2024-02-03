@@ -8,7 +8,7 @@ Welcome to the official Google Deepmind repository for Tracking Any Point (TAP),
 
 - [TAP-Vid](https://tapvid.github.io) is a benchmark for models that perform this task, with a collection of ground-truth points for both real and synthetic videos.
 - [TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query point on every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
-- [RoboTAP](https://robotap.github.io) is a system which utilizes TAPIR point tracks to execute robotics manipulation tasks through efficient immitation in the real world. It also includes a dataset with ground-truth points annotated on real robotics manipulation videos.
+- [RoboTAP](https://robotap.github.io) is a system which utilizes TAPIR point tracks to execute robotics manipulation tasks through efficient imitation in the real world. It also includes a dataset with ground-truth points annotated on real robotics manipulation videos.
 
 This repository contains the following:
 
