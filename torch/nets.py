@@ -22,6 +22,76 @@ from torch import nn
 import torch.nn.functional as F
 
 
+class ExtraConvBlock(nn.Module):
+  """Additional convolution block."""
+
+  def __init__(
+      self,
+      channel_dim,
+      channel_multiplier,
+  ):
+    super().__init__()
+    self.channel_dim = channel_dim
+    self.channel_multiplier = channel_multiplier
+
+    self.layer_norm = nn.LayerNorm(
+        normalized_shape=channel_dim, elementwise_affine=True, bias=True
+    )
+    self.conv = nn.Conv2d(
+        self.channel_dim * 3,
+        self.channel_dim * self.channel_multiplier,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+    )
+    self.conv_1 = nn.Conv2d(
+        self.channel_dim * self.channel_multiplier,
+        self.channel_dim,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+    )
+
+  def forward(self, x):
+    x = self.layer_norm(x)
+    x = x.permute(0, 3, 1, 2)
+    prev_frame = torch.cat([x[0:1], x[:-1]], dim=0)
+    next_frame = torch.cat([x[1:], x[-1:]], dim=0)
+    resid = torch.cat([x, prev_frame, next_frame], axis=1)
+    resid = self.conv(resid)
+    resid = F.gelu(resid, approximate='tanh')
+    x += self.conv_1(resid)
+    x = x.permute(0, 2, 3, 1)
+    return x
+
+
+class ExtraConvs(nn.Module):
+  """Additional CNN."""
+
+  def __init__(
+      self,
+      num_layers=5,
+      channel_dim=256,
+      channel_multiplier=4,
+  ):
+    super().__init__()
+    self.num_layers = num_layers
+    self.channel_dim = channel_dim
+    self.channel_multiplier = channel_multiplier
+
+    self.blocks = nn.ModuleList()
+    for _ in range(self.num_layers):
+      self.blocks.append(
+          ExtraConvBlock(self.channel_dim, self.channel_multiplier)
+      )
+
+  def forward(self, x):
+    for block in self.blocks:
+      x = block(x)
+
+    return x
+
+
 class ConvChannelsMixer(nn.Module):
   """Linear activation block for PIPs's MLP Mixer."""
 

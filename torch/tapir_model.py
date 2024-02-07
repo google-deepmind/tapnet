@@ -82,6 +82,7 @@ class TAPIR(nn.Module):
       parallelize_query_extraction: bool = False,
       initial_resolution: Tuple[int, int] = (256, 256),
       blocks_per_group: Sequence[int] = (2, 2, 2, 2),
+      extra_convs: bool = True,
   ):
     super().__init__()
 
@@ -118,7 +119,14 @@ class TAPIR(nn.Module):
         'hid4': torch.nn.Linear(32, 16),
         'occ_out': torch.nn.Linear(16, 2),
     })
-    self.torch_pips_mixer = nets.PIPSMLPMixer(486, 388)
+    dim = 4 + self.highres_dim + self.lowres_dim
+    input_dim = dim + (self.pyramid_level + 2) * 49
+    self.torch_pips_mixer = nets.PIPSMLPMixer(input_dim, dim)
+
+    if extra_convs:
+      self.extra_convs = nets.ExtraConvs()
+    else:
+      self.extra_convs = None
 
   def forward(
       self,
@@ -328,6 +336,9 @@ class TAPIR(nn.Module):
         latent = resnet_out['resnet_unit_3'].permute(0, 2, 3, 1).detach()
         hires = resnet_out['resnet_unit_1'].permute(0, 2, 3, 1).detach()
 
+        if self.extra_convs:
+          latent = self.extra_convs(latent)
+
         latent = latent / torch.sqrt(
             torch.maximum(
                 torch.sum(torch.square(latent), axis=-1, keepdims=True),
@@ -448,10 +459,21 @@ class TAPIR(nn.Module):
             query_features.hires[feature_level][:, perm_chunk],
             query_features.lowres[feature_level][:, perm_chunk],
         ]
+        for _ in range(self.pyramid_level):
+          queries.append(queries[-1])
         pyramid = [
             feature_grids.hires[feature_level],
             feature_grids.lowres[feature_level],
         ]
+        for _ in range(self.pyramid_level):
+          pyramid.append(
+              F.avg_pool3d(
+                  pyramid[-1],
+                  kernel_size=(2, 2, 1),
+                  stride=(2, 2, 1),
+                  padding=0,
+              )
+          )
 
         refined = self.refine_pips(
             queries,
