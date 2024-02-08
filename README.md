@@ -33,7 +33,7 @@ We provide two colab demos:
 1. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
 2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential causal TAPIR model that allows for online tracking on points, which can be run in real-time on a GPU platform.
 3. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_rainbow_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPIR Rainbow Visualization"/></a> **Rainbow Visualization**: This visualization is used in many of our teaser videos: it does automatic foreground/background segmentation and corrects the tracks for the camera motion, so you can visualize the paths objects take through real space.
-4. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Pytorch BootsTAP"/></a> **Pytorch BootsTAPIR**: Check this BootsTAPIR model re-implemented in PyTorch, which follows the exact architecture as original BootsTAPIR model implemented in Jax.
+4. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="PyTorch BootsTAP"/></a> **Pytorch BootsTAPIR**: Check this BootsTAPIR model re-implemented in PyTorch, which follows the exact architecture as original BootsTAPIR model implemented in Jax.
 
 ### Live Demo
 
@@ -144,7 +144,7 @@ When annotating videos for the TAP-Vid benchmark, we use a track assist algorith
 
 To validate that this is a better approach than a simple linear interpolation between clicked points, we annotated several DAVIS videos twice and [compare them side by side](https://storage.googleapis.com/dm-tapnet/content/flow_tracker.html), once using the flow-based interpolation, and again using a naive linear interpolation, which simply moves the point at a constant velocity between points.
 
-<a target="_blank" href="https://colab.sandbox.google.com/github/deepmind/tapnet/blob/master/colabs/optical_flow_track_assist.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Track Annotation"/></a> **Flow assist point annotation**: You can run this colab demo to see how point tracks are annotated with optical flow assistance.
+<a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/optical_flow_track_assist.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Track Annotation"/></a> **Flow assist point annotation**: You can run this colab demo to see how point tracks are annotated with optical flow assistance.
 
 ## RoboTAP Benchmark and Point Track based Clustering
 
