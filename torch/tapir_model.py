@@ -82,6 +82,7 @@ class TAPIR(nn.Module):
       parallelize_query_extraction: bool = False,
       initial_resolution: Tuple[int, int] = (256, 256),
       blocks_per_group: Sequence[int] = (2, 2, 2, 2),
+      feature_extractor_chunk_size: int = 10,
       extra_convs: bool = True,
   ):
     super().__init__()
@@ -98,6 +99,7 @@ class TAPIR(nn.Module):
     self.patch_size = patch_size
     self.softmax_temperature = softmax_temperature
     self.initial_resolution = tuple(initial_resolution)
+    self.feature_extractor_chunk_size = feature_extractor_chunk_size
 
     highres_dim = 128
     lowres_dim = 256
@@ -332,9 +334,29 @@ class TAPIR(nn.Module):
           video_resize = utils.bilinear(video, resolution)
 
         curr_resolution = resolution
-        resnet_out = self.resnet_torch(video_resize[0].permute(0, 3, 1, 2))
-        latent = resnet_out['resnet_unit_3'].permute(0, 2, 3, 1).detach()
-        hires = resnet_out['resnet_unit_1'].permute(0, 2, 3, 1).detach()
+        n, f, h, w, c = video_resize.shape
+        video_resize = video_resize.view(n*f, h, w, c).permute(0, 3, 1, 2)
+
+        if self.feature_extractor_chunk_size > 0:
+          latent_list = []
+          hires_list = []
+          chunk_size = self.feature_extractor_chunk_size
+          for start_idx in range(0, video_resize.shape[0], chunk_size):
+            video_chunk = video_resize[start_idx:start_idx + chunk_size]
+            resnet_out = self.resnet_torch(video_chunk)
+
+            u3 = resnet_out['resnet_unit_3'].permute(0, 2, 3, 1).detach()
+            latent_list.append(u3)
+            u1 = resnet_out['resnet_unit_1'].permute(0, 2, 3, 1).detach()
+            hires_list.append(u1)
+
+          latent = torch.cat(latent_list, dim=0)
+          hires = torch.cat(hires_list, dim=0)
+
+        else:
+          resnet_out = self.resnet_torch(video_resize)
+          latent = resnet_out['resnet_unit_3'].permute(0, 2, 3, 1).detach()
+          hires = resnet_out['resnet_unit_1'].permute(0, 2, 3, 1).detach()
 
         if self.extra_convs:
           latent = self.extra_convs(latent)
