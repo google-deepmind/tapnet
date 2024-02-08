@@ -165,7 +165,7 @@ model|checkpoint|config|backbone|resolution|DAVIS First (AJ)|DAVIS Strided (AJ)|
 TAP-Net|[Jax](https://storage.googleapis.com/dm-tapnet/checkpoint.npy)|[tapnet_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapnet_config.py)|TSM-ResNet18|256x256|33.0%|38.4%|38.5%|45.1%
 TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/tapir_checkpoint_panning.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/tapir_checkpoint_panning.pt)|[tapir_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_config.py)|ResNet18|256x256|58.5%|63.3%|50.0%|59.6%
 Online TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/causal_tapir_checkpoint.npy)|[causal_tapir_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/causal_tapir_config.py)|ResNet18|256x256|56.2%|58.3%|51.2%|59.1%
-BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstapir_checkpoint.pt)||ResNet18|256x256|61.4%|66.4%|54.7%|69.9%
+BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstapir_checkpoint.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18|256x256|61.4%|66.4%|54.7%|69.9%
 
 ## TAP-Net and TAPIR Training and Inference
 

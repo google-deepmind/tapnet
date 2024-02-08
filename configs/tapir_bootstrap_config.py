@@ -76,8 +76,10 @@ def get_config() -> config_dict.ConfigDict:
                   tapir_model_kwargs=dict(
                       bilinear_interp_with_depthwise_conv=False,
                       pyramid_level=1,
-                      use_causal_conv=True,
+                      use_causal_conv=False,
                       initial_resolution=(256, 256),
+                      extra_convs=True,
+                      softmax_temperature=10.0,
                   ),
               ),
               datasets=dict(

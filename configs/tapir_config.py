@@ -74,7 +74,7 @@ def get_config() -> config_dict.ConfigDict:
                       'shared_module_names',
                   ),
                   tapir_model_kwargs=dict(
-                      bilinear_interp_with_depthwise_conv=True,
+                      bilinear_interp_with_depthwise_conv=False,
                       pyramid_level=0,
                       use_causal_conv=False,
                       initial_resolution=(256, 256),
