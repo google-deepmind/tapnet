@@ -156,6 +156,31 @@ class PIPSMLPMixer(hk.Module):
     return hk.Linear(self._output_channels)(x), all_causal_context
 
 
+class ExtraConvs(hk.Module):
+  """Depthwise-conv version of PIPs's MLP Mixer."""
+
+  def __init__(
+      self,
+      num_layers=5,
+      channel_multiplier=4,
+      name='extra_convs',
+  ):
+    super().__init__(name=name)
+    self.num_layers = num_layers
+    self.channel_multiplier = channel_multiplier
+
+  def __call__(self, x, is_training):
+    for _ in range(self.num_layers):
+      x = layernorm(x, create_offset=True)
+      prev_frame = jnp.concatenate([x[0:1], x[:-1]], axis=0)
+      next_frame = jnp.concatenate([x[1:], x[-1:]], axis=0)
+      resid = jnp.concatenate([x, prev_frame, next_frame], axis=-1)
+      resid = hk.Conv2D(x.shape[-1] * self.channel_multiplier, 3)(resid)
+      resid = jax.nn.gelu(resid)
+      x += hk.Conv2D(x.shape[-1], 3, w_init=jnp.zeros, b_init=jnp.zeros)(resid)
+    return x
+
+
 def construct_patch_kernel(pos, grid_size, patch_size=7):
   """A conv kernel that performs bilinear interpolation for a point."""
   # pos is n-by-2, [y,x]
@@ -275,6 +300,8 @@ class TAPIR(hk.Module):
       parallelize_query_extraction: bool = False,
       initial_resolution: Tuple[int, int] = (256, 256),
       blocks_per_group: Sequence[int] = (2, 2, 2, 2),
+      extra_convs=False,
+      extra_convs_kwargs=None,
       feature_extractor_chunk_size: Optional[int] = None,
       name: str = 'tapir',
   ):
@@ -293,6 +320,13 @@ class TAPIR(hk.Module):
         use_max_pool=False,
         name='resnet',
     )
+
+    if extra_convs:
+      if not extra_convs_kwargs:
+        extra_convs_kwargs = {}
+      self.extra_convs = ExtraConvs(**extra_convs_kwargs)
+    else:
+      self.extra_convs = None
 
     self.cost_volume_track_mods = {
         'hid1': hk.Conv2D(
@@ -642,6 +676,11 @@ class TAPIR(hk.Module):
           hires = jnp.concatenate(hires, axis=1)
         else:
           latent, hires = hk.remat(rnet_fwd)(video_resize)
+
+        if self.extra_convs:
+          latent = hk.BatchApply(self.extra_convs)(
+              latent, is_training=is_training
+          )
 
         latent = latent / jnp.sqrt(
             jnp.maximum(
