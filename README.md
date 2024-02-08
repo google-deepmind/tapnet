@@ -1,6 +1,6 @@
 # Tracking Any Point (TAP)
 
-[[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)]
+[[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)] [[`BootsTAP`](https://arxiv.org/abs/2402.00847)]
 
 https://github.com/google-deepmind/tapnet/assets/4534987/9f66b81a-7efb-48e7-a59c-f5781c35bebc
 
@@ -8,13 +8,16 @@ Welcome to the official Google Deepmind repository for Tracking Any Point (TAP),
 
 - [TAP-Vid](https://tapvid.github.io) is a benchmark for models that perform this task, with a collection of ground-truth points for both real and synthetic videos.
 - [TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query point on every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
-- [RoboTAP](https://robotap.github.io) is a system which utilizes TAPIR point tracks to execute robotics manipulation tasks through efficient immitation in the real world. It also includes a dataset with ground-truth points annotated on real robotics manipulation videos.
+- [RoboTAP](https://robotap.github.io) is a system which utilizes TAPIR point tracks to execute robotics manipulation tasks through efficient imitation in the real world. It also includes a dataset with ground-truth points annotated on real robotics manipulation videos.
+- [BootsTAP](https://arxiv.org/abs/2402.00847) (or Bootstrapped Training for TAP) uses a large dataset of unlabeled, real-world video to improve tracking accuracy. Specifically, the model is trained to give consistent predictions across different spatial transformations and corruptions of the video, as well as different choices of the query points. We apply it to TAPIR to create BootsTAPIR, which is architecturally similar to TAPIR but substantially outperforms it on TAP-Vid.
 
 This repository contains the following:
 
 - [TAPIR Demos](#tapir-demos) for both online **colab demo** and offline **real-time demo** by cloning this repo
 - [TAP-Vid Benchmark](#tap-vid-benchmark) for both evaluation **dataset** and evaluation **metrics**
 - [RoboTAP](#roboTAP-benchmark-and-point-track-based-clustering) for both evaluation **dataset** and point track based clustering code
+- [BootsTAP](#colab-demo) for further improved BootsTAPIR model using large scale **semi-supervised bootstrapped** learning
+- [Checkpoints](#download-checkpoints) for both TAP-Net (the baseline presented in the TAP-Vid paper), TAPIR and BootsTAPIR **pre-trained** model weights in both **Jax** and **PyTorch**
 - [Instructions](#tap-net-and-tapir-training-and-inference) for both **training** TAP-Net (the baseline presented in the TAP-Vid paper) and TAPIR on Kubric
 
 ## TAPIR Demos
@@ -30,6 +33,7 @@ We provide two colab demos:
 1. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
 2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential causal TAPIR model that allows for online tracking on points, which can be run in real-time on a GPU platform.
 3. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_rainbow_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPIR Rainbow Visualization"/></a> **Rainbow Visualization**: This visualization is used in many of our teaser videos: it does automatic foreground/background segmentation and corrects the tracks for the camera motion, so you can visualize the paths objects take through real space.
+4. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Pytorch BootsTAP"/></a> **Pytorch BootsTAPIR**: Check this BootsTAPIR model re-implemented in PyTorch, which follows the exact architecture as original BootsTAPIR model implemented in Jax.
 
 ### Live Demo
 
@@ -117,7 +121,7 @@ Our readers also supply videos resized at 256x256 resolution.  If algorithms can
 predictions on such videos would be scaled to match a 256x256 resolution
 before computing metrics. Such predictions would, however, be evaluated as a separate category: we don't consider them comparable to those produced from lower-resolution videos.
 
-### A note on coordinates
+### A Note on Coordinates
 
 In our storage datasets, (x, y) coordinates are typically in normalized raster
 coordinates: i.e., (0, 0) is the upper-left corner of the upper-left pixel, and
@@ -151,6 +155,17 @@ The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.z
 For more details of downloading and visualization of the dataset, please see the [data section](https://github.com/deepmind/tapnet/tree/main/data).
 
 <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> **Point track based clustering**: You can run this colab demo to see how point track based clustering works. Given an input video, the point tracks are extracted from TAPIR and further separated into different clusters according to different motion patterns. This is purely based on the low level motion and does not depend on any semantics or segmentation labels. You can also upload your own video and try point track based clustering.
+
+## Download Checkpoints
+
+`tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable using our NumpyFileCheckpointer. You can download checkpoints here, which should closely match the ones used in the paper.
+
+model|checkpoint|config|backbone|resolution|DAVIS First (AJ)|DAVIS Strided (AJ)|Kinetics First (AJ)|RoboTAP First (AJ)
+:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:
+TAP-Net|[Jax](https://storage.googleapis.com/dm-tapnet/checkpoint.npy)|[tapnet_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapnet_config.py)|TSM-ResNet18|256x256|33.0%|38.4%|38.5%|45.1%
+TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/tapir_checkpoint_panning.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/tapir_checkpoint_panning.pt)|[tapir_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_config.py)|ResNet18|256x256|58.5%|63.3%|50.0%|59.6%
+Online TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/causal_tapir_checkpoint.npy)|[causal_tapir_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/causal_tapir_config.py)|ResNet18|256x256|56.2%|58.3%|51.2%|59.1%
+BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstapir_checkpoint.pt)||ResNet18|256x256|61.4%|66.4%|54.7%|69.9%
 
 ## TAP-Net and TAPIR Training and Inference
 
@@ -221,14 +236,6 @@ python3 ./tapnet/experiment.py \
 ```
 
 Available eval datasets are listed in `supervised_point_prediction.py`.
-
-### Download a Baseline Checkpoint
-
-`tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable
-using our NumpyFileCheckpointer. You can download a checkpoint
-[here](https://storage.googleapis.com/dm-tapnet/checkpoint.npy), which
-was obtained via the open-source version of the code, and should closely match
-the one used to write the paper.
 
 ### Inference
 

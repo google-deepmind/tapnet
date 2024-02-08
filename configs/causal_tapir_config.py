@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Default config to train the TapNet."""
+"""Default config to train the TAPIR."""
 
 from jaxline import base_config
 from ml_collections import config_dict
@@ -29,7 +29,7 @@ def get_config() -> config_dict.ConfigDict:
   config.training_steps = 100000
 
   # NOTE: duplicates not allowed.
-  config.shared_module_names = ('tapnet_model',)
+  config.shared_module_names = ('tapir_model',)
 
   config.dataset_names = ('kubric',)
   # Note: eval modes must always start with 'eval_'.
@@ -51,13 +51,13 @@ def get_config() -> config_dict.ConfigDict:
               # For other D It is also completely untested and very unlikely
               # to work.
               optimizer=dict(
-                  base_lr=2e-3,
+                  base_lr=1e-3,
                   max_norm=-1,  # < 0 to turn off.
-                  weight_decay=1e-2,
+                  weight_decay=1e-1,
                   schedule_type='cosine',
                   cosine_decay_kwargs=dict(
                       init_value=0.0,
-                      warmup_steps=5000,
+                      warmup_steps=1000,
                       end_value=0.0,
                   ),
                   optimizer='adam',
@@ -73,7 +73,12 @@ def get_config() -> config_dict.ConfigDict:
                   shared_module_names=config.get_oneway_ref(
                       'shared_module_names',
                   ),
-                  tapnet_model_kwargs=dict(),
+                  tapir_model_kwargs=dict(
+                      bilinear_interp_with_depthwise_conv=True,
+                      pyramid_level=1,
+                      use_causal_conv=True,
+                      initial_resolution=(256, 256),
+                  ),
               ),
               datasets=dict(
                   dataset_names=config.get_oneway_ref('dataset_names'),
@@ -85,6 +90,7 @@ def get_config() -> config_dict.ConfigDict:
               ),
               supervised_point_prediction_kwargs=dict(
                   prediction_algo='cost_volume_regressor',
+                  model_key='tapir_model',
               ),
               checkpoint_dir=config.get_oneway_ref('checkpoint_dir'),
               evaluate_every=config.get_oneway_ref('evaluate_every'),

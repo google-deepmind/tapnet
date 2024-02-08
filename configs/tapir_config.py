@@ -14,6 +14,7 @@
 # ==============================================================================
 
 """Default config to train the TAPIR."""
+
 from jaxline import base_config
 from ml_collections import config_dict
 
@@ -74,6 +75,7 @@ def get_config() -> config_dict.ConfigDict:
                   ),
                   tapir_model_kwargs=dict(
                       bilinear_interp_with_depthwise_conv=True,
+                      pyramid_level=0,
                       use_causal_conv=False,
                       initial_resolution=(256, 256),
                   ),
