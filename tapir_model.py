@@ -253,12 +253,16 @@ class FeatureGrids(NamedTuple):
     hires: High-resolution features, one for each resolution; 64 channels.
     resolutions: Resolutions used for trajectory computation.  There will be one
       entry for the initialization, and then an entry for each PIPs refinement
-      resolution.
+      resolution.  These are stored as zero-size arrays so that jit treats them
+      as pure shape information rather than tensors.  If these shapes were
+      simply kept as a 2-tuple of ints, then estimate_trajectories could would
+      replace them with traced arrays by default, which would prevent the
+      function from being jitted.
   """
 
   lowres: Sequence[chex.Array]
   hires: Sequence[chex.Array]
-  resolutions: Sequence[Tuple[int, int]]
+  resolutions: Sequence[chex.Array]
 
 
 class QueryFeatures(NamedTuple):
@@ -275,12 +279,13 @@ class QueryFeatures(NamedTuple):
       [batch, num_query_points, 64]
     resolutions: Resolutions used for trajectory computation.  There will be one
       entry for the initialization, and then an entry for each PIPs refinement
-      resolution.
+      resolution.  This is stored as a zero-size array with the appropriate
+      width and height for consistency with FeatureGrids.
   """
 
   lowres: Sequence[chex.Array]
   hires: Sequence[chex.Array]
-  resolutions: Sequence[Tuple[int, int]]
+  resolutions: Sequence[chex.Array]
 
 
 class TAPIR(hk.Module):
@@ -697,7 +702,8 @@ class TAPIR(hk.Module):
 
       feature_grid.append(latent)
       hires_feats.append(hires)
-      resize_im_shape.append(video_resize.shape[2:4])
+      # This zero-sized tensor is only used for shape information.
+      resize_im_shape.append(video_resize[0, 0, :, :, 0:0])
 
     return FeatureGrids(
         tuple(feature_grid), tuple(hires_feats), tuple(resize_im_shape)
@@ -739,7 +745,7 @@ class TAPIR(hk.Module):
 
     feature_grid = feature_grids.lowres
     hires_feats = feature_grids.hires
-    resize_im_shape = feature_grids.resolutions
+    resize_im_shape = tuple([x.shape[:2] for x in feature_grids.resolutions])
 
     shape = video.shape
 
@@ -827,7 +833,7 @@ class TAPIR(hk.Module):
       query_feats.append(interp_features)
 
     return QueryFeatures(
-        tuple(query_feats), tuple(hires_query_feats), tuple(resize_im_shape)
+        tuple(query_feats), tuple(hires_query_feats), feature_grids.resolutions
     )
 
   def estimate_trajectories(
@@ -990,7 +996,7 @@ class TAPIR(hk.Module):
             orig_hw=self.initial_resolution,
             last_iter=mixer_feats,
             mixer_iter=i,
-            resize_hw=feature_grids.resolutions[feature_level],
+            resize_hw=feature_grids.resolutions[feature_level].shape[:2],
             causal_context=cc,
             get_causal_context=get_causal_context,
         )
