@@ -15,11 +15,9 @@
 
 """Live Demo for Online TAPIR."""
 
-import functools
 import time
 
 import cv2
-import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -34,13 +32,23 @@ def load_checkpoint(checkpoint_path):
   ckpt_state = np.load(checkpoint_path, allow_pickle=True).item()
   return ckpt_state["params"], ckpt_state["state"]
 
+print("Loading checkpoint...")
+# --------------------
+# Load checkpoint and initialize
+params, state = load_checkpoint(
+    "tapnet/checkpoints/causal_tapir_checkpoint.npy"
+)
 
-tapir = tapir_model.TAPIR(
-    use_causal_conv=True, bilinear_interp_with_depthwise_conv=False
+tapir = tapir_model.ParameterizedTAPIR(
+    params=params,
+    state=state,
+    tapir_kwargs=dict(
+        use_causal_conv=True, bilinear_interp_with_depthwise_conv=False
+    ),
 )
 
 
-def build_online_model_init(frames, points):
+def online_model_init(frames, points):
   feature_grids = tapir.get_feature_grids(frames, is_training=False)
   features = tapir.get_query_features(
       frames,
@@ -51,7 +59,7 @@ def build_online_model_init(frames, points):
   return features
 
 
-def build_online_model_predict(frames, features, causal_context):
+def online_model_predict(frames, features, causal_context):
   """Compute point tracks and occlusions given frames and query points."""
   feature_grids = tapir.get_feature_grids(frames, is_training=False)
   trajectories = tapir.estimate_trajectories(
@@ -83,27 +91,10 @@ print("Welcome to the TAPIR live demo.")
 print("Please note that if the framerate is low (<~12 fps), TAPIR performance")
 print("may degrade and you may need a more powerful GPU.")
 
-print("Loading checkpoint...")
-# --------------------
-# Load checkpoint and initialize
-params, state = load_checkpoint(
-    "tapnet/checkpoints/causal_tapir_checkpoint.npy"
-)
-
 print("Creating model...")
-online_init = hk.transform_with_state(build_online_model_init)
-online_init_apply = jax.jit(online_init.apply)
+online_init_apply = jax.jit(online_model_init)
 
-online_predict = hk.transform_with_state(build_online_model_predict)
-online_predict_apply = jax.jit(online_predict.apply)
-
-rng = jax.random.PRNGKey(42)
-online_init_apply = functools.partial(
-    online_init_apply, params=params, state=state, rng=rng
-)
-online_predict_apply = functools.partial(
-    online_predict_apply, params=params, state=state, rng=rng
-)
+online_predict_apply = jax.jit(online_model_predict)
 
 print("Initializing camera...")
 # --------------------
@@ -128,20 +119,21 @@ print("Compiling jax functions (this may take a while...)")
 # --------------------
 # Call one time to compile
 query_points = jnp.zeros([NUM_POINTS, 3], dtype=jnp.float32)
-query_features, _ = online_init_apply(
+_ = online_init_apply(
     frames=model_utils.preprocess_frames(frame[None, None]),
     points=query_points[None, 0:1],
 )
 jax.block_until_ready(query_features)
-
-query_features, _ = online_init_apply(
+query_features = online_init_apply(
     frames=model_utils.preprocess_frames(frame[None, None]),
-    points=query_points[None],
+    points=query_points[None, :],
 )
+
 causal_state = tapir.construct_initial_causal_state(
     NUM_POINTS, len(query_features.resolutions) - 1
 )
-(prediction, causal_state), _ = online_predict_apply(
+
+prediction, causal_state = online_predict_apply(
     frames=model_utils.preprocess_frames(frame[None, None]),
     features=query_features,
     causal_context=causal_state,
@@ -172,23 +164,28 @@ cv2.setMouseCallback("Point Tracking", mouse_click)
 t = time.time()
 step_counter = 0
 
+print("Press ESC to exit.")
+
 while rval:
   rval, frame = get_frame(vc)
   if query_frame:
     query_points = jnp.array((0,) + pos, dtype=jnp.float32)
 
-    init_query_features, _ = online_init_apply(
+    init_query_features = online_init_apply(
         frames=model_utils.preprocess_frames(frame[None, None]),
         points=query_points[None, None],
     )
     query_frame = False
     query_features, causal_state = tapir.update_query_features(
-        query_features, init_query_features, [next_query_idx], causal_state
+        query_features=query_features,
+        new_query_features=init_query_features,
+        idx_to_update=np.array([next_query_idx]),
+        causal_state=causal_state,
     )
     have_point[next_query_idx] = True
     next_query_idx = (next_query_idx + 1) % NUM_POINTS
   if pos:
-    (prediction, causal_state), _ = online_predict_apply(
+    prediction, causal_state = online_predict_apply(
         frames=model_utils.preprocess_frames(frame[None, None]),
         features=query_features,
         causal_context=causal_state,

@@ -1169,3 +1169,61 @@ class TAPIR(hk.Module):
       return query_features, causal_state
 
     return query_features
+
+
+class ParameterizedTAPIR:
+  """A convenience wrapper for TAPIR that injects Haiku state.
+
+  This class has exactly the same API as the TAPIR class above.  However, it
+  wraps the Haiku parameters and state, and automatically turns all of the
+  TAPIR methods into Haiku transforms.  This means that you can call all
+  of the TAPIR functions as if they were regular python functions, without
+  having to deal with creating Haiku transforms.
+  """
+
+  def __init__(
+      self,
+      params,
+      state,
+      tapir_kwargs=None,
+  ):
+    """Initializes a ParameterizedTAPIR model.
+
+    Args:
+      params: Haiku parameters
+      state: Haiku state
+      tapir_kwargs: Passed-through to initialize the underlying TAPIR model.
+    """
+    self._params = params
+    self._state = state
+    self._tapir_kwargs = tapir_kwargs if tapir_kwargs else None
+
+    fns = [
+        '__call__',
+        'estimate_trajectories',
+        'get_query_features',
+        'get_feature_grids',
+        'construct_initial_causal_state',
+        'update_query_features',
+    ]
+
+    # A function that constructs a TAPIR model and calls a single TAPIR
+    # function by name.
+    def tapir_call(fn_name, *args, **kwargs):
+      model = TAPIR(**self._tapir_kwargs)
+      fn = getattr(model, fn_name)
+      return fn(*args, **kwargs)
+
+    # We pass the above function into a Haiku transform that injects variables
+    def run(fn_name, *args, **kwargs):
+      hk_fn = hk.transform_with_state(functools.partial(tapir_call, fn_name))
+      res = hk_fn.apply(
+          self._params, self._state, jax.random.PRNGKey(42), *args, **kwargs
+      )
+      return res[0]
+
+    # For each function name in the list, monkey-patch the function onto this
+    # class in a way that wraps the (Haiku-transformed) call to the underlying
+    # TAPIR function.
+    for fn_name in fns:
+      setattr(self, fn_name, functools.partial(run, fn_name))
