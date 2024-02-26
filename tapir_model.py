@@ -164,17 +164,22 @@ class ExtraConvs(hk.Module):
       num_layers=5,
       channel_multiplier=4,
       name='extra_convs',
+      use_tsm=True,
   ):
     super().__init__(name=name)
     self.num_layers = num_layers
     self.channel_multiplier = channel_multiplier
+    self.use_tsm = use_tsm
 
   def __call__(self, x, is_training):
     for _ in range(self.num_layers):
       x = layernorm(x, create_offset=True)
-      prev_frame = jnp.concatenate([x[0:1], x[:-1]], axis=0)
-      next_frame = jnp.concatenate([x[1:], x[-1:]], axis=0)
-      resid = jnp.concatenate([x, prev_frame, next_frame], axis=-1)
+      if self.use_tsm:
+        prev_frame = jnp.concatenate([x[0:1], x[:-1]], axis=0)
+        next_frame = jnp.concatenate([x[1:], x[-1:]], axis=0)
+        resid = jnp.concatenate([x, prev_frame, next_frame], axis=-1)
+      else:
+        resid = x
       resid = hk.Conv2D(x.shape[-1] * self.channel_multiplier, 3)(resid)
       resid = jax.nn.gelu(resid)
       x += hk.Conv2D(x.shape[-1], 3, w_init=jnp.zeros, b_init=jnp.zeros)(resid)
