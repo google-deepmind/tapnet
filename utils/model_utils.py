@@ -82,6 +82,7 @@ def tapnet_loss(
     expected_dist_thresh=6.0,
     huber_loss_delta=4.0,
     rebalance_factor=None,
+    occlusion_loss_mask=None,
 ):
   """TAPNet loss.
 
@@ -112,6 +113,9 @@ def tapnet_loss(
     rebalance_factor: visible points are weighted 1+rebalance_factor relative
       to occluded points.  This prevents biases where the model empirically
       moves toward predicting occluded points.
+    occlusion_loss_mask: Optional binary mask of shape [b, n, t] specifying
+      which points should be included in the occlusion loss; [1 means a point is
+      included].
 
   Returns:
     loss_huber: Huber loss on points
@@ -164,6 +168,9 @@ def tapnet_loss(
         * ((1 + rebalance_factor) - rebalance_factor * target_occ)
         * mask
     )
+  if occlusion_loss_mask is not None:
+    loss_occ = loss_occ * occlusion_loss_mask
+
   loss_occ = jnp.mean(loss_occ)
   return loss_huber, loss_occ, loss_prob
 
