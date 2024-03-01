@@ -43,7 +43,7 @@ def resize_video(video: np.ndarray, output_size: Tuple[int, int]) -> np.ndarray:
   """Resize a video to output_size."""
   # If you have a GPU, consider replacing this with a GPU-enabled resize op,
   # such as a jitted jax.image.resize.  It will make things faster.
-  return media.resize_video(video, output_size[1:3])
+  return media.resize_video(video, output_size)
 
 
 def compute_tapvid_metrics(
