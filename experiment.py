@@ -339,7 +339,7 @@ class Experiment(experiment.AbstractExperiment):
       if updates is None:
         updates = task_updates
       else:
-        updates = jax.tree_map(jnp.add, updates, task_updates)
+        updates = jax.tree.map(jnp.add, updates, task_updates)
       scalars['gradient_norm'] = optax.global_norm(grads)
 
     # Grab the learning rate to log before performing the step.

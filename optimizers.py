@@ -81,7 +81,7 @@ def add_weight_decay(
 
     u_in, u_ex = hk.data_structures.partition(include, updates)
     p_in, _ = hk.data_structures.partition(include, params)
-    u_in = jax.tree_map(lambda g, p: g + weight_decay * p, u_in, p_in)
+    u_in = jax.tree.map(lambda g, p: g + weight_decay * p, u_in, p_in)
     updates = hk.data_structures.merge(u_ex, u_in)
     return updates, state
 

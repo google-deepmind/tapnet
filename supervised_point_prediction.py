@@ -930,14 +930,14 @@ class SupervisedPointPrediction(task.Task):
       logging.info('eval batch: %d', batch_id)
 
       # Accumulate the sum of scalars for each step.
-      scalars = jax.tree_map(lambda x: jnp.sum(x, axis=0), scalars)
+      scalars = jax.tree.map(lambda x: jnp.sum(x, axis=0), scalars)
       if summed_scalars is None:
         summed_scalars = scalars
       else:
-        summed_scalars = jax.tree_map(jnp.add, summed_scalars, scalars)
+        summed_scalars = jax.tree.map(jnp.add, summed_scalars, scalars)
 
       if 'eval_jhmdb' not in mode:
-        mean_scalars = jax.tree_map(lambda x: x / num_samples, summed_scalars)
+        mean_scalars = jax.tree.map(lambda x: x / num_samples, summed_scalars)
       logging.info(mean_scalars)
     logging.info(evaluation_datasets.latex_table(mean_scalars))
 
