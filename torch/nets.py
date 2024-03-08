@@ -57,7 +57,7 @@ class ExtraConvBlock(nn.Module):
     x = x.permute(0, 3, 1, 2)
     prev_frame = torch.cat([x[0:1], x[:-1]], dim=0)
     next_frame = torch.cat([x[1:], x[-1:]], dim=0)
-    resid = torch.cat([x, prev_frame, next_frame], axis=1)
+    resid = torch.cat([x, prev_frame, next_frame], dim=1)
     resid = self.conv(resid)
     resid = F.gelu(resid, approximate='tanh')
     x += self.conv_1(resid)
@@ -198,10 +198,20 @@ class PIPSMLPMixer(nn.Module):
     x = self.linear_1(x)
     return x
 
+class DummyModel:
+
+    def __init__(self):
+        pass
+        
+    def forward(self):
+        return torch.tensor(0)
+        
+    def __call__(self, input):
+        return self.forward()
 
 class BlockV2(nn.Module):
   """ResNet V2 block."""
-
+  
   def __init__(
       self,
       channels_in: int,
@@ -223,14 +233,16 @@ class BlockV2(nn.Module):
 
     self.use_projection = use_projection
     if self.use_projection:
-      self.proj_conv = nn.Conv2d(
+        self.proj_conv = nn.Conv2d(
           in_channels=channels_in,
           out_channels=channels_out,
           kernel_size=1,
           stride=stride,
           padding=0,
           bias=False,
-      )
+        )
+    else:
+        self.proj_conv = DummyModel()
 
     self.bn_0 = nn.InstanceNorm2d(
         num_features=channels_in,

@@ -15,13 +15,13 @@
 
 """Pytorch model utilities."""
 
-from typing import Any, Sequence, Union
-from einshape.src import abstract_ops
-from einshape.src import backend
+from typing import Any, Union, Optional, List
+#from einshape.src import abstract_ops
+#from einshape.src import backend
 import numpy as np
 import torch
 import torch.nn.functional as F
-
+import math
 
 def bilinear(x: torch.Tensor, resolution: tuple[int, int]) -> torch.Tensor:
   """Resizes a 5D tensor using bilinear interpolation.
@@ -113,7 +113,7 @@ def map_coordinates_2d(
   return out
 
 
-def soft_argmax_heatmap_batched(softmax_val, threshold=5):
+def soft_argmax_heatmap_batched(softmax_val, threshold:float=5):
   """Test if two image resolutions are the same."""
   b, h, w, d1, d2 = softmax_val.shape
   y, x = torch.meshgrid(
@@ -126,16 +126,10 @@ def soft_argmax_heatmap_batched(softmax_val, threshold=5):
   argmax_pos = torch.argmax(softmax_val_flat, dim=-1)
 
   pos = coords.reshape(-1, 2)[argmax_pos]
-  valid = (
-      torch.sum(
-          torch.square(
-              coords[None, None, None, :, :, :] - pos[:, :, :, None, None, :]
-          ),
-          dim=-1,
-          keepdims=True,
-      )
-      < threshold**2
-  )
+  
+  tmp1 = torch.square(coords[None, None, None, :, :, :] - pos[:, :, :, None, None, :])
+  tmp2 = torch.unsqueeze(torch.sum(tmp1, dim=-1), -1)
+  valid = (tmp2 < threshold**2)
 
   weighted_sum = torch.sum(
       coords[None, None, None, :, :, :]
@@ -152,9 +146,9 @@ def soft_argmax_heatmap_batched(softmax_val, threshold=5):
 
 def heatmaps_to_points(
     all_pairs_softmax,
-    image_shape,
-    threshold=5,
-    query_points=None,
+    image_shape:List[int],
+    threshold:float=5,
+    query_points:Optional[torch.Tensor]=None,
 ):
   """Convert heatmaps to points using soft argmax."""
 
@@ -162,18 +156,20 @@ def heatmaps_to_points(
   feature_grid_shape = all_pairs_softmax.shape[1:]
   # Note: out_points is now [x, y]; we need to divide by [width, height].
   # image_shape[3] is width and image_shape[2] is height.
+  t1 = out_points.detach()
   out_points = convert_grid_coordinates(
-      out_points.detach(),
-      feature_grid_shape[3:1:-1],
-      image_shape[3:1:-1],
+      t1,
+      torch.tensor(feature_grid_shape[3:1:-1], device=t1.device),
+      torch.tensor(image_shape[3:1:-1], device=t1.device),
   )
   assert feature_grid_shape[1] == image_shape[1]
   if query_points is not None:
     # The [..., 0:1] is because we only care about the frame index.
+    t2 = query_points.detach()
     query_frame = convert_grid_coordinates(
-        query_points.detach(),
-        image_shape[1:4],
-        feature_grid_shape[1:4],
+        t2,
+        torch.tensor(image_shape[1:4], device=t2.device),
+        torch.tensor(feature_grid_shape[1:4], device=t2.device),
         coordinate_format='tyx',
     )[..., 0:1]
 
@@ -193,15 +189,16 @@ def heatmaps_to_points(
   return out_points
 
 
-def is_same_res(r1, r2):
+def is_same_res(r1 : tuple[int,int], r2 : tuple[int,int]):
   """Test if two image resolutions are the same."""
-  return all([x == y for x, y in zip(r1, r2)])
+  #return all([x == y for x, y in zip(r1, r2)])
+  return (r1[0] == r2[0]) and (r1[1] == r2[1])
 
 
 def convert_grid_coordinates(
     coords: torch.Tensor,
-    input_grid_size: Sequence[int],
-    output_grid_size: Sequence[int],
+    input_grid_size, # Sequence not supported by TorchScript, caller must convert torch.size or a tuple to torch.tensor
+    output_grid_size,# Sequence not supported by TorchScript, caller must convert torch.size or a tuple to torch.tensor
     coordinate_format: str = 'xy',
 ) -> torch.Tensor:
   """Convert grid coordinates to correct format."""
@@ -209,6 +206,10 @@ def convert_grid_coordinates(
     input_grid_size = torch.tensor(input_grid_size, device=coords.device)
   if isinstance(output_grid_size, tuple):
     output_grid_size = torch.tensor(output_grid_size, device=coords.device)
+  if not isinstance(input_grid_size, torch.Tensor):
+    raise ValueError(f"input_grid_size must be a torch.tensor, not {type(input_grid_size)}")
+  if not isinstance(output_grid_size, torch.Tensor):
+    raise ValueError(f"output_grid_size must be a torch.tensor, not {type(output_grid_size)}")
 
   if coordinate_format == 'xy':
     if input_grid_size.shape[0] != 2 or output_grid_size.shape[0] != 2:
@@ -230,49 +231,7 @@ def convert_grid_coordinates(
 
   return position_in_grid
 
-
-class _JaxBackend(backend.Backend[torch.Tensor]):
-  """Einshape implementation for PyTorch."""
-
-  # https://github.com/vacancy/einshape/blob/main/einshape/src/pytorch/pytorch_ops.py
-
-  def reshape(self, x: torch.Tensor, op: abstract_ops.Reshape) -> torch.Tensor:
-    return x.reshape(op.shape)
-
-  def transpose(
-      self, x: torch.Tensor, op: abstract_ops.Transpose
-  ) -> torch.Tensor:
-    return x.permute(op.perm)
-
-  def broadcast(
-      self, x: torch.Tensor, op: abstract_ops.Broadcast
-  ) -> torch.Tensor:
-    shape = op.transform_shape(x.shape)
-    for axis_position in sorted(op.axis_sizes.keys()):
-      x = x.unsqueeze(axis_position)
-    return x.expand(shape)
-
-
-def einshape(
-    equation: str, value: Union[torch.Tensor, Any], **index_sizes: int
-) -> torch.Tensor:
-  """Reshapes `value` according to the given Shape Equation.
-
-  Args:
-    equation: The Shape Equation specifying the index regrouping and reordering.
-    value: Input tensor, or tensor-like object.
-    **index_sizes: Sizes of indices, where they cannot be inferred from
-      `input_shape`.
-
-  Returns:
-    Tensor derived from `value` by reshaping as specified by `equation`.
-  """
-  if not isinstance(value, torch.Tensor):
-    value = torch.tensor(value)
-  return _JaxBackend().exec(equation, value, value.shape, **index_sizes)
-
-
-def generate_default_resolutions(full_size, train_size, num_levels=None):
+def generate_default_resolutions(full_size : tuple[int,int], train_size : tuple[int,int]): #, num_levels : int = None):
   """Generate a list of logarithmically-spaced resolutions.
 
   Generated resolutions are between train_size and full_size, inclusive, with
@@ -292,9 +251,13 @@ def generate_default_resolutions(full_size, train_size, num_levels=None):
   if all([x == y for x, y in zip(train_size, full_size)]):
     return [train_size]
 
-  if num_levels is None:
-    size_ratio = np.array(full_size) / np.array(train_size)
-    num_levels = int(np.ceil(np.max(np.log2(size_ratio))) + 1)
+  ratio0 = full_size[0] / train_size[0]
+  ratio1 = full_size[1] / train_size[1]
+  if ratio1 > ratio0:
+    ratio0 = ratio1
+  tr = torch.tensor([ratio0])
+  tr = torch.ceil(torch.log2(tr))
+  num_levels = int(tr.item() + 1)
 
   if num_levels <= 1:
     return [train_size]
@@ -305,13 +268,16 @@ def generate_default_resolutions(full_size, train_size, num_levels=None):
         'Warning: output size is not a multiple of 8. Final layer '
         + 'will round size down.'
     )
-  ll_h, ll_w = train_size[0:2]
+  ll_h = int(train_size[0])
+  ll_w = int(train_size[1])
 
-  sizes = []
+  sizes = [(int(0), int(0))] # in the torch.jit.script() context, annotated assignments without assigned value aren't supported
+  sizes.clear()
   for i in range(num_levels):
     size = (
-        int(round((ll_h * (h / ll_h) ** (i / (num_levels - 1))) // 8)) * 8,
-        int(round((ll_w * (w / ll_w) ** (i / (num_levels - 1))) // 8)) * 8,
+        int(round( float(ll_h * (h / ll_h) ** (i / (num_levels - 1))) // 8 )) * 8,
+        int(round( float(ll_w * (w / ll_w) ** (i / (num_levels - 1))) // 8 )) * 8,
     )
     sizes.append(size)
   return sizes
+
