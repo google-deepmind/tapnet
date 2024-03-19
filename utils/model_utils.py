@@ -161,12 +161,11 @@ def tapnet_loss(
     loss_prob = jnp.mean(loss_prob)
 
   target_occ = target_occ.astype(occlusion.dtype)  # pytype: disable=attribute-error
-  loss_occ = optax.sigmoid_binary_cross_entropy(occlusion, target_occ)
+  loss_occ = optax.sigmoid_binary_cross_entropy(occlusion, target_occ) * mask
   if rebalance_factor is not None:
     loss_occ = (
         loss_occ
         * ((1 + rebalance_factor) - rebalance_factor * target_occ)
-        * mask
     )
   if occlusion_loss_mask is not None:
     loss_occ = loss_occ * occlusion_loss_mask
