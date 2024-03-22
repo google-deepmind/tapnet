@@ -888,7 +888,6 @@ class TAPIR(hk.Module):
           units from the temporal depthwise conv layers, and the keys are names
           derived from Haiku's layer names.
     """
-
     def train2orig(x):
       return transforms.convert_grid_coordinates(
           x,
@@ -1057,6 +1056,7 @@ class TAPIR(hk.Module):
       query_chunk_size: Optional[int] = None,
       get_query_feats: bool = False,
       refinement_resolutions: Optional[List[Tuple[int, int]]] = None,
+      feature_grids: Optional[FeatureGrids] = None,
   ) -> Mapping[str, chex.Array]:
     """Runs a forward pass of the model.
 
@@ -1073,6 +1073,10 @@ class TAPIR(hk.Module):
         accuracy on resolutions higher than what TAPIR was trained on. If None,
         reasonable refinement resolutions will be inferred from the input video
         size.
+      feature_grids: An optional pre-computed FeatureGrids object representing
+        the extracted features of video.  These will be used instead of
+        computing features from scratch.  Useful for running batches of queries
+        against the same video.
 
     Returns:
       A dict of outputs, including:
@@ -1088,11 +1092,13 @@ class TAPIR(hk.Module):
     if get_query_feats:
       raise ValueError('Get query feats not supported in TAPIR.')
 
-    feature_grids = self.get_feature_grids(
-        video,
-        is_training,
-        refinement_resolutions,
-    )
+    if feature_grids is None:
+      feature_grids = self.get_feature_grids(
+          video,
+          is_training,
+          refinement_resolutions,
+      )
+
     query_features = self.get_query_features(
         video,
         is_training,
@@ -1231,4 +1237,12 @@ class ParameterizedTAPIR:
     # class in a way that wraps the (Haiku-transformed) call to the underlying
     # TAPIR function.
     for fn_name in fns:
-      setattr(self, fn_name, functools.partial(run, fn_name))
+      setattr(
+          self,
+          'custom_call' if fn_name == '__call__' else fn_name,
+          functools.partial(run, fn_name),
+      )
+
+  # can't monkey-patch the __call__ method, so we hardcode a different fn name
+  def __call__(self, *args, **kwargs):
+    return getattr(self, 'custom_call')(*args, **kwargs)
