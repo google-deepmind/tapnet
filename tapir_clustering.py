@@ -421,7 +421,7 @@ def update(
   )
 
   updates, new_opt_state = optimiser.update(gradients, state.opt_state)
-  updates = jax.tree.map(lambda x: x * lr_mul, updates)
+  updates = jax.tree_map(lambda x: x * lr_mul, updates)
   new_params = optax.apply_updates(state.params, updates)
 
   new_state = TrainingState(
@@ -567,14 +567,14 @@ def compute_clusters(
   separation_tracks = separation_tracks[enough_visible]
   separation_visibility = separation_visibility[enough_visible]
   if query_features is not None:
-    query_features = jax.tree.map(
+    query_features = jax.tree_map(
         lambda x: x[:, enough_visible] if len(x.shape) > 1 else x,
         query_features,
     )
-  separation_tracks_dict = jax.tree.map(
+  separation_tracks_dict = jax.tree_map(
       lambda x: x[enough_visible], separation_tracks_dict
   )
-  separation_visibility_dict = jax.tree.map(
+  separation_visibility_dict = jax.tree_map(
       lambda x: x[enough_visible], separation_visibility_dict
   )
 
@@ -846,7 +846,7 @@ def construct_fake_causal_state(
   fake_ret = {k: np.zeros(v) for k, v in value_shapes.items()}
   fake_ret = [fake_ret] * num_resolutions * 4
   if convert_to_jax:
-    fake_ret = jax.tree.map(jnp.array, fake_ret)
+    fake_ret = jax.tree_map(jnp.array, fake_ret)
   return fake_ret
 
 
@@ -1132,7 +1132,7 @@ def track_many_points(
             causal_context=causal_state,
         )
 
-        prediction = jax.tree.map(np.array, prediction)
+        prediction = jax.tree_map(np.array, prediction)
 
         res = predictions_to_tracks_visibility(prediction)
         separation_tracks.append(res[0])
@@ -1170,7 +1170,7 @@ def track_many_points(
       'video_shape': {
           x: separation_video_shapes[i] for i, x in enumerate(demo_episode_ids)
       },
-      'query_features': jax.tree.map(np.array, out_query_features),
+      'query_features': jax.tree_map(np.array, out_query_features),
       'demo_episode_ids': demo_episode_ids,
       'query_points': out_query_points,
   }

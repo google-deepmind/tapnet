@@ -589,7 +589,7 @@ class TAPIR(hk.Module):
     )
     x = einshape('bnfc->(bn)fc', mlp_input)
     if causal_context is not None:
-      causal_context = jax.tree.map(
+      causal_context = jax.tree_map(
           lambda x: einshape('bn...->(bn)...', x), causal_context
       )
     res, new_causal_context = self.pips_mixer(
@@ -598,7 +598,7 @@ class TAPIR(hk.Module):
 
     res = einshape('(bn)fc->bnfc', res, b=mlp_input.shape[0])
     if get_causal_context:
-      new_causal_context = jax.tree.map(
+      new_causal_context = jax.tree_map(
           lambda x: einshape('(bn)...->bn...', x, b=mlp_input.shape[0]),
           new_causal_context,
       )
@@ -938,7 +938,7 @@ class TAPIR(hk.Module):
       perm_chunk = perm[ch : ch + query_chunk_size]
       chunk = query_features.lowres[0][:, perm_chunk] + barrier
       if causal_context is not None:
-        cc_chunk = jax.tree.map(lambda x: x[:, perm_chunk], causal_context)  # pylint: disable=cell-var-from-loop
+        cc_chunk = jax.tree_map(lambda x: x[:, perm_chunk], causal_context)  # pylint: disable=cell-var-from-loop
       if query_points_in_video is not None:
         infer_query_points = query_points_in_video[
             :, perm[ch : ch + query_chunk_size]
@@ -1033,7 +1033,7 @@ class TAPIR(hk.Module):
       expd.append(jnp.concatenate(expd_iters[i], axis=1)[:, inv_perm])
 
     for i in range(len(new_causal_context)):
-      new_causal_context[i] = jax.tree.map(
+      new_causal_context[i] = jax.tree_map(
           lambda *x: jnp.concatenate(x, axis=1)[:, inv_perm],
           *new_causal_context[i],
       )
@@ -1163,10 +1163,10 @@ class TAPIR(hk.Module):
       return s1.at[:, idx_to_update].set(s2)
 
     query_features = QueryFeatures(
-        lowres=jax.tree.map(
+        lowres=jax.tree_map(
             upd, query_features.lowres, new_query_features.lowres
         ),
-        hires=jax.tree.map(upd, query_features.hires, new_query_features.hires),
+        hires=jax.tree_map(upd, query_features.hires, new_query_features.hires),
         resolutions=query_features.resolutions,
     )
 
@@ -1175,7 +1175,7 @@ class TAPIR(hk.Module):
           len(idx_to_update), len(query_features.resolutions) - 1
       )
 
-      causal_state = jax.tree.map(upd, causal_state, init_causal_state)
+      causal_state = jax.tree_map(upd, causal_state, init_causal_state)
 
       return query_features, causal_state
 
