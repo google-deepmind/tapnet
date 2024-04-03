@@ -716,7 +716,7 @@ def plot_tracks_tails(
       )
 
       pts = np.stack([points_transf, reference], axis=1)
-      oof = jnp.logical_or(
+      oof = np.logical_or(
           pts < 1.0, pts > np.array([rgb.shape[2], rgb.shape[1]])
       )
       oof = np.logical_or(oof[:, 0], oof[:, 1])
