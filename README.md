@@ -262,29 +262,38 @@ Note that this uses jaxline for model inference. A more direct way for model inf
 Please use the following bibtex entry to cite our work:
 
 ```
-@inproceedings{doersch2022tapvid,
-  author = {Doersch, Carl and Gupta, Ankush and Markeeva, Larisa and
-            Continente, Adria Recasens and Smaira, Kucas and Aytar, Yusuf and
-            Carreira, Joao and Zisserman, Andrew and Yang, Yi},
-  title = {TAP-Vid: A Benchmark for Tracking Any Point in a Video},
-  booktitle={NeurIPS Datasets Track},
-  year = {2022},
+@article{doersch2022tap,
+  title={Tap-vid: A benchmark for tracking any point in a video},
+  author={Doersch, Carl and Gupta, Ankush and Markeeva, Larisa and Recasens, Adria and Smaira, Lucas and Aytar, Yusuf and Carreira, Joao and Zisserman, Andrew and Yang, Yi},
+  journal={Advances in Neural Information Processing Systems},
+  volume={35},
+  pages={13610--13626},
+  year={2022}
 }
 ```
 ```
-@article{doersch2023tapir,
-  title={TAPIR: Tracking Any Point with per-frame Initialization and temporal Refinement},
+@inproceedings{doersch2023tapir,
+  title={Tapir: Tracking any point with per-frame initialization and temporal refinement},
   author={Doersch, Carl and Yang, Yi and Vecerik, Mel and Gokay, Dilara and Gupta, Ankush and Aytar, Yusuf and Carreira, Joao and Zisserman, Andrew},
-  journal={ICCV},
+  booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision},
+  pages={10061--10072},
   year={2023}
 }
 ```
 ```
 @article{vecerik2023robotap,
-  title={RoboTAP: Tracking Arbitrary Points for Few-Shot Visual Imitation},
+  title={Robotap: Tracking arbitrary points for few-shot visual imitation},
   author={Vecerik, Mel and Doersch, Carl and Yang, Yi and Davchev, Todor and Aytar, Yusuf and Zhou, Guangyao and Hadsell, Raia and Agapito, Lourdes and Scholz, Jon},
   journal={arXiv preprint arXiv:2308.15975},
   year={2023}
+}
+```
+```
+@article{doersch2024bootstap,
+  title={BootsTAP: Bootstrapped Training for Tracking-Any-Point},
+  author={Doersch, Carl and Yang, Yi and Gokay, Dilara and Luc, Pauline and Koppula, Skanda and Gupta, Ankush and Heyward, Joseph and Goroshin, Ross and Carreira, Jo{\~a}o and Zisserman, Andrew},
+  journal={arXiv preprint arXiv:2402.00847},
+  year={2024}
 }
 ```
 
