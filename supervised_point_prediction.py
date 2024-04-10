@@ -212,6 +212,7 @@ class SupervisedPointPrediction(task.Task):
 
     loss_scalars = {}
     loss = 0.0
+    # pytype: disable=unsupported-operands
     if self.prediction_algo in ['cost_volume_regressor']:
       loss_huber, loss_occ, loss_prob = model_utils.tapnet_loss(
           output['tracks'],
@@ -299,6 +300,7 @@ class SupervisedPointPrediction(task.Task):
       loss_contrast = -jnp.mean(jnp.concatenate(loss_contrast, 1))
       loss += loss_contrast * self.contrastive_loss_weight
       loss_scalars['loss_contrast'] = loss_contrast
+    # pytype: enable=unsupported-operands
 
     loss_scalars['loss'] = loss
     scaled_loss = loss / jax.device_count()
@@ -427,6 +429,7 @@ class SupervisedPointPrediction(task.Task):
         get_query_feats=get_query_feats,
     )
     loss_scalars = {}
+    # pytype: disable=unsupported-operands
     if self.prediction_algo in ['cost_volume_regressor']:
       # Outputs are already in the correct format for cost_volume_regressor.
       tracks = output['tracks']
@@ -544,6 +547,7 @@ class SupervisedPointPrediction(task.Task):
     outputs = {'tracks': tracks, 'occlusion': occlusion}
     if 'expected_dist' in output:
       outputs['expected_dist'] = output['expected_dist']
+    # pytype: enable=unsupported-operands
     return outputs, loss_scalars
 
   def _eval_batch(
