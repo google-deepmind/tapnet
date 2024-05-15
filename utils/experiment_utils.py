@@ -134,7 +134,7 @@ class NumpyFileCheckpointer(utils.Checkpointer):
       if name == 'global_step':
         raise ValueError(
             'global_step attribute would overwrite jaxline global step')
-      np_params = jax.tree_map(f_np, getattr(exp_mod, attr))
+      np_params = jax.tree_util.tree_map(f_np, getattr(exp_mod, attr))
       to_save[name] = np_params
     to_save['global_step'] = global_step
 
