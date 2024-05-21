@@ -164,7 +164,7 @@ class ExtraConvs(hk.Module):
       num_layers=5,
       channel_multiplier=4,
       name='extra_convs',
-      use_tsm=True,
+      use_tsm=False,
   ):
     super().__init__(name=name)
     self.num_layers = num_layers
@@ -938,7 +938,9 @@ class TAPIR(hk.Module):
       perm_chunk = perm[ch : ch + query_chunk_size]
       chunk = query_features.lowres[0][:, perm_chunk] + barrier
       if causal_context is not None:
-        cc_chunk = jax.tree_util.tree_map(lambda x: x[:, perm_chunk], causal_context)  # pylint: disable=cell-var-from-loop
+        cc_chunk = jax.tree_util.tree_map(
+            lambda x: x[:, perm_chunk], causal_context  # pylint: disable=cell-var-from-loop
+        )
       if query_points_in_video is not None:
         infer_query_points = query_points_in_video[
             :, perm[ch : ch + query_chunk_size]
@@ -1159,14 +1161,16 @@ class TAPIR(hk.Module):
       idx_to_update = tuple([idx_to_update])
     idx_to_update = np.array(idx_to_update)
 
-    def upd(s1, s2):
+    def apply_update_idx(s1, s2):
       return s1.at[:, idx_to_update].set(s2)
 
     query_features = QueryFeatures(
         lowres=jax.tree_util.tree_map(
-            upd, query_features.lowres, new_query_features.lowres
+            apply_update_idx, query_features.lowres, new_query_features.lowres
         ),
-        hires=jax.tree_util.tree_map(upd, query_features.hires, new_query_features.hires),
+        hires=jax.tree_util.tree_map(
+            apply_update_idx, query_features.hires, new_query_features.hires
+        ),
         resolutions=query_features.resolutions,
     )
 
@@ -1175,7 +1179,9 @@ class TAPIR(hk.Module):
           len(idx_to_update), len(query_features.resolutions) - 1
       )
 
-      causal_state = jax.tree_util.tree_map(upd, causal_state, init_causal_state)
+      causal_state = jax.tree_util.tree_map(
+          apply_update_idx, causal_state, init_causal_state
+      )
 
       return query_features, causal_state
 
