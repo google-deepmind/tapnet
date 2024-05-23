@@ -173,7 +173,6 @@ def plot_tracks_v2(
   colors = cmap(z_list / (np.max(z_list) + 1))
   figure_dpi = 64
 
-  figs = []
   for i in range(rgb.shape[0]):
     fig = plt.figure(
         figsize=(rgb.shape[2] / figure_dpi, rgb.shape[1] / figure_dpi),
@@ -181,7 +180,6 @@ def plot_tracks_v2(
         frameon=False,
         facecolor='w',
     )
-    figs.append(fig)
     ax = fig.add_subplot()
     ax.axis('off')
     ax.imshow(rgb[i] / 255.0)
@@ -217,10 +215,11 @@ def plot_tracks_v2(
         int(height), int(width), 3
     )
     disp.append(np.copy(img))
-
-  for fig in figs:
     plt.close(fig)
-  return np.stack(disp, axis=0)
+    del fig, ax
+
+  disp = np.stack(disp, axis=0)
+  return disp
 
 
 def plot_tracks_v3(
@@ -374,7 +373,6 @@ def compute_inliers(
 
 def ransac_homography(targ_pts, src_pts, vis, thresh=4.0, targ_inlier_frac=0.5):
   """Run RANSAC."""
-  targ_pts_choice, src_pts_choice = [], []
   probs = vis / jnp.sum(vis)
   perm = jax.vmap(
       lambda x: jax.random.choice(

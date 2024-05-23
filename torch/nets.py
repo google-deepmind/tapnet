@@ -38,7 +38,7 @@ class ExtraConvBlock(nn.Module):
         normalized_shape=channel_dim, elementwise_affine=True, bias=True
     )
     self.conv = nn.Conv2d(
-        self.channel_dim * 3,
+        self.channel_dim,
         self.channel_dim * self.channel_multiplier,
         kernel_size=3,
         stride=1,
@@ -55,12 +55,9 @@ class ExtraConvBlock(nn.Module):
   def forward(self, x):
     x = self.layer_norm(x)
     x = x.permute(0, 3, 1, 2)
-    prev_frame = torch.cat([x[0:1], x[:-1]], dim=0)
-    next_frame = torch.cat([x[1:], x[-1:]], dim=0)
-    resid = torch.cat([x, prev_frame, next_frame], axis=1)
-    resid = self.conv(resid)
-    resid = F.gelu(resid, approximate='tanh')
-    x += self.conv_1(resid)
+    res = self.conv(x)
+    res = F.gelu(res, approximate='tanh')
+    x += self.conv_1(res)
     x = x.permute(0, 2, 3, 1)
     return x
 
@@ -110,20 +107,32 @@ class ConvChannelsMixer(nn.Module):
 class PIPsConvBlock(nn.Module):
   """Convolutional block for PIPs's MLP Mixer."""
 
-  def __init__(self, in_channels, kernel_shape=3):
+  def __init__(
+      self, in_channels, kernel_shape=3, use_causal_conv=False, block_idx=None
+  ):
     super().__init__()
+    self.use_causal_conv = use_causal_conv
+    self.block_name = f'block_{block_idx}'
+    self.kernel_shape = kernel_shape
+
     self.layer_norm = nn.LayerNorm(
         normalized_shape=in_channels, elementwise_affine=True, bias=False
     )
     self.mlp1_up = nn.Conv1d(
-        in_channels, in_channels * 4, kernel_shape, 1, 1, groups=in_channels
+        in_channels,
+        in_channels * 4,
+        kernel_shape,
+        stride=1,
+        padding=0 if self.use_causal_conv else 1,
+        groups=in_channels,
     )
+
     self.mlp1_up_1 = nn.Conv1d(
         in_channels * 4,
         in_channels * 4,
         kernel_shape,
-        1,
-        1,
+        stride=1,
+        padding=0 if self.use_causal_conv else 1,
         groups=in_channels * 4,
     )
     self.layer_norm_1 = nn.LayerNorm(
@@ -131,15 +140,41 @@ class PIPsConvBlock(nn.Module):
     )
     self.conv_channels_mixer = ConvChannelsMixer(in_channels)
 
-  def forward(self, x):
+  def forward(self, x, causal_context=None, get_causal_context=False):
     to_skip = x
     x = self.layer_norm(x)
+    new_causal_context = {}
+    num_extra = 0
+
+    if causal_context is not None:
+      name1 = self.block_name + '_causal_1'
+      x = torch.cat([causal_context[name1], x], dim=-2)
+      num_extra = causal_context[name1].shape[-2]
+      new_causal_context[name1] = x[..., -(self.kernel_shape - 1) :, :]
 
     x = x.permute(0, 2, 1)
+    if self.use_causal_conv:
+      x = F.pad(x, (2, 0))
     x = self.mlp1_up(x)
+
     x = F.gelu(x, approximate='tanh')
+
+    if causal_context is not None:
+      x = x.permute(0, 2, 1)
+      name2 = self.block_name + '_causal_2'
+      num_extra = causal_context[name2].shape[-2]
+      x = torch.cat([causal_context[name2], x[..., num_extra:, :]], dim=-2)
+      new_causal_context[name2] = x[..., -(self.kernel_shape - 1) :, :]
+      x = x.permute(0, 2, 1)
+
+    if self.use_causal_conv:
+      x = F.pad(x, (2, 0))
     x = self.mlp1_up_1(x)
     x = x.permute(0, 2, 1)
+
+    if causal_context is not None:
+      x = x[..., num_extra:, :]
+
     x = x[..., 0::4] + x[..., 1::4] + x[..., 2::4] + x[..., 3::4]
 
     x = x + to_skip
@@ -148,10 +183,10 @@ class PIPsConvBlock(nn.Module):
     x = self.conv_channels_mixer(x)
 
     x = x + to_skip
-    return x
+    return x, new_causal_context
 
 
-class PIPSMLPMixer(nn.Module):
+class TorchPIPSMLPMixer(nn.Module):
   """Depthwise-conv version of PIPs's MLP Mixer."""
 
   def __init__(
@@ -161,6 +196,7 @@ class PIPSMLPMixer(nn.Module):
       hidden_dim: int = 512,
       num_blocks: int = 12,
       kernel_shape: int = 3,
+      use_causal_conv: bool = False,
   ):
     """Inits Mixer module.
 
@@ -175,28 +211,37 @@ class PIPSMLPMixer(nn.Module):
           mixer. Defaults to 12.
         kernel_shape (int, optional): The size of the kernel in the convolution
           blocks. Defaults to 3.
+        use_causal_conv (bool, optional): Whether to use causal convolutions.
+          Defaults to False.
     """
 
     super().__init__()
     self.hidden_dim = hidden_dim
     self.num_blocks = num_blocks
+    self.use_causal_conv = use_causal_conv
     self.linear = nn.Linear(input_channels, self.hidden_dim)
     self.layer_norm = nn.LayerNorm(
         normalized_shape=hidden_dim, elementwise_affine=True, bias=False
     )
     self.linear_1 = nn.Linear(hidden_dim, output_channels)
     self.blocks = nn.ModuleList([
-        PIPsConvBlock(hidden_dim, kernel_shape) for _ in range(num_blocks)
+        PIPsConvBlock(
+            hidden_dim, kernel_shape, self.use_causal_conv, block_idx=i
+        )
+        for i in range(num_blocks)
     ])
 
-  def forward(self, x):
+  def forward(self, x, causal_context=None, get_causal_context=False):
     x = self.linear(x)
+    all_causal_context = {}
     for block in self.blocks:
-      x = block(x)
+      x, new_causal_context = block(x, causal_context, get_causal_context)
+      if get_causal_context:
+        all_causal_context.update(new_causal_context)
 
     x = self.layer_norm(x)
     x = self.linear_1(x)
-    return x
+    return x, all_causal_context
 
 
 class BlockV2(nn.Module):

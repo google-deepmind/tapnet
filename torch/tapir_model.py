@@ -66,7 +66,7 @@ class QueryFeatures(NamedTuple):
   resolutions: Sequence[Tuple[int, int]]
 
 
-class TAPIR(nn.Module):
+class TorchTAPIR(nn.Module):
   """TAPIR model."""
 
   def __init__(
@@ -84,6 +84,7 @@ class TAPIR(nn.Module):
       blocks_per_group: Sequence[int] = (2, 2, 2, 2),
       feature_extractor_chunk_size: int = 10,
       extra_convs: bool = True,
+      use_casual_conv: bool = False,
   ):
     super().__init__()
 
@@ -100,6 +101,8 @@ class TAPIR(nn.Module):
     self.softmax_temperature = softmax_temperature
     self.initial_resolution = tuple(initial_resolution)
     self.feature_extractor_chunk_size = feature_extractor_chunk_size
+    self.num_mixer_blocks = num_mixer_blocks
+    self.use_casual_conv = use_casual_conv
 
     highres_dim = 128
     lowres_dim = 256
@@ -123,7 +126,9 @@ class TAPIR(nn.Module):
     })
     dim = 4 + self.highres_dim + self.lowres_dim
     input_dim = dim + (self.pyramid_level + 2) * 49
-    self.torch_pips_mixer = nets.PIPSMLPMixer(input_dim, dim)
+    self.torch_pips_mixer = nets.PIPSMLPMixer(
+        input_dim, dim, use_causal_conv=self.use_casual_conv
+    )
 
     if extra_convs:
       self.extra_convs = nets.ExtraConvs()
@@ -345,9 +350,9 @@ class TAPIR(nn.Module):
             video_chunk = video_resize[start_idx:start_idx + chunk_size]
             resnet_out = self.resnet_torch(video_chunk)
 
-            u3 = resnet_out['resnet_unit_3'].permute(0, 2, 3, 1).detach()
+            u3 = resnet_out['resnet_unit_3'].permute(0, 2, 3, 1)
             latent_list.append(u3)
-            u1 = resnet_out['resnet_unit_1'].permute(0, 2, 3, 1).detach()
+            u1 = resnet_out['resnet_unit_1'].permute(0, 2, 3, 1)
             hires_list.append(u1)
 
           latent = torch.cat(latent_list, dim=0)
@@ -355,8 +360,8 @@ class TAPIR(nn.Module):
 
         else:
           resnet_out = self.resnet_torch(video_resize)
-          latent = resnet_out['resnet_unit_3'].permute(0, 2, 3, 1).detach()
-          hires = resnet_out['resnet_unit_1'].permute(0, 2, 3, 1).detach()
+          latent = resnet_out['resnet_unit_3'].permute(0, 2, 3, 1)
+          hires = resnet_out['resnet_unit_1'].permute(0, 2, 3, 1)
 
         if self.extra_convs:
           latent = self.extra_convs(latent)
@@ -374,8 +379,11 @@ class TAPIR(nn.Module):
             )
         )
 
-      feature_grid.append(latent[None, ...])
-      hires_feats.append(hires[None, ...])
+        latent = latent.view(n, f, *latent.shape[1:])
+        hires = hires.view(n, f, *hires.shape[1:])
+
+      feature_grid.append(latent)
+      hires_feats.append(hires)
       resize_im_shape.append(video_resize.shape[2:4])
 
     return FeatureGrids(
@@ -390,6 +398,8 @@ class TAPIR(nn.Module):
       query_features: QueryFeatures,
       query_points_in_video: Optional[torch.Tensor],
       query_chunk_size: Optional[int] = None,
+      causal_context: Optional[dict[str, torch.Tensor]] = None,
+      get_causal_context: bool = False,
   ) -> Mapping[str, Any]:
     """Estimates trajectories given features for a video and query features.
 
@@ -404,6 +414,9 @@ class TAPIR(nn.Module):
         trajectories to (approximately) pass through them.
       query_chunk_size: When computing cost volumes, break the queries into
         chunks of this size to save memory.
+      causal_context: If provided, a dict of causal context to use for
+        refinement.
+      get_causal_context: If True, return causal context in the output.
 
     Returns:
       A dict of outputs, including:
@@ -429,11 +442,14 @@ class TAPIR(nn.Module):
     occ_iters = []
     pts_iters = []
     expd_iters = []
+    new_causal_context = []
     num_iters = self.num_pips_iter * (len(feature_grids.lowres) - 1)
     for _ in range(num_iters + 1):
       occ_iters.append([])
       pts_iters.append([])
       expd_iters.append([])
+      new_causal_context.append([])
+    del new_causal_context[-1]
 
     infer = functools.partial(
         self.tracks_from_cost_volume,
@@ -443,13 +459,25 @@ class TAPIR(nn.Module):
     )
 
     num_queries = query_features.lowres[0].shape[1]
-    perm = torch.randperm(num_queries)
+    if causal_context is None:
+      perm = torch.randperm(num_queries)
+    else:
+      perm = torch.arange(num_queries)
+
     inv_perm = torch.zeros_like(perm)
     inv_perm[perm] = torch.arange(num_queries)
 
     for ch in range(0, num_queries, query_chunk_size):
       perm_chunk = perm[ch : ch + query_chunk_size]
       chunk = query_features.lowres[0][:, perm_chunk]
+
+      cc_chunk = []
+      if causal_context is not None:
+        for d in range(len(causal_context)):
+          tmp_dict = {}
+          for k, v in causal_context[d].items():
+            tmp_dict[k] = v[:, perm_chunk]
+          cc_chunk.append(tmp_dict)
 
       if query_points_in_video is not None:
         infer_query_points = query_points_in_video[
@@ -496,7 +524,7 @@ class TAPIR(nn.Module):
                   padding=0,
               )
           )
-
+        cc = cc_chunk[i] if causal_context is not None else None
         refined = self.refine_pips(
             queries,
             None,
@@ -508,11 +536,15 @@ class TAPIR(nn.Module):
             last_iter=mixer_feats,
             mixer_iter=i,
             resize_hw=feature_grids.resolutions[feature_level],
+            causal_context=cc,
+            get_causal_context=get_causal_context,
         )
-        points, occlusion, expected_dist, mixer_feats = refined
+        points, occlusion, expected_dist, mixer_feats, new_causal = refined
         pts_iters[i + 1].append(train2orig(points))
         occ_iters[i + 1].append(occlusion)
         expd_iters[i + 1].append(expected_dist)
+        new_causal_context[i].append(new_causal)
+
         if (i + 1) % self.num_pips_iter == 0:
           mixer_feats = None
           expected_dist = expd_iters[0][-1]
@@ -526,11 +558,22 @@ class TAPIR(nn.Module):
       points.append(torch.cat(pts_iters[i], dim=1)[:, inv_perm])
       expd.append(torch.cat(expd_iters[i], dim=1)[:, inv_perm])
 
+    for i in range(len(new_causal_context)):
+      combined_dict = {}
+      for key in new_causal_context[i][0].keys():
+        arrays = [d[key] for d in new_causal_context[i]]
+        concatenated = torch.cat(arrays, dim=1)
+        combined_dict[key] = concatenated[:, inv_perm]
+      new_causal_context[i] = combined_dict
+
     out = dict(
         occlusion=occlusion,
         tracks=points,
         expected_dist=expd,
     )
+
+    if get_causal_context:
+      out['causal_context'] = new_causal_context
     return out
 
   def refine_pips(
@@ -545,6 +588,8 @@ class TAPIR(nn.Module):
       last_iter=None,
       mixer_iter=0.0,
       resize_hw=None,
+      causal_context=None,
+      get_causal_context=False,
   ):
     del frame_features
     del mixer_iter
@@ -611,11 +656,22 @@ class TAPIR(nn.Module):
         axis=-1,
     )
     x = utils.einshape('bnfc->(bn)fc', mlp_input)
-    res = self.torch_pips_mixer(x.float())
+
+    if causal_context is not None:
+      for k, v in causal_context.items():
+        causal_context[k] = utils.einshape('bn...->(bn)...', v)
+    res, new_causal_context = self.torch_pips_mixer(
+        x.float(), causal_context, get_causal_context
+    )
     res = utils.einshape('(bn)fc->bnfc', res, b=mlp_input.shape[0])
+    if get_causal_context:
+      for k, v in new_causal_context.items():
+        new_causal_context[k] = utils.einshape(
+            '(bn)...->bn...', v, b=mlp_input.shape[0]
+        )
 
     pos_update = utils.convert_grid_coordinates(
-        res[..., :2].detach(),
+        res[..., :2],
         (resized_w, resized_h),
         (orig_w, orig_h),
     )
@@ -624,6 +680,7 @@ class TAPIR(nn.Module):
         res[..., 2] + occ_guess,
         res[..., 3] + expd_guess,
         res[..., 4:] + (mlp_input_features if last_iter is None else last_iter),
+        new_causal_context,
     )
 
   def tracks_from_cost_volume(
@@ -701,3 +758,14 @@ class TAPIR(nn.Module):
         '(tbn)1->bnt', occlusion[..., 0:1], n=shape[2], t=shape[0]
     )
     return points, occlusion, expected_dist
+
+  def construct_initial_causal_state(self, num_points, num_resolutions=1):
+    """Construct initial causal state."""
+    value_shapes = {}
+    for i in range(self.num_mixer_blocks):
+      value_shapes[f'block_{i}_causal_1'] = (1, num_points, 2, 512)
+      value_shapes[f'block_{i}_causal_2'] = (1, num_points, 2, 2048)
+    fake_ret = {
+        k: torch.zeros(v, dtype=torch.float32) for k, v in value_shapes.items()
+    }
+    return [fake_ret] * num_resolutions * 4

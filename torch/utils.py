@@ -100,7 +100,7 @@ def map_coordinates_2d(
   x = feats.permute(0, 1, 4, 2, 3).view(n * t, c, h, w)
 
   n, p, t, s, xy = coordinates.shape
-  y = coordinates.permute(0, 2, 1, 3, 4).view(n * t, p, s, xy)
+  y = coordinates.permute(0, 2, 1, 3, 4).reshape(n * t, p, s, xy)
   y = 2 * (y / h) - 1
   y = torch.flip(y, dims=(-1,)).float()
 
