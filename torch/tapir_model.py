@@ -66,7 +66,7 @@ class QueryFeatures(NamedTuple):
   resolutions: Sequence[Tuple[int, int]]
 
 
-class TorchTAPIR(nn.Module):
+class TAPIR(nn.Module):
   """TAPIR model."""
 
   def __init__(

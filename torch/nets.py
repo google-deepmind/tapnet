@@ -186,7 +186,7 @@ class PIPsConvBlock(nn.Module):
     return x, new_causal_context
 
 
-class TorchPIPSMLPMixer(nn.Module):
+class PIPSMLPMixer(nn.Module):
   """Depthwise-conv version of PIPs's MLP Mixer."""
 
   def __init__(
