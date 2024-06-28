@@ -1,0 +1,9 @@
+[project]
+name = "tapnet"
+version = "0.1.0"
+description = "Tracking-any-point codebase from Google DeepMind."
+
+[tool.setuptools.packages.find]
+where = ["."]  # list of folders that contain the packages (["."] by default)
+include = ["tapnet*"]  # package names should match these glob patterns (["*"] by default)
+
