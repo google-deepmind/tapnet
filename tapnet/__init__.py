@@ -16,7 +16,6 @@
 """Legacy API for TAP.  Prefer importing from project subfolders."""
 
 from tapnet import experiment  # pylint:disable=g-importing-member
-from tapnet import live_demo  # pylint:disable=g-importing-member
 from tapnet import optimizers  # pylint:disable=g-importing-member
 from tapnet import supervised_point_prediction  # pylint:disable=g-importing-member
 from tapnet import tapir_clustering  # pylint:disable=g-importing-member
