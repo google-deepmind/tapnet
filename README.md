@@ -90,7 +90,7 @@ We also include a point tracking model TAP-Net, with code to train it on Kubric 
 
 ### Evaluating on TAP-Vid
 
-[`evaluation_datasets.py`](evaluation_datasets.py) is intended to be a
+[`evaluation_datasets.py`](tapvid/evaluation_datasets.py) is intended to be a
 stand-alone, copy-and-pasteable reader and evaluator, which depends only
 on numpy and other basic tools.  Tensorflow is required only for reading Kubric
 (which provides a tensorflow reader by default) as well as file operations,

@@ -32,8 +32,8 @@ import optax
 import tensorflow_datasets as tfds
 import tensorflow as tf
 
-from tapnet import evaluation_datasets
 from tapnet import task
+from tapnet.tapvid import evaluation_datasets
 from tapnet.utils import model_utils
 from tapnet.utils import transforms
 from tapnet.utils import viz_utils
@@ -938,10 +938,14 @@ class SupervisedPointPrediction(task.Task):
       if summed_scalars is None:
         summed_scalars = scalars
       else:
-        summed_scalars = jax.tree_util.tree_map(jnp.add, summed_scalars, scalars)
+        summed_scalars = jax.tree_util.tree_map(
+            jnp.add, summed_scalars, scalars
+        )
 
       if 'eval_jhmdb' not in mode:
-        mean_scalars = jax.tree_util.tree_map(lambda x: x / num_samples, summed_scalars)
+        mean_scalars = jax.tree_util.tree_map(
+            lambda x: x / num_samples, summed_scalars
+        )
       logging.info(mean_scalars)
     logging.info(evaluation_datasets.latex_table(mean_scalars))
 
