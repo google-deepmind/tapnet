@@ -38,9 +38,9 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from tapnet import supervised_point_prediction
-from tapnet import tapir_model
-from tapnet import tapnet_model
 from tapnet import task
+from tapnet.models import tapir_model
+from tapnet.models import tapnet_model
 from tapnet.utils import experiment_utils as exputils
 
 

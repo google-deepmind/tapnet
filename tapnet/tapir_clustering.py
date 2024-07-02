@@ -26,7 +26,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 
-from tapnet import tapir_model
+from tapnet.models import tapir_model
 
 
 class TrainingState(NamedTuple):

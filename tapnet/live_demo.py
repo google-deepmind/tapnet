@@ -21,7 +21,7 @@ import cv2
 import jax
 import jax.numpy as jnp
 import numpy as np
-from tapnet import tapir_model
+from tapnet.models import tapir_model
 from tapnet.utils import model_utils
 
 
