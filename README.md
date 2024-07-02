@@ -211,25 +211,25 @@ to install the correct JAX version with CUDA.
 
 ### Training
 
-The configuration file is located at: ```./configs/tapnet_config.py```.
+The configuration file is located at: ```./tapnet/configs/tapnet_config.py```.
 
 You can modify it for your need or create your own config file following
 the example of ```tapnet_config.py```.
 
 To launch experiment run the command:
 
-```python ./experiment.py --config ./configs/tapnet_config.py```
+```python3 -m tapnet.training.experiment --config ./tapnet/configs/tapnet_config.py```
 
 or
 
-```python ./experiment.py --config ./configs/tapir_config.py```
+```python3 -m tapnet.training.experiment --config ./tapnet/configs/tapir_config.py```
 
 ### Evaluation
 
 You can run evaluation for a particular dataset (i.e. tapvid_davis) using the command:
 
 ```bash
-python3 ./tapnet/experiment.py \
+python3 -m tapnet.training.experiment \
   --config=./tapnet/configs/tapir_config.py \
   --jaxline_mode=eval_davis_points \
   --config.checkpoint_dir=./tapnet/checkpoint/ \
@@ -243,7 +243,7 @@ Available eval datasets are listed in `supervised_point_prediction.py`.
 You can run inference for a particular video (i.e. horsejump-high.mp4) using the command:
 
 ```bash
-python3 ./tapnet/experiment.py \
+python3 -m tapnet.training.experiment \
   --config=./tapnet/configs/tapnet_config.py \
   --jaxline_mode=eval_inference \
   --config.checkpoint_dir=./tapnet/checkpoint/ \

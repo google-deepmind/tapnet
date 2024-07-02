@@ -37,10 +37,10 @@ import optax
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-from tapnet import supervised_point_prediction
-from tapnet import task
 from tapnet.models import tapir_model
 from tapnet.models import tapnet_model
+from tapnet.training import supervised_point_prediction
+from tapnet.training import task
 from tapnet.utils import experiment_utils as exputils
 
 
@@ -327,7 +327,7 @@ class Experiment(experiment.AbstractExperiment):
     scalars = {**scalars}  # Mutable copy.
     if grads is not None:
       grads = jax.lax.psum(grads, axis_name='i')
-      task_updates, opt_state = self._optimizer.update(
+      task_updates, opt_state = self._optimizer.update(  # pytype: disable=attribute-error
           grads,
           opt_state,
           params,
@@ -360,7 +360,7 @@ class Experiment(experiment.AbstractExperiment):
     def map_fn(nested_dict, prefix=None):
       prefix = prefix or []
       result = {}
-      for k, v in nested_dict.items():
+      for k, v in nested_dict.items():  # pytype: disable=attribute-error
         if isinstance(v, mapping_type):
           result[k] = map_fn(v, prefix + [k])
         else:

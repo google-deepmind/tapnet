@@ -25,7 +25,7 @@ import numpy as np
 import optax
 import tensorflow as tf
 
-from tapnet import optimizers
+from tapnet.utils import optimizers
 
 
 def get_lr_schedule(

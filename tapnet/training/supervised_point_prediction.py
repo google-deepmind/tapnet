@@ -32,8 +32,8 @@ import optax
 import tensorflow_datasets as tfds
 import tensorflow as tf
 
-from tapnet import task
 from tapnet.tapvid import evaluation_datasets
+from tapnet.training import task
 from tapnet.utils import model_utils
 from tapnet.utils import transforms
 from tapnet.utils import viz_utils
@@ -977,6 +977,8 @@ class SupervisedPointPrediction(task.Task):
 
     logging.info('load video from %s', input_video_path)
     video = media.read_video(input_video_path)
+    if video.metadata is None:
+      raise ValueError(f'Cannot read metadata for {input_video_path}')
     num_frames, fps = video.metadata.num_images, video.metadata.fps
     logging.info('resize video to (%s, %s)', resize_height, resize_width)
     video = media.resize_video(video, (resize_height, resize_width))
