@@ -26,24 +26,12 @@ from typing import Iterable, Mapping, Optional, Tuple, Union
 
 from absl import logging
 
-from kubric.challenges.point_tracking import dataset
 import mediapy as media
 import numpy as np
 from PIL import Image
 import scipy.io as sio
 import tensorflow as tf
 import tensorflow_datasets as tfds
-
-from tapnet.utils import transforms
-
-DatasetElement = Mapping[str, Mapping[str, Union[np.ndarray, str]]]
-
-
-def resize_video(video: np.ndarray, output_size: Tuple[int, int]) -> np.ndarray:
-  """Resize a video to output_size."""
-  # If you have a GPU, consider replacing this with a GPU-enabled resize op,
-  # such as a jitted jax.image.resize.  It will make things faster.
-  return media.resize_video(video, output_size)
 
 
 def compute_tapvid_metrics(
@@ -445,6 +433,9 @@ def create_kubric_eval_train_dataset(
     max_dataset_size: int = 100,
 ) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on Kubric training data."""
+
+  # Lazy import kubric because requirements_inference doesn't include it.
+  from kubric.challenges.point_tracking import dataset
   res = dataset.create_point_tracking_dataset(
       split='train',
       train_size=train_size,
@@ -468,6 +459,8 @@ def create_kubric_eval_dataset(
     mode: str, train_size: Tuple[int, int] = (256, 256)
 ) -> Iterable[DatasetElement]:
   """Dataset for evaluating performance on Kubric val data."""
+  # Lazy import kubric because requirements_inference doesn't include it.
+  from kubric.challenges.point_tracking import dataset
   res = dataset.create_point_tracking_dataset(
       split='validation',
       train_size=train_size,
