@@ -2,6 +2,37 @@
 name = "tapnet"
 version = "0.1.0"
 description = "Tracking-any-point codebase from Google DeepMind."
+dependencies = [
+  "chex",
+  "jax",
+  "jaxline",
+  "optax",
+  "dm-haiku",
+  "dm-tree",
+  "typing_extensions",
+  "matplotlib",
+  "mediapy",
+  "opencv-python",
+  "einshape",
+  "ipympl",
+  "tqdm",
+]
+
+[project.optional-dependencies]
+train = [
+  "absl-py",
+  "notebook",
+  "jupyter_http_over_ws",
+  "tensorflow",
+  "tensorflow-datasets",
+  "tensorflow_graphics",
+  "kubric@git+https://github.com/google-research/kubric",
+]
+
+torch = [
+  "torch",
+  "torchvision",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]  # list of folders that contain the packages (["."] by default)

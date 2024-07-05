@@ -45,9 +45,9 @@ Switch to the project directory:
 
 ```cd tapnet```
 
-Install requirements for inference:
+Install the `tapnet` python package (and its requirements for running inference):
 
-```pip install -r requirements_inference.txt```
+```pip install .```
 
 Download the checkpoint
 
