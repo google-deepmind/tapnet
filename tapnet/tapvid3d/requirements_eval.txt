@@ -2,4 +2,4 @@ einops == 0.8.0
 numpy == 1.25.2
 absl-py==2.1.0
 tqdm==4.66.4
-pillow==9.4.0
+pillow==10.3.0
