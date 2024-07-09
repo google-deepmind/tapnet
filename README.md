@@ -77,54 +77,40 @@ cd ..
 python3 ./tapnet/live_demo.py \
 ```
 
-In our tests, we achieved ~17 fps on 480x480 images on a quadro RTX 4000.
+In our tests, we achieved ~17 fps on 480x480 images on a quadro RTX 4000 (a 2018 mobile GPU).
 
-## TAP-Vid Benchmark
+## Benchmarks
+
+This repository hosts two separate but related benchmarks: TAP-Vid (and its later extension, RoboTAP) and TAPVid-3D.
+
+### TAP-Vid
 
 https://github.com/google-deepmind/tapnet/assets/4534987/ff5fa5e3-ed37-4480-ad39-42a1e2744d8b
 
 [TAP-Vid](https://tapvid.github.io) is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans).
 
-Our full benchmark incorporates 4 datasets: 30 videos from the [DAVIS val set](https://storage.googleapis.com/dm-tapnet/tapvid_davis.zip), 1000 videos from the [Kinetics val set](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip), 50 synthetic [Deepmind Robotics videos](https://storage.googleapis.com/dm-tapnet/tapvid_rgb_stacking.zip) for evaluation, and (almost infinite) point track ground truth on the large-scale synthetic [Kubric dataset](https://github.com/google-research/kubric/tree/main/challenges/point_tracking) for training.
+More details on downloading, using, and evaluating on the **TAP-Vid benchmark** can be found in the corresponding [README](https://github.com/google-deepmind/tapnet/blob/main/tapvid/README.md).
 
-For more details of downloading and visualization of the dataset, please see the [data section](https://github.com/deepmind/tapnet/tree/main/data).
+#### RoboTAP Benchmark
 
-We also include a point tracking model TAP-Net, with code to train it on Kubric dataset. TAP-Net outperforms both optical flow and structure-from-motion methods on the TAP-Vid benchmark while achieving state-of-the-art performance on unsupervised human keypoint tracking on JHMDB, even though the model tracks points on clothes and skin rather than the joints as intended by the benchmark.
+[RoboTAP](https://robotap.github.io/) is a following work of TAP-Vid and TAPIR that demonstrates point tracking models are important for robotics.
 
-### Evaluating on TAP-Vid
+The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip) follows the same annotation format as TAP-Vid, but is released as an addition to TAP-Vid. In terms of domain, RoboTAP dataset is mostly similar to TAP-Vid-RGB-Stacking, with a key difference that all robotics videos are real and manually annotated. Video sources and object categories are also more diversified. The benchmark dataset includes 265 videos, serving for evaluation purpose only.  More details in the TAP-Vid [README](https://github.com/google-deepmind/tapnet/blob/main/tapvid/README.md).  We also provide a <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> demo of the segmentation algorithm used in the paper.
 
-[`evaluation_datasets.py`](tapvid/evaluation_datasets.py) is intended to be a
-stand-alone, copy-and-pasteable reader and evaluator, which depends only
-on numpy and other basic tools.  Tensorflow is required only for reading Kubric
-(which provides a tensorflow reader by default) as well as file operations,
-which should be straightforward to replace for systems without Tensorflow.
 
-For each dataset, there is a basic reader which will produce examples, dicts of
-numpy arrays containing the video, the query points, the target points, and the
-occlusion flag.  Evaluation datasets may be used with one of two possible values
-for `query_mode`: `strided` (each trajectory is queried multiple times, with
-a fixed-length stride between queries)  or `first` (each trajectory is queried
-once, with only the first visible point on the query).  For details on outputs,
-see the documentation for `sample_queries_strided` and `sample_queries_first`.
+### TAPVid-3D
 
-To compute metrics, use `compute_tapvid_metrics` in the same file.  This
-computes results on each batch; the final metrics for the paper can be computed
-by simple averaging across all videos in the dataset.  See the documentation for
-more details.
+TAPVid-3D is a dataset and benchmark for evaluating the task of long-range
+Tracking Any Point in 3D (TAP-3D).
 
-Note that the outputs for a single query point *should not depend on the other
-queries defined in the batch*: that is, the outputs should be the same whether
-the queries are passed one at a time or all at once.  This is important because
-the other queries may leak information about how pixels are grouped and how they
-move.  This property is not enforced in the current evaluation code, but
-algorithms which violate this principle should not be considered valid
-competitors on this benchmark.
+The benchmark features 4,000+ real-world videos, along with their metric 3D
+position point trajectories. The dataset is contains three different video
+sources, and spans a variety of object types, motion patterns, and indoor and
+outdoor environments. This repository folder contains the code to download and
+generate these annotations and dataset samples to view.  Be aware that it has
+a separate license from TAP-Vid.
 
-Our readers also supply videos resized at 256x256 resolution.  If algorithms can handle it, we encourage using full-resolution videos instead; we anticipate that
-predictions on such videos would be scaled to match a 256x256 resolution
-before computing metrics. Such predictions would, however, be evaluated as a separate category: we don't consider them comparable to those produced from lower-resolution videos.
-
-More details on using the **TAPVid-3D benchmark** can be found in the corresponding [README](https://github.com/google-deepmind/tapnet/blob/main/tapvid3d/README.md).
+More details on downloading, using, and evaluating on the **TAPVid-3D benchmark** can be found in the corresponding [README](https://github.com/google-deepmind/tapnet/blob/main/tapvid3d/README.md).
 
 ### A Note on Coordinates
 
@@ -143,23 +129,6 @@ y and x are raster coordinates as above, but t is in frame coordinates, i.e.
 second frames.  Please take care with this: one pixel error can make a
 difference according to our metrics.
 
-### Comparison of Tracking With and Without Optical Flow
-
-When annotating videos for the TAP-Vid benchmark, we use a track assist algorithm interpolates between the sparse points that the annotators click, since requiring annotators to click every frame is prohibitively expensive.  Specifically, we find tracks which minimize the discrepancy with the optical flow while still connecting the chosen points. Annotators will then check the interpolations and repeat the annotation until they observe no drift.
-
-To validate that this is a better approach than a simple linear interpolation between clicked points, we annotated several DAVIS videos twice and [compare them side by side](https://storage.googleapis.com/dm-tapnet/content/flow_tracker.html), once using the flow-based interpolation, and again using a naive linear interpolation, which simply moves the point at a constant velocity between points.
-
-<a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/optical_flow_track_assist.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Track Annotation"/></a> **Flow assist point annotation**: You can run this colab demo to see how point tracks are annotated with optical flow assistance.
-
-## RoboTAP Benchmark and Point Track based Video Segmentation
-
-[RoboTAP](https://robotap.github.io/) is a following work of TAP-Vid and TAPIR that demonstrates point tracking models are important for robotics.
-
-The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip) follows the same annotation format as TAP-Vid, but is released as an addition to TAP-Vid. In terms of domain, RoboTAP dataset is mostly similar to TAP-Vid-RGB-Stacking, with a key difference that all robotics videos are real and manually annotated. Video sources and object categories are also more diversified. The benchmark dataset includes 265 videos, serving for evaluation purpose only.
-
-For more details of downloading and visualization of the dataset, please see the [data section](https://github.com/deepmind/tapnet/tree/main/data).
-
-<a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> **Point track based video segmentation**: You can run this colab demo to see how point track based video segmentation works. Given an input video, the point tracks are extracted from TAPIR and further separated into different clusters according to different motion patterns. This is purely based on the low level motion and does not depend on any other cues (i.e. semantics). You can also upload your own video and try it.
 
 ## Download Checkpoints
 
@@ -175,101 +144,16 @@ Online BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/causal
 
 ## TAP-Net and TAPIR Training and Inference
 
-### Installation
+We provide a train and eval framework for TAP-Net and TAPIR in the training directory; see the training  [README](https://github.com/google-deepmind/tapnet/blob/main/training/README.md).
 
-Install ffmpeg on your machine:
-
-```sudo apt update```
-
-```sudo apt install ffmpeg```
-
-Install OpenEXR:
-
-```sudo apt-get install libopenexr-dev```
-
-Clone the repository:
-
-```git clone https://github.com/deepmind/tapnet.git```
-
-Add current path (parent directory of where TapNet is installed)
-to ```PYTHONPATH```:
-
-```export PYTHONPATH=`(cd ../ && pwd)`:`pwd`:$PYTHONPATH```
-
-Switch to the project directory:
-
-```cd tapnet```
-
-Install kubric as a subdirectory:
-
-```git clone https://github.com/google-research/kubric.git```
-
-Install requirements:
-
-```pip install -r requirements.txt```
-
-If you want to use CUDA, make sure you install the drivers and a version
-of JAX that's compatible with your CUDA and CUDNN versions.
-Refer to
-[the jax manual](https://github.com/google/jax#installation)
-to install the correct JAX version with CUDA.
-
-### Training
-
-The configuration file is located at: ```./tapnet/configs/tapnet_config.py```.
-
-You can modify it for your need or create your own config file following
-the example of ```tapnet_config.py```.
-
-To launch experiment run the command:
-
-```python3 -m tapnet.training.experiment --config ./tapnet/configs/tapnet_config.py```
-
-or
-
-```python3 -m tapnet.training.experiment --config ./tapnet/configs/tapir_config.py```
-
-### Evaluation
-
-You can run evaluation for a particular dataset (i.e. tapvid_davis) using the command:
-
-```bash
-python3 -m tapnet.training.experiment \
-  --config=./tapnet/configs/tapir_config.py \
-  --jaxline_mode=eval_davis_points \
-  --config.checkpoint_dir=./tapnet/checkpoint/ \
-  --config.experiment_kwargs.config.davis_points_path=/path/to/tapvid_davis.pkl
-```
-
-Available eval datasets are listed in `supervised_point_prediction.py`.
-
-### Inference
-
-You can run inference for a particular video (i.e. horsejump-high.mp4) using the command:
-
-```bash
-python3 -m tapnet.training.experiment \
-  --config=./tapnet/configs/tapnet_config.py \
-  --jaxline_mode=eval_inference \
-  --config.checkpoint_dir=./tapnet/checkpoint/ \
-  --config.experiment_kwargs.config.inference.input_video_path=horsejump-high.mp4 \
-  --config.experiment_kwargs.config.inference.output_video_path=result.mp4 \
-  --config.experiment_kwargs.config.inference.resize_height=256 \
-  --config.experiment_kwargs.config.inference.resize_width=256 \
-  --config.experiment_kwargs.config.inference.num_points=20
-```
-
-The inference only serves as an example. It will resize the video to 256x256 resolution, sample 20 random query points on the first frame and track these random points in the rest frames.
-
-Note that this uses jaxline for model inference. A more direct way for model inference can be found on the [colab and real-time demos](#tapir-demos).
 
 ## Citing this Work
 
-Please use the following bibtex entry to cite our work:
+Please use the following bibtex entries to cite our work:
 
 ```
 @article{doersch2022tap,
-  title={Tap-vid: A benchmark for tracking any point in a video},
+  title={{TAP}-Vid: A Benchmark for Tracking Any Point in a Video},
   author={Doersch, Carl and Gupta, Ankush and Markeeva, Larisa and Recasens, Adria and Smaira, Lucas and Aytar, Yusuf and Carreira, Joao and Zisserman, Andrew and Yang, Yi},
   journal={Advances in Neural Information Processing Systems},
   volume={35},
@@ -279,7 +163,7 @@ Please use the following bibtex entry to cite our work:
 ```
 ```
 @inproceedings{doersch2023tapir,
-  title={Tapir: Tracking any point with per-frame initialization and temporal refinement},
+  title={{TAPIR}: Tracking any point with per-frame initialization and temporal refinement},
   author={Doersch, Carl and Yang, Yi and Vecerik, Mel and Gokay, Dilara and Gupta, Ankush and Aytar, Yusuf and Carreira, Joao and Zisserman, Andrew},
   booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision},
   pages={10061--10072},
@@ -288,7 +172,7 @@ Please use the following bibtex entry to cite our work:
 ```
 ```
 @article{vecerik2023robotap,
-  title={Robotap: Tracking arbitrary points for few-shot visual imitation},
+  title={{RoboTAP}: Tracking arbitrary points for few-shot visual imitation},
   author={Vecerik, Mel and Doersch, Carl and Yang, Yi and Davchev, Todor and Aytar, Yusuf and Zhou, Guangyao and Hadsell, Raia and Agapito, Lourdes and Scholz, Jon},
   journal={International Conference on Robotics and Automation},
   year={2024}
@@ -296,15 +180,15 @@ Please use the following bibtex entry to cite our work:
 ```
 ```
 @article{doersch2024bootstap,
-  title={BootsTAP: Bootstrapped Training for Tracking-Any-Point},
-  author={Doersch, Carl and Yang, Yi and Gokay, Dilara and Luc, Pauline and Koppula, Skanda and Gupta, Ankush and Heyward, Joseph and Goroshin, Ross and Carreira, Jo{\~a}o and Zisserman, Andrew},
+  title={{BootsTAP}: Bootstrapped Training for Tracking-Any-Point},
+  author={Doersch, Carl and Luc, Pauline and Yang, Yi and Gokay, Dilara and Koppula, Skanda and Gupta, Ankush and Heyward, Joseph and Rocco, Ignacio and Goroshin, Ross and Carreira, Jo{\~a}o and Zisserman, Andrew},
   journal={arXiv preprint arXiv:2402.00847},
   year={2024}
 }
 ```
 ```
 @misc{koppula2024tapvid3d,
-      title={TAPVid-3D: A Benchmark for Tracking Any Point in 3D},
+      title={{TAPVid}-{3D}: A Benchmark for Tracking Any Point in {3D}},
       author={Skanda Koppula and Ignacio Rocco and Yi Yang and Joe Heyward and João Carreira and Andrew Zisserman and Gabriel Brostow and Carl Doersch},
       year={2024},
       eprint={2407.05921},
