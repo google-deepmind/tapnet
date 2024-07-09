@@ -40,11 +40,11 @@ or locally as:
 
 Then install the lightweight dependencies for the core data and eval helpers:
 
-`pip install -e tapvid3d/requirements_eval.txt`
+`pip install -r https://raw.githubusercontent.com/google-deepmind/tapnet/main/tapnet/tapvid3d/requirements_eval.txt`
 
 For generating the dataset, you'll need to also install the extra requirements:
 
-`pip install -r tapvid3d/requirements_generation.txt`
+`pip install -r https://raw.githubusercontent.com/google-deepmind/tapnet/main/tapnet/tapvid3d/requirements_generation.txt`
 
 Replace `/cpu` with `/cu118` or `/cu121` in the first line of
 `requirements_generation.txt` if you want to use CUDA for running the semantic
