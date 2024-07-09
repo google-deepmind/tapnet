@@ -1,7 +1,7 @@
 [project]
 name = "tapnet"
 version = "0.1.0"
-description = "Tracking-any-point codebase from Google DeepMind."
+description = "Tracking-Any-Point codebase from Google DeepMind."
 dependencies = [
   "chex",
   "jax",

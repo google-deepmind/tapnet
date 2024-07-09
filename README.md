@@ -1,15 +1,16 @@
 # Tracking Any Point (TAP)
 
-[[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)] [[`BootsTAP`](https://bootstap.github.io/)]
+[[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)] [[`BootsTAP`](https://bootstap.github.io/)] [[`TAPVid-3D`](https://tapvid3d.github.io/)]
 
 https://github.com/google-deepmind/tapnet/assets/4534987/9f66b81a-7efb-48e7-a59c-f5781c35bebc
 
-Welcome to the official Google Deepmind repository for Tracking Any Point (TAP), home of the TAP-Vid Dataset, our top-performing TAPIR model, and our RoboTAP extension.
+Welcome to the official Google Deepmind repository for Tracking Any Point (TAP), home of the TAP-Vid and TAPVid-3D Datasets, our top-performing TAPIR model, and our RoboTAP extension.
 
 - [TAP-Vid](https://tapvid.github.io) is a benchmark for models that perform this task, with a collection of ground-truth points for both real and synthetic videos.
 - [TAPIR](https://deepmind-tapir.github.io) is a two-stage algorithm which employs two stages: 1) a matching stage, which independently locates a suitable candidate point match for the query point on every other frame, and (2) a refinement stage, which updates both the trajectory and query features based on local correlations. The resulting model is fast and surpasses all prior methods by a significant margin on the TAP-Vid benchmark.
 - [RoboTAP](https://robotap.github.io) is a system which utilizes TAPIR point tracks to execute robotics manipulation tasks through efficient imitation in the real world. It also includes a dataset with ground-truth points annotated on real robotics manipulation videos.
 - [BootsTAP](https://bootstap.github.io) (or Bootstrapped Training for TAP) uses a large dataset of unlabeled, real-world video to improve tracking accuracy. Specifically, the model is trained to give consistent predictions across different spatial transformations and corruptions of the video, as well as different choices of the query points. We apply it to TAPIR to create BootsTAPIR, which is architecturally similar to TAPIR but substantially outperforms it on TAP-Vid.
+- [TAPVid-3D](https://tapvid3d.github.io) is a benchmark and set of metrics for models that perform the 3D point tracking task. The benchmark contains 1M+ computed ground-truth trajectories on 4,000+ real-world videos.
 
 This repository contains the following:
 
@@ -17,6 +18,7 @@ This repository contains the following:
 - [TAP-Vid Benchmark](#tap-vid-benchmark) for both evaluation **dataset** and evaluation **metrics**
 - [RoboTAP](#roboTAP-benchmark-and-point-track-based-clustering) for both evaluation **dataset** and point track based clustering code
 - [BootsTAP](#colab-demo) for further improved BootsTAPIR model using large scale **semi-supervised bootstrapped** learning
+- [TAPVid-3D Benchmark](https://github.com/google-deepmind/tapnet/blob/main/tapvid3d/README.md) for the evaluation **metrics** and sample **evaluation code** for the TAPVid-3D benchmark.
 - [Checkpoints](#download-checkpoints) for both TAP-Net (the baseline presented in the TAP-Vid paper), TAPIR and BootsTAPIR **pre-trained** model weights in both **Jax** and **PyTorch**
 - [Instructions](#tap-net-and-tapir-training-and-inference) for both **training** TAP-Net (the baseline presented in the TAP-Vid paper) and TAPIR on Kubric
 
@@ -121,6 +123,8 @@ competitors on this benchmark.
 Our readers also supply videos resized at 256x256 resolution.  If algorithms can handle it, we encourage using full-resolution videos instead; we anticipate that
 predictions on such videos would be scaled to match a 256x256 resolution
 before computing metrics. Such predictions would, however, be evaluated as a separate category: we don't consider them comparable to those produced from lower-resolution videos.
+
+More details on using the **TAPVid-3D benchmark** can be found in the corresponding [README](https://github.com/google-deepmind/tapnet/blob/main/tapvid3d/README.md).
 
 ### A Note on Coordinates
 
@@ -298,21 +302,33 @@ Please use the following bibtex entry to cite our work:
   year={2024}
 }
 ```
-
+```
+@misc{koppula2024tapvid3d,
+      title={TAPVid-3D: A Benchmark for Tracking Any Point in 3D},
+      author={Skanda Koppula and Ignacio Rocco and Yi Yang and Joe Heyward and João Carreira and Andrew Zisserman and Gabriel Brostow and Carl Doersch},
+      year={2024},
+      eprint={2407.05921},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2407.05921},
+}
+```
 ## License and Disclaimer
 
-Copyright 2022 DeepMind Technologies Limited
+Copyright 2022-2024 Google LLC
 
-All software is licensed under the Apache License, Version 2.0 (Apache 2.0);
+Software and other materials specific to the TAPVid-3D benchmark are covered by
+the license outlined in tapvid3d/LICENSE file.
+
+All other software in this repository is licensed under the Apache License, Version 2.0 (Apache 2.0);
 you may not use this file except in compliance with the Apache 2.0 license.
 You may obtain a copy of the Apache 2.0 license at:
 
 https://www.apache.org/licenses/LICENSE-2.0
 
-All other materials are licensed under the Creative Commons Attribution 4.0
-International License (CC-BY). You may obtain a copy of the CC-BY license at:
-https://creativecommons.org/licenses/by/4.0/legalcode
-In particular the annotations of TAP-Vid, as well as the RGB-Stacking videos, are released under a [Creative Commons BY license](https://creativecommons.org/licenses/by/4.0/).
+All other non-software materials released here for the TAP-Vid datasets, i.e. the TAP-Vid annotations, as well as the RGB-Stacking videos and RoboTAP videos, are released under a [Creative Commons BY license](https://creativecommons.org/licenses/by/4.0/). You may obtain a copy of the CC-BY license at:
+https://creativecommons.org/licenses/by/4.0/legalcode .
+
 The original source videos of DAVIS come from the val set, and are also licensed under creative commons licenses per their creators; see the [DAVIS dataset](https://davischallenge.org/davis2017/code.html) for details. Kinetics videos are publicly available on YouTube, but subject to their own individual licenses. See the [Kinetics dataset webpage](https://www.deepmind.com/open-source/kinetics) for details.
 
 Unless required by applicable law or agreed to in writing, all software and
