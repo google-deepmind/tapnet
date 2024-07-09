@@ -57,9 +57,9 @@ Scripts to download and generate the annotations of each of the datasets can be
 found in the `annotation_generation` subdirectory, and can be run as:
 
 ```
-python3 -m tapvid3d.annotation_generation.generate_adt
-python3 -m tapvid3d.annotation_generation.generate_pstudio
-python3 -m tapvid3d.annotation_generation.generate_drivetrack
+python3 -m tapnet.tapvid3d.annotation_generation.generate_adt --help
+python3 -m tapnet.tapvid3d.annotation_generation.generate_pstudio --help
+python3 -m tapnet.tapvid3d.annotation_generation.generate_drivetrack --help
 ```
 
 Because of license restrictions in distribution of the underlying source videos
