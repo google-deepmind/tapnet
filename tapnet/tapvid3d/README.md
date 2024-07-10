@@ -1,5 +1,7 @@
 # Tracking Any Point in 3D (TAPVid-3D)
 
+[[`TAPVid-3D Website`](https://tapvid3d.github.io/)] [[`TAPVid-3D Paper`](https://arxiv.org/abs/2407.05921)]
+
 TAPVid-3D is a dataset and benchmark for evaluating the task of long-range
 Tracking Any Point in 3D (TAP-3D).
 
@@ -133,13 +135,14 @@ scripts with the local Jupyter notebook
 If you find this work useful, consider citing the manuscript:
 
 ```
-@article{doersch2022tap,
-  title={TAPVid-3D:A Benchmark for Tracking Any Point in 3D},
-  author={Skanda Koppula, Ignacio Rocco, Yi Yang, Joe Heyward, João Carreira, Andrew Zisserman, Gabriel Brostow, Carl Doersch},
-  journal={},
-  volume={},
-  pages={},
-  year={2024}
+@misc{koppula2024tapvid3d,
+      title={TAPVid-3D: A Benchmark for Tracking Any Point in 3D},
+      author={Skanda Koppula and Ignacio Rocco and Yi Yang and Joe Heyward and João Carreira and Andrew Zisserman and Gabriel Brostow and Carl Doersch},
+      year={2024},
+      eprint={2407.05921},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2407.05921},
 }
 ```
 
