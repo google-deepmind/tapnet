@@ -61,7 +61,7 @@ For DAVIS, the pickle file contains a dictionary, where each key is a DAVIS vide
 
 The labels are contained in a csv file with download link: [TAP-Vid-Kinetics](https://storage.googleapis.com/dm-tapnet/tapvid_kinetics.zip).
 
-The videos are expected as the raw clips from [Kinetics700-2020](https://www.deepmind.com/open-source/kinetics) validation set and stored in a local folder `<video_root_path>`. The clips should be stored as MP4, following the name pattern `f'{youtube_id}_{start_time_sec:06}_{end_time_sec:06}.mp4'`, e.g. 'abcdefghijk_000010_000020.mp4'.
+The videos are expected as the raw clips from [Kinetics700-2020](https://github.com/cvdfoundation/kinetics-dataset) validation set and stored in a local folder `<video_root_path>`. The clips should be stored as MP4, following the name pattern `f'{youtube_id}_{start_time_sec:06}_{end_time_sec:06}.mp4'`, e.g. 'abcdefghijk_000010_000020.mp4'.
 
 Clips can be stored in any subfolder within the `<video_root_path>`. The most common pattern is to store it as `<video_root_path>/<action_label>/<clip_name>`.
 
