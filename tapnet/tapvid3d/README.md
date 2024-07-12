@@ -66,12 +66,11 @@ python3 -m tapnet.tapvid3d.annotation_generation.generate_drivetrack --help
 
 Because of license restrictions in distribution of the underlying source videos
 for Aria Digital Twin, you will need to accept their licence terms and download
-the ADT dataset following the instructions on their
-[website](https://www.projectaria.com/datasets/adt/#download-dataset),
-before you can run our generation script.
+the ADT dataset by first getting the cdn json file from
+[Project Aria Explorer](https://explorer.projectaria.com/?v=%22Aria+Digital+Twin%22),
+and downloading the ADT `main_vrs`, `main_groundtruth`, `segmentation` and `depth` files with:
 
-Similar scripts for the Waymo Open Dataset and Panoptic Studio dataset are also
-provided.
+`aria_dataset_downloader --cdn_file /PATH_TO/Aria_Digital_Twin_1720774989.json -o /OUTPUT_PATH -d 0 6 7 8`
 
 To run all generation scripts, follow the instructions and run the commands in
 `generate_all.sh`. This will generate all the `*.npz` files, and place them into
