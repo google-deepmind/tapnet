@@ -21,6 +21,7 @@ import tensorflow as tf
 tf.config.set_visible_devices([], "GPU")
 
 import os
+import glob
 import hashlib
 
 import numpy as np
@@ -389,7 +390,7 @@ def process_vid(
     visibility_filter: VisibilityFilter,
 ):
   """Processes multiple chunks of a single video."""
-  sequence_path = os.path.join(input_adt_path, seq_name)
+  sequence_path = glob.glob(os.path.join(input_adt_path, seq_name + "*"))[0]
   adt_processor = ADTVideoProcessor(sequence_path)
 
   for chunk_idx in tqdm.tqdm(chunks):
