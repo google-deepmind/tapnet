@@ -31,26 +31,24 @@ tracking models on the benchmark, please see the paper:
 
 ### Getting Started: Installing
 
-Install the helpers for evaluating models on TAPVid-3D by first installing the
-root Tracking Any Point repository:
+(If you want to generate the dataset and want to use CUDA for running semantic segmentation, first install a CUDA-enabled PyTorch with `pip3 install torch==2.3.0 torchvision==0.18.0 --index-url https://download.pytorch.org/whl/cu118`)
 
-`pip install "git+https://github.com/google-deepmind/tapnet.git"`
+For generating the dataset, install the Tracking Any Point repo with:
 
-or locally as:
+`pip install "git+https://github.com/google-deepmind/tapnet.git"[tapvid3d_eval,tapvid3d_generation]`
 
-`pip install -e .`
+If you only want to use the metrics, install with:
 
-Then install the lightweight dependencies for the core data and eval helpers:
+`pip install "git+https://github.com/google-deepmind/tapnet.git"[tapvid3d_eval]`
 
-`pip install -r https://raw.githubusercontent.com/google-deepmind/tapnet/main/tapnet/tapvid3d/requirements_eval.txt`
+For a local editable installation, clone the repo and use:
 
-For generating the dataset, you'll need to also install the extra requirements:
+`pip install -e .[tapvid3d_eval,tapvid3d_generation]`
 
-`pip install -r https://raw.githubusercontent.com/google-deepmind/tapnet/main/tapnet/tapvid3d/requirements_generation.txt`
+or
 
-Replace `/cpu` with `/cu118` or `/cu121` in the first line of
-`requirements_generation.txt` if you want to use CUDA for running the semantic
-segmentation model.
+`pip install -e .[tapvid3d_eval]`.
+
 
 
 ### How to Download and Generate the Dataset
