@@ -14,18 +14,18 @@ Welcome to the official Google Deepmind repository for Tracking Any Point (TAP),
 
 This repository contains the following:
 
-- [TAPIR Demos](#tapir-demos) for both online **colab demo** and offline **real-time demo** by cloning this repo
-- [TAP-Vid Benchmark](#tap-vid-benchmark) for both evaluation **dataset** and evaluation **metrics**
-- [RoboTAP](#roboTAP-benchmark-and-point-track-based-clustering) for both evaluation **dataset** and point track based clustering code
-- [BootsTAP](#colab-demo) for further improved BootsTAPIR model using large scale **semi-supervised bootstrapped** learning
-- [TAPVid-3D Benchmark](https://github.com/google-deepmind/tapnet/blob/main/tapvid3d/README.md) for the evaluation **metrics** and sample **evaluation code** for the TAPVid-3D benchmark.
-- [Checkpoints](#download-checkpoints) for both TAP-Net (the baseline presented in the TAP-Vid paper), TAPIR and BootsTAPIR **pre-trained** model weights in both **Jax** and **PyTorch**
-- [Instructions](#tap-net-and-tapir-training-and-inference) for both **training** TAP-Net (the baseline presented in the TAP-Vid paper) and TAPIR on Kubric
+- [TAPIR / BootsTAPIR Demos](#demos) for both online **colab demo** and offline **real-time demo** by cloning this repo
+- [TAP-Vid Benchmark](#tap-vid) for both evaluation **dataset** and evaluation **metrics**
+- [RoboTAP Benchmark](#roboTAP) for both evaluation **dataset** and point track based clustering code
+- [TAPVid-3D Benchmark](#tapvid-3d) for the evaluation **metrics** and sample **evaluation code** for the TAPVid-3D benchmark.
+- [Checkpoints](#checkpoints) for TAP-Net (the baseline presented in the TAP-Vid paper), TAPIR and BootsTAPIR **pre-trained** model weights in both **Jax** and **PyTorch**
+- [Instructions](#tap-net-and-tapir-training-and-inference) for **training** TAP-Net (the baseline presented in the TAP-Vid paper) and TAPIR on Kubric
 
-## TAPIR Demos
 
-The simplest way to run TAPIR is to use our colab demos online.  You can also
-clone this repo and run TAPIR on your own hardware, including a real-time demo.
+## Demos
+
+The simplest way to run TAPIR / BootsTAPIR is to use our colab demos online. You can also
+clone this repo and run on your own hardware, including a real-time demo.
 
 ### Colab Demo
 
@@ -79,9 +79,10 @@ python3 ./tapnet/live_demo.py \
 
 In our tests, we achieved ~17 fps on 480x480 images on a quadro RTX 4000 (a 2018 mobile GPU).
 
+
 ## Benchmarks
 
-This repository hosts two separate but related benchmarks: TAP-Vid (and its later extension, RoboTAP) and TAPVid-3D.
+This repository hosts three separate but related benchmarks: TAP-Vid, its later extension RoboTAP, and TAPVid-3D.
 
 ### TAP-Vid
 
@@ -89,48 +90,35 @@ https://github.com/google-deepmind/tapnet/assets/4534987/ff5fa5e3-ed37-4480-ad39
 
 [TAP-Vid](https://tapvid.github.io) is a dataset of videos along with point tracks, either manually annotated or obtained from a simulator. The aim is to evaluate tracking of any trackable point on any solid physical surface. Algorithms receive a single query point on some frame, and must produce the rest of the track, i.e., including where that point has moved to (if visible), and whether it is visible, on every other frame. This requires point-level precision (unlike prior work on box and segment tracking) potentially on deformable surfaces (unlike structure from motion) over the long term (unlike optical flow) on potentially any object (i.e. class-agnostic, unlike prior class-specific keypoint tracking on humans).
 
-More details on downloading, using, and evaluating on the **TAP-Vid benchmark** can be found in the corresponding [README](https://github.com/google-deepmind/tapnet/blob/main/tapvid/README.md).
+More details on downloading, using, and evaluating on the **TAP-Vid benchmark** can be found in the corresponding [README](https://github.com/google-deepmind/tapnet/blob/main/tapnet/tapvid).
 
-#### RoboTAP Benchmark
+### RoboTAP
 
 [RoboTAP](https://robotap.github.io/) is a following work of TAP-Vid and TAPIR that demonstrates point tracking models are important for robotics.
 
-The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip) follows the same annotation format as TAP-Vid, but is released as an addition to TAP-Vid. In terms of domain, RoboTAP dataset is mostly similar to TAP-Vid-RGB-Stacking, with a key difference that all robotics videos are real and manually annotated. Video sources and object categories are also more diversified. The benchmark dataset includes 265 videos, serving for evaluation purpose only.  More details in the TAP-Vid [README](https://github.com/google-deepmind/tapnet/blob/main/tapvid/README.md).  We also provide a <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> demo of the segmentation algorithm used in the paper.
-
+The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip) follows the same annotation format as TAP-Vid, but is released as an addition to TAP-Vid. In terms of domain, RoboTAP dataset is mostly similar to TAP-Vid-RGB-Stacking, with a key difference that all robotics videos are real and manually annotated. Video sources and object categories are also more diversified. The benchmark dataset includes 265 videos, serving for evaluation purpose only.  More details can be found in the TAP-Vid [README](https://github.com/google-deepmind/tapnet/blob/main/tapnet/tapvid).  We also provide a <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> demo of the segmentation algorithm used in the paper.
 
 ### TAPVid-3D
 
-TAPVid-3D is a dataset and benchmark for evaluating the task of long-range
-Tracking Any Point in 3D (TAP-3D).
+TAPVid-3D is a dataset and benchmark for evaluating the task of long-range Tracking Any Point in 3D (TAP-3D).
 
-The benchmark features 4,000+ real-world videos, along with their metric 3D
-position point trajectories. The dataset is contains three different video
-sources, and spans a variety of object types, motion patterns, and indoor and
-outdoor environments. This repository folder contains the code to download and
-generate these annotations and dataset samples to view.  Be aware that it has
-a separate license from TAP-Vid.
+The benchmark features 4,000+ real-world videos, along with their metric 3D position point trajectories. The dataset is contains three different video sources, and spans a variety of object types, motion patterns, and indoor and outdoor environments. This repository folder contains the code to download and generate these annotations and dataset samples to view.  Be aware that it has a separate license from TAP-Vid.
 
-More details on downloading, using, and evaluating on the **TAPVid-3D benchmark** can be found in the corresponding [README](https://github.com/google-deepmind/tapnet/blob/main/tapvid3d/README.md).
+More details on downloading, using, and evaluating on the **TAPVid-3D benchmark** can be found in the corresponding [README](https://github.com/google-deepmind/tapnet/tree/main/tapnet/tapvid3d).
 
 ### A Note on Coordinates
 
-In our storage datasets, (x, y) coordinates are typically in normalized raster
-coordinates: i.e., (0, 0) is the upper-left corner of the upper-left pixel, and
-(1, 1) is the lower-right corner of the lower-right pixel.  Our code, however,
-immediately converts these to regular raster coordinates, matching the output of
-the Kubric reader: (0, 0) is the upper-left corner of the upper-left pixel,
-while (h, w) is the lower-right corner of the lower-right pixel, where h is the
+In our storage datasets, (x, y) coordinates are typically in normalized raster coordinates: i.e., (0, 0) is the upper-left corner of the upper-left pixel, and
+(1, 1) is the lower-right corner of the lower-right pixel.  Our code, however, immediately converts these to regular raster coordinates, matching the output of
+the Kubric reader: (0, 0) is the upper-left corner of the upper-left pixel, while (h, w) is the lower-right corner of the lower-right pixel, where h is the
 image height in pixels, and w is the respective width.
 
-When working with 2D coordinates, we typically store them in the order (x, y).
-However, we typically work with 3D coordinates in the order (t, y, x), where
-y and x are raster coordinates as above, but t is in frame coordinates, i.e.
-0 refers to the first frame, and 0.5 refers to halfway between the first and
-second frames.  Please take care with this: one pixel error can make a
-difference according to our metrics.
+When working with 2D coordinates, we typically store them in the order (x, y). However, we typically work with 3D coordinates in the order (t, y, x), where
+y and x are raster coordinates as above, but t is in frame coordinates, i.e. 0 refers to the first frame, and 0.5 refers to halfway between the first and
+second frames.  Please take care with this: one pixel error can make a difference according to our metrics.
 
 
-## Download Checkpoints
+## Checkpoints
 
 `tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable using our NumpyFileCheckpointer. You can download checkpoints here, which should closely match the ones used in the paper.
 
@@ -142,9 +130,10 @@ Online TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/causal_tapir_checkpo
 BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18|256x256|62.4%|67.4%|55.8%|69.2%
 Online BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18|256x256|59.7%|61.2%|55.1%|69.1
 
-## TAP-Net and TAPIR Training and Inference
 
-We provide a train and eval framework for TAP-Net and TAPIR in the training directory; see the training  [README](https://github.com/google-deepmind/tapnet/blob/main/training/README.md).
+## Training and Inference
+
+We provide a train and eval framework for TAP-Net and TAPIR in the training directory; see the training [README](https://github.com/google-deepmind/tapnet/tree/main/tapnet/training).
 
 
 ## Citing this Work
@@ -187,26 +176,22 @@ Please use the following bibtex entries to cite our work:
 }
 ```
 ```
-@misc{koppula2024tapvid3d,
-      title={{TAPVid}-{3D}: A Benchmark for Tracking Any Point in {3D}},
-      author={Skanda Koppula and Ignacio Rocco and Yi Yang and Joe Heyward and João Carreira and Andrew Zisserman and Gabriel Brostow and Carl Doersch},
-      year={2024},
-      eprint={2407.05921},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2407.05921},
+@article{koppula2024tapvid,
+  title={{TAPVid}-{3D}: A Benchmark for Tracking Any Point in {3D}},
+  author={Koppula, Skanda and Rocco, Ignacio and Yang, Yi and Heyward, Joe and Carreira, Jo{\~a}o and Zisserman, Andrew and Brostow, Gabriel and Doersch, Carl},
+  journal={arXiv preprint arXiv:2407.05921},
+  year={2024}
 }
 ```
+
+
 ## License and Disclaimer
 
 Copyright 2022-2024 Google LLC
 
-Software and other materials specific to the TAPVid-3D benchmark are covered by
-the license outlined in tapvid3d/LICENSE file.
+Software and other materials specific to the TAPVid-3D benchmark are covered by the license outlined in tapvid3d/LICENSE file.
 
-All other software in this repository is licensed under the Apache License, Version 2.0 (Apache 2.0);
-you may not use this file except in compliance with the Apache 2.0 license.
-You may obtain a copy of the Apache 2.0 license at:
+All other software in this repository is licensed under the Apache License, Version 2.0 (Apache 2.0); you may not use this file except in compliance with the Apache 2.0 license. You may obtain a copy of the Apache 2.0 license at:
 
 https://www.apache.org/licenses/LICENSE-2.0
 
@@ -215,10 +200,6 @@ https://creativecommons.org/licenses/by/4.0/legalcode .
 
 The original source videos of DAVIS come from the val set, and are also licensed under creative commons licenses per their creators; see the [DAVIS dataset](https://davischallenge.org/davis2017/code.html) for details. Kinetics videos are publicly available on YouTube, but subject to their own individual licenses. See the [Kinetics dataset webpage](https://www.deepmind.com/open-source/kinetics) for details.
 
-Unless required by applicable law or agreed to in writing, all software and
-materials distributed here under the Apache 2.0 or CC-BY licenses are
-distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
-either express or implied. See the licenses for the specific language governing
-permissions and limitations under those licenses.
+Unless required by applicable law or agreed to in writing, all software and materials distributed here under the Apache 2.0 or CC-BY licenses are distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the licenses for the specific language governing permissions and limitations under those licenses.
 
 This is not an official Google product.
