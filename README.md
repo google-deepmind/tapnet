@@ -19,7 +19,7 @@ This repository contains the following:
 - [RoboTAP Benchmark](#roboTAP) for both evaluation **dataset** and point track based clustering code
 - [TAPVid-3D Benchmark](#tapvid-3d) for the evaluation **metrics** and sample **evaluation code** for the TAPVid-3D benchmark.
 - [Checkpoints](#checkpoints) for TAP-Net (the baseline presented in the TAP-Vid paper), TAPIR and BootsTAPIR **pre-trained** model weights in both **Jax** and **PyTorch**
-- [Instructions](#tap-net-and-tapir-training-and-inference) for **training** TAP-Net (the baseline presented in the TAP-Vid paper) and TAPIR on Kubric
+- [Instructions](#training) for **training** TAP-Net (the baseline presented in the TAP-Vid paper) and TAPIR on Kubric
 
 
 ## Demos
@@ -131,7 +131,7 @@ BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_ch
 Online BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18|256x256|59.7%|61.2%|55.1%|69.1
 
 
-## Training and Inference
+## Training
 
 We provide a train and eval framework for TAP-Net and TAPIR in the training directory; see the training [README](https://github.com/google-deepmind/tapnet/tree/main/tapnet/training).
 
