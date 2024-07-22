@@ -26,7 +26,9 @@ top_level_dir = os.path.abspath(os.path.join(current_dir, ".."))
 sys.path.insert(0, top_level_dir)
 from tapnet.tapvid3d.splits import tapvid3d_splits  # pylint: disable=g-import-not-at-top, g-bad-import-order
 
-TAPVID3D_GCS_URL = "https://storage.googleapis.com/dm-tapnet/tapvid3d/release_files/rc1"
+TAPVID3D_GCS_URL = (
+    "https://storage.googleapis.com/dm-tapnet/tapvid3d/release_files/rc2"
+)
 
 
 def download_tapvid3d_files(

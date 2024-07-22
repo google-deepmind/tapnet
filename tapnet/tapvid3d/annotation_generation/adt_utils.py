@@ -21,7 +21,6 @@ import tensorflow as tf
 tf.config.set_visible_devices([], "GPU")
 
 import os
-import glob
 import hashlib
 
 import numpy as np
@@ -36,6 +35,7 @@ import torch
 from torchvision.models import segmentation as torch_seg
 import tqdm
 from visu3d.math import interp_utils
+from tapnet.tapvid3d.annotation_generation import adt_v1v2_mappings
 
 
 # Fixed hyperparameters for generating the ADT data.
@@ -138,7 +138,7 @@ class ADTVideoProcessor:
     paths_provider = AriaDigitalTwinDataPathsProvider(sequence_path)
     selected_device_number = 0
     data_paths = paths_provider.get_datapaths_by_device_num(
-        selected_device_number, "skeleton" in sequence_path
+        selected_device_number, False
     )
     gt_provider = AriaDigitalTwinDataProvider(data_paths)
     stream_id = StreamId("214-1")
@@ -390,7 +390,8 @@ def process_vid(
     visibility_filter: VisibilityFilter,
 ):
   """Processes multiple chunks of a single video."""
-  sequence_path = glob.glob(os.path.join(input_adt_path, seq_name + "*"))[0]
+  adt_v2_name = adt_v1v2_mappings.ADT_MAPPINGS[seq_name]
+  sequence_path = os.path.join(input_adt_path, adt_v2_name)
   adt_processor = ADTVideoProcessor(sequence_path)
 
   for chunk_idx in tqdm.tqdm(chunks):
