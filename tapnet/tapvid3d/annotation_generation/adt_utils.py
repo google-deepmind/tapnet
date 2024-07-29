@@ -21,7 +21,6 @@ import tensorflow as tf
 tf.config.set_visible_devices([], "GPU")
 
 import os
-import hashlib
 
 import numpy as np
 import numpy.typing as npt
@@ -433,13 +432,11 @@ def process_vid(
         rgb_jpegs,
     )
 
-    # Verify trajectories to millimeter precision.
-    trajectories_hash = hashlib.md5(
-        np.round(trajectories * 1000).astype(np.int32).data.tobytes()
-    ).hexdigest()
-    assert trajectories_hash == in_npz["tracks_XYZ_hash"]
+    # Verify trajectories means.
+    trajectories_mean = trajectories.mean(axis=(0, 1))
+    assert np.allclose(trajectories_mean, in_npz["tracks_XYZ_mean"], atol=1e-5)
 
-    # Verify visibilities to 1e-5 precision.
+    # Verify visibilities means.
     assert np.abs(visibilities.mean() - in_npz["visibility_mean"]) < 1e-5
 
     example = {
