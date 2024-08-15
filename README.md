@@ -1,3 +1,7 @@
+**This is the clone of the [TAPIR Repository](https://github.com/google-deepmind/tapnet) that addresses the Standard TAPIR model compatibility with Torchscript, see [PR#85](https://github.com/google-deepmind/tapnet/pull/85). Only _tapir_model.py,_ _nets.py_ and _utils.py_ from _torch_ directory are updated.**
+
+---
+
 # Tracking Any Point (TAP)
 
 [[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)] [[`BootsTAP`](https://arxiv.org/abs/2402.00847)]
