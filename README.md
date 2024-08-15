@@ -1,5 +1,9 @@
 **This is the clone of the [TAPIR Repository](https://github.com/google-deepmind/tapnet) that addresses the Standard TAPIR model compatibility with Torchscript, see [PR#85](https://github.com/google-deepmind/tapnet/pull/85). Only _tapir_model.py,_ _nets.py_ and _utils.py_ from _torch_ directory are updated.**
 
+**It is not yet aligned with the version 2 of the model [bootstapir_checkpoint_v2.pt](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.pt), only with the original version [bootstapir_checkpoint.pt](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint.pt).**
+
+**Online TAPIR is not yet supported.**
+
 ---
 
 # Tracking Any Point (TAP)
