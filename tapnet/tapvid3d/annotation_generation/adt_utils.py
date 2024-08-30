@@ -30,10 +30,7 @@ from projectaria_tools.core.stream_id import StreamId
 from projectaria_tools.projects.adt import AriaDigitalTwinDataPathsProvider
 from projectaria_tools.projects.adt import AriaDigitalTwinDataProvider
 
-import torch
-from torchvision.models import segmentation as torch_seg
 import tqdm
-from visu3d.math import interp_utils
 from tapnet.tapvid3d.annotation_generation import adt_v1v2_mappings
 
 
@@ -42,86 +39,6 @@ N_FRAMES = 300
 HEIGHT = 512
 WIDTH = 512
 FOCAL_LENGTH = 280
-
-
-class VisibilityFilter:
-  """Filters visibilities using semantic segmentation."""
-
-  def __init__(self):
-    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if not torch.cuda.is_available():
-      print(
-          "WARNING: No GPU available, using CPU instead for semantic"
-          " segmentation."
-      )
-
-    self.model, self.preprocess, self.categories = (
-        self.load_segmentation_model()
-    )
-
-  def load_segmentation_model(self) -> ...:
-    """Loads FCN ResNet50 semantic segmentation model."""
-    weights = torch_seg.FCN_ResNet50_Weights.DEFAULT
-    assert (
-        weights.url
-        == "https://download.pytorch.org/models/fcn_resnet50_coco-1167a1af.pth"
-    )
-    model = torch_seg.fcn_resnet50(weights=weights)
-    model.eval()
-    model.to(self.device)
-    preprocess = weights.transforms()
-    categories = weights.meta["categories"]
-    return model, preprocess, categories
-
-  def extract_masks(self, rgb_jpegs: list[bytes]) -> torch.Tensor:
-    """Extracts semantic masks using a semantic segmentation model."""
-    class_to_idx = {cls: idx for (idx, cls) in enumerate(self.categories)}
-    rgb_ims = [
-        torch.tensor(np.array(tf.io.decode_jpeg(x))).permute(2, 0, 1)
-        for x in rgb_jpegs
-    ]
-    rgb_ims = torch.stack(rgb_ims, axis=0)
-    batches = np.array_split(
-        np.arange(rgb_ims.shape[0]), rgb_ims.shape[0] // 32
-    )
-    masks = []
-    for batch_inds in batches:
-      batch = self.preprocess(rgb_ims[batch_inds]).to(self.device)
-      with torch.no_grad():
-        prediction = self.model(batch)["out"].cpu()
-      normalized_masks = prediction.softmax(dim=1)
-      mask = normalized_masks[:, class_to_idx["person"]]
-      masks.append(mask > 0.1)
-    masks = torch.concatenate(masks, axis=0).cpu().numpy()
-    return masks
-
-  def filter_visibilities(
-      self,
-      trajectories: list[npt.NDArray],
-      visibilities: list[npt.NDArray],
-      rgb_jpegs: list[bytes],
-  ):
-    """Filters visibilities using semantic segmentation."""
-    masks = self.extract_masks(rgb_jpegs)
-
-    # Mark points on persons as occluded.
-    px = trajectories[..., 0] * FOCAL_LENGTH / trajectories[..., 2] + (
-        WIDTH / 2
-    )
-    py = trajectories[..., 1] * FOCAL_LENGTH / trajectories[..., 2] + (
-        HEIGHT / 2
-    )
-    visib_filtered = []
-    for t in range(px.shape[0]):
-      row = np.floor(py[t]).astype(np.int32)
-      col = np.floor(px[t]).astype(np.int32)
-      visib = visibilities[t]
-      semantic = np.array(Image.fromarray(masks[t]).resize((512, 512)))
-      visib[visib] = ~semantic[row[visib], col[visib]]
-      visib_filtered.append(visib)
-    visibilities = np.stack(visib_filtered, axis=0)
-
-    return visibilities
 
 
 class ADTVideoProcessor:
@@ -223,162 +140,6 @@ class ADTVideoProcessor:
     chunk_timestamps_ns = ok_timestamps_ns
     return rgb_ims, depth_ims, segmentation_ims, chunk_timestamps_ns
 
-  def get_queries_in_3d(
-      self,
-      queries_xyt: list[npt.NDArray],
-      depth_ims: list[npt.NDArray],
-      segmentation_ims: list[npt.NDArray],
-      chunk_timestamps_ns: list[int],
-  ) -> list[tuple[int, npt.NDArray]]:
-    """Converts 2D queries to 3D queries in the object's coordinate frame."""
-    queries_3d = []
-    for x, y, query_time in queries_xyt:
-      query_time = int(query_time)
-      # Flip back 90 degs.
-      x, y = y, HEIGHT - x
-      row = int(np.round(y - 0.5))
-      col = int(np.round(x - 0.5))
-
-      query_3d_z = depth_ims[query_time][row, col] / 1000
-      query_3d_x = (x - WIDTH / 2) * query_3d_z / FOCAL_LENGTH
-      query_3d_y = (y - HEIGHT / 2) * query_3d_z / FOCAL_LENGTH
-
-      query_3d = np.array([query_3d_x, query_3d_y, query_3d_z, 1.0])[..., None]
-
-      # Get object id.
-      select_timestamps_ns = chunk_timestamps_ns[query_time]
-      target_obj_id = segmentation_ims[query_time][row, col]
-
-      # Get object pose and bounding box.
-      bbox3d_with_dt = (
-          self.gt_provider.get_object_3d_boundingboxes_by_timestamp_ns(
-              select_timestamps_ns
-          )
-      )
-      if not bbox3d_with_dt.is_valid():
-        continue
-      if target_obj_id not in bbox3d_with_dt.data():
-        continue
-      bbox3d = bbox3d_with_dt.data()[target_obj_id]
-      # Get the Aria pose.
-      aria3dpose_with_dt = self.gt_provider.get_aria_3d_pose_by_timestamp_ns(
-          select_timestamps_ns
-      )
-      if not aria3dpose_with_dt.is_valid():
-        print("aria 3d pose is not available")
-      aria3dpose = aria3dpose_with_dt.data()
-
-      # Get 6DoF object pose with respect to the target camera.
-      transform_cam_device = self.gt_provider.get_aria_transform_device_camera(
-          self.stream_id
-      ).inverse()
-      transform_cam_scene = (
-          transform_cam_device.to_matrix()
-          @ aria3dpose.transform_scene_device.inverse().to_matrix()
-      )
-      transform_cam_obj = (
-          transform_cam_scene @ bbox3d.transform_scene_object.to_matrix()
-      )
-
-      # Compute point coords in object frame.
-      query_3d_obj = np.linalg.inv(transform_cam_obj) @ query_3d
-      queries_3d.append((target_obj_id, query_3d_obj))
-    return queries_3d
-
-  def get_trajectories(
-      self,
-      queries_3d: list[npt.NDArray],
-      depth_ims: list[npt.NDArray],
-      chunk_timestamps_ns: list[int],
-  ) -> tuple[npt.NDArray, npt.NDArray]:
-    """Computes trajectories and visibilities for all objects."""
-    object_ids = np.array([q[0] for q in queries_3d])
-    unique_object_ids = np.unique(object_ids)
-
-    # Collect transforms to obj for all objs.
-    transforms_cam_obj = dict()
-    transform_cam_device = self.gt_provider.get_aria_transform_device_camera(
-        self.stream_id
-    ).inverse()
-    for idx, select_timestamps_ns in enumerate(chunk_timestamps_ns):
-      # Get the Aria pose.
-      aria3dpose_with_dt = self.gt_provider.get_aria_3d_pose_by_timestamp_ns(
-          select_timestamps_ns
-      )
-      if not aria3dpose_with_dt.is_valid():
-        continue
-      aria3dpose = aria3dpose_with_dt.data()
-      transform_cam_scene = (
-          transform_cam_device.to_matrix()
-          @ aria3dpose.transform_scene_device.inverse().to_matrix()
-      )
-      for target_obj_id in unique_object_ids:
-        bbox3d_with_dt = (
-            self.gt_provider.get_object_3d_boundingboxes_by_timestamp_ns(
-                select_timestamps_ns
-            )
-        )
-        if not bbox3d_with_dt.is_valid():
-          continue
-        bbox3d = bbox3d_with_dt.data()[target_obj_id]
-        transform_cam_obj = (
-            transform_cam_scene @ bbox3d.transform_scene_object.to_matrix()
-        )
-        transforms_cam_obj[(idx, target_obj_id)] = transform_cam_obj
-
-    queries_3d_obj = np.concatenate([q[1] for q in queries_3d], axis=-1).T[
-        ..., None
-    ]
-
-    stacked_transforms_cam_obj = []
-    for idx in range(len(chunk_timestamps_ns)):
-      tnf_cam_obj = []
-      for obj_id in object_ids:
-        tnf_cam_obj.append(transforms_cam_obj[(idx, obj_id)])
-      tnf_cam_obj = np.stack(tnf_cam_obj, axis=0)
-      stacked_transforms_cam_obj.append(tnf_cam_obj)
-
-    # Project to cam and compute visibility.
-    trajectories = []
-    visibilities = []
-    for idx in range(len(chunk_timestamps_ns)):
-      queries_3d_cam = (stacked_transforms_cam_obj[idx] @ queries_3d_obj)[
-          :, :3, 0
-      ]
-      trajectories.append(queries_3d_cam)
-      queries_depth = queries_3d_cam[:, 2]
-      px = queries_3d_cam[:, 0] * FOCAL_LENGTH / queries_depth + WIDTH / 2
-      py = queries_3d_cam[:, 1] * FOCAL_LENGTH / queries_depth + HEIGHT / 2
-      in_frame = (
-          (px > 0)
-          * (py > 0)
-          * (px < WIDTH)
-          * (py < HEIGHT)
-          * (queries_depth > 0)
-      )
-      visible = np.zeros_like(px).astype(bool)
-      depth_at_query_in_frame = (
-          interp_utils.interp_img(
-              depth_ims[idx][..., None],
-              np.stack((px[in_frame], py[in_frame]), axis=-1),
-          ).squeeze()
-          / 1000
-      )
-      visible_in_frame = (
-          np.abs(queries_depth[in_frame] - depth_at_query_in_frame) < 0.02
-      )
-      visible[in_frame] = visible_in_frame
-      visibilities.append(visible)
-
-    visibilities = np.stack(visibilities, axis=0)
-    trajectories = np.stack(trajectories, axis=0)
-
-    # Flip 90deg.
-    trajectories = trajectories[:, :, [1, 0, 2]]
-    trajectories[:, :, 0] = -trajectories[:, :, 0]
-
-    return trajectories, visibilities
-
 
 def process_vid(
     input_adt_path: str,
@@ -386,7 +147,6 @@ def process_vid(
     output_npz_path: str,
     seq_name: str,
     chunks: list[int],
-    visibility_filter: VisibilityFilter,
 ):
   """Processes multiple chunks of a single video."""
   adt_v2_name = adt_v1v2_mappings.ADT_MAPPINGS[seq_name]
@@ -399,9 +159,9 @@ def process_vid(
         chunk_idx * N_FRAMES : (chunk_idx + 1) * N_FRAMES
     ]
 
-    rgb_ims, depth_ims, segmentation_ims, chunk_timestamps_ns = (
-        adt_processor.extract_image_data(chunk_timestamps_ns)
-    )
+    rgb_ims, _, _, _ = adt_processor.extract_image_data(chunk_timestamps_ns)
+    rgb_ims = [np.array(Image.fromarray(im).rotate(-90)) for im in rgb_ims]
+    rgb_jpegs = [np.array(tf.io.encode_jpeg(im)).item() for im in rgb_ims]
 
     # Load query points.
     in_npz = np.load(
@@ -409,35 +169,12 @@ def process_vid(
         allow_pickle=True,
     )
     queries_xyt = in_npz["queries_xyt"]
+    trajectories = in_npz["tracks_XYZ"]
+    visibilities = in_npz["visibility"]
 
-    # Compute trajectories and visibilities from ADT source data.
-    queries_3d = adt_processor.get_queries_in_3d(
-        queries_xyt,
-        depth_ims,
-        segmentation_ims,
-        chunk_timestamps_ns,
-    )
-    trajectories, visibilities = adt_processor.get_trajectories(
-        queries_3d,
-        depth_ims,
-        chunk_timestamps_ns,
-    )
-
-    # Filter visibilities using semantic segmentation.
-    rgb_ims = [np.array(Image.fromarray(im).rotate(-90)) for im in rgb_ims]
-    rgb_jpegs = [np.array(tf.io.encode_jpeg(im)).item() for im in rgb_ims]
-    visibilities = visibility_filter.filter_visibilities(
-        trajectories,
-        visibilities,
-        rgb_jpegs,
-    )
-
-    # Verify trajectories means.
-    trajectories_mean = trajectories.mean(axis=(0, 1))
-    assert np.allclose(trajectories_mean, in_npz["tracks_XYZ_mean"], atol=1e-5)
-
-    # Verify visibilities means.
-    assert np.abs(visibilities.mean() - in_npz["visibility_mean"]) < 1e-5
+    # Verify video means.
+    video_means = np.stack([np.mean(x, axis=(0, 1)) for x in rgb_ims], axis=0)
+    assert np.allclose(video_means, in_npz["video_means"], atol=1e-3)
 
     example = {
         "images_jpeg_bytes": rgb_jpegs,

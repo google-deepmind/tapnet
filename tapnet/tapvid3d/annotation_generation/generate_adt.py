@@ -32,8 +32,6 @@ from tapnet.tapvid3d.annotation_generation import gcs_utils
 import tqdm
 
 
-GCS_BLOB_ADT_PREFIX = "tapvid3d/release_files/rc1/adt/"
-
 _OUTPUT_DIR = flags.DEFINE_string(
     "output_dir",
     "tapvid3d_dataset/adt/",
@@ -86,9 +84,6 @@ def generate_adt_npz(
     chunk = int(basename[-1])
     pending_vid_chunks[vid].append(chunk)
 
-  # Load semantic segmentation model.
-  visibility_filter = adt_utils.VisibilityFilter()
-
   for vid, chunks in tqdm.tqdm(
       pending_vid_chunks.items(), total=len(pending_vid_chunks)
   ):
@@ -98,7 +93,6 @@ def generate_adt_npz(
         output_npz_dir,
         vid,
         chunks,
-        visibility_filter,
     )
 
 
