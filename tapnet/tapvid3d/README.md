@@ -1,6 +1,6 @@
 # Tracking Any Point in 3D (TAPVid-3D)
 
-[[`TAPVid-3D Website`](https://tapvid3d.github.io/)] [[`TAPVid-3D Paper`](https://arxiv.org/abs/2407.05921)]
+[[`TAPVid-3D Website`](https://tapvid3d.github.io/)] [[`TAPVid-3D Paper`](https://arxiv.org/abs/2407.05921)] [[`Colab to Visualize Samples`](https://colab.research.google.com/drive/1Ro2sE0lAvq-h0lixrUBB0oTYXEwXNr66)]
 
 TAPVid-3D is a dataset and benchmark for evaluating the task of long-range
 Tracking Any Point in 3D (TAP-3D).
@@ -122,7 +122,7 @@ described in the paper (these are implemented in `tapvid3d_metrics.py`).
 ### Visualizing Samples in Colab
 
 You can view samples of the dataset, using a public Colab demo:
-<a target="_blank" href=""><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPVid-3D Colab Visualization"/></a>.
+<a target="https://colab.research.google.com/drive/1Ro2sE0lAvq-h0lixrUBB0oTYXEwXNr66" href=""><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPVid-3D Colab Visualization"/></a>.
 You can also view samples you've generated with the `annotation_generation`
 scripts with the local Jupyter notebook
 `load_and_visualize_tapvid3d_samples.ipynb`.
