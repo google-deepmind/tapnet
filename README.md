@@ -121,9 +121,9 @@ second frames.  Please take care with this: one pixel error can make a differenc
 ## Checkpoints
 
 `tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable using our NumpyFileCheckpointer. You can download checkpoints here, which should closely match the ones used in the paper.
-Note: evaluation results in the table are reported under 256x256 resolution. But normally the higher the resolution, the better the results are.
+Note: evaluation results in the table are reported under 256x256 inference resolution, but higher resolution can benefit results. For BootsTAPIR, we typically find the best results at 512x512 resolution, and for TAPIR, even higher resolutions than 512x512 can be beneficial.
 
-model|checkpoint|config|backbone|train resolution|DAVIS First (AJ)|DAVIS Strided (AJ)|Kinetics First (AJ)|RoboTAP First (AJ)
+model|checkpoint|config|backbone|training resolution|DAVIS First (AJ)|DAVIS Strided (AJ)|Kinetics First (AJ)|RoboTAP First (AJ)
 :---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:
 TAP-Net|[Jax](https://storage.googleapis.com/dm-tapnet/checkpoint.npy)|[tapnet_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapnet_config.py)|TSM-ResNet18|256x256|33.0%|38.4%|38.5%|45.1%
 TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/tapir_checkpoint_panning.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/tapir_checkpoint_panning.pt)|[tapir_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_config.py)|ResNet18|256x256|58.5%|63.3%|50.0%|59.6%
