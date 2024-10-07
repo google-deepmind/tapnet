@@ -165,6 +165,7 @@ Please use the following bibtex entries to cite our work:
   title={{RoboTAP}: Tracking arbitrary points for few-shot visual imitation},
   author={Vecerik, Mel and Doersch, Carl and Yang, Yi and Davchev, Todor and Aytar, Yusuf and Zhou, Guangyao and Hadsell, Raia and Agapito, Lourdes and Scholz, Jon},
   journal={International Conference on Robotics and Automation},
+  pages={5397--5403},
   year={2024}
 }
 ```
@@ -172,7 +173,7 @@ Please use the following bibtex entries to cite our work:
 @article{doersch2024bootstap,
   title={{BootsTAP}: Bootstrapped Training for Tracking-Any-Point},
   author={Doersch, Carl and Luc, Pauline and Yang, Yi and Gokay, Dilara and Koppula, Skanda and Gupta, Ankush and Heyward, Joseph and Rocco, Ignacio and Goroshin, Ross and Carreira, Jo{\~a}o and Zisserman, Andrew},
-  journal={arXiv preprint arXiv:2402.00847},
+  journal={Asian Conference on Computer Vision},
   year={2024}
 }
 ```
@@ -180,7 +181,7 @@ Please use the following bibtex entries to cite our work:
 @article{koppula2024tapvid,
   title={{TAPVid}-{3D}: A Benchmark for Tracking Any Point in {3D}},
   author={Koppula, Skanda and Rocco, Ignacio and Yang, Yi and Heyward, Joe and Carreira, Jo{\~a}o and Zisserman, Andrew and Brostow, Gabriel and Doersch, Carl},
-  journal={arXiv preprint arXiv:2407.05921},
+  journal={Advances in Neural Information Processing Systems},
   year={2024}
 }
 ```
