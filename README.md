@@ -134,8 +134,9 @@ Online BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/causal
 
 ## Training
 
-We provide a train and eval framework for TAP-Net and TAPIR in the training directory; see the training [README](https://github.com/google-deepmind/tapnet/tree/main/tapnet/training).
+We provide a Jax training and evaluation framework for TAP-Net and TAPIR in the training directory; see the training [README](https://github.com/google-deepmind/tapnet/tree/main/tapnet/training).
 
+Other researchers have developed a [PyTorch training implementation for TAPIR](https://github.com/riponazad/echotracker), which may be of interest; however, this work is **not** affiliated with Google DeepMind, and its accuracy has not been verified by us.
 
 ## Citing this Work
 
