@@ -18,12 +18,13 @@
 import functools
 from typing import Any, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
+import numpy as np
+from tapnet.torch import nets
+from tapnet.torch import utils
 import torch
 from torch import nn
 import torch.nn.functional as F
-
-from tapnet.torch import nets
-from tapnet.torch import utils
+import tree
 
 
 class FeatureGrids(NamedTuple):
@@ -340,14 +341,14 @@ class TAPIR(nn.Module):
 
         curr_resolution = resolution
         n, f, h, w, c = video_resize.shape
-        video_resize = video_resize.view(n*f, h, w, c).permute(0, 3, 1, 2)
+        video_resize = video_resize.view(n * f, h, w, c).permute(0, 3, 1, 2)
 
         if self.feature_extractor_chunk_size > 0:
           latent_list = []
           hires_list = []
           chunk_size = self.feature_extractor_chunk_size
           for start_idx in range(0, video_resize.shape[0], chunk_size):
-            video_chunk = video_resize[start_idx:start_idx + chunk_size]
+            video_chunk = video_resize[start_idx : start_idx + chunk_size]
             resnet_out = self.resnet_torch(video_chunk)
 
             u3 = resnet_out['resnet_unit_3'].permute(0, 2, 3, 1)
@@ -769,3 +770,37 @@ class TAPIR(nn.Module):
         k: torch.zeros(v, dtype=torch.float32) for k, v in value_shapes.items()
     }
     return [fake_ret] * num_resolutions * 4
+
+  def update_query_features(
+      self, query_features, new_query_features, idx_to_update, causal_state=None
+  ):
+    if isinstance(idx_to_update, int):
+      idx_to_update = tuple([idx_to_update])
+    idx_to_update = np.array(idx_to_update)
+
+    def apply_update_idx(s1, s2):
+      s1[:, idx_to_update] = s2
+      return s1
+
+    query_features = QueryFeatures(
+        lowres=tree.map_structure(
+            apply_update_idx, query_features.lowres, new_query_features.lowres
+        ),
+        hires=tree.map_structure(
+            apply_update_idx, query_features.hires, new_query_features.hires
+        ),
+        resolutions=query_features.resolutions,
+    )
+
+    if causal_state is not None:
+      init_causal_state = self.construct_initial_causal_state(
+          len(idx_to_update), len(query_features.resolutions) - 1
+      )
+
+      causal_state = tree.map_structure(
+          apply_update_idx, causal_state, init_causal_state
+      )
+
+      return query_features, causal_state
+
+    return query_features
