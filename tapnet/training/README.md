@@ -38,7 +38,7 @@ Install requirements:
 If you want to use CUDA, make sure you install the drivers and a version
 of JAX that's compatible with your CUDA and CUDNN versions.
 Refer to
-[the jax manual](https://github.com/google/jax#installation)
+[the jax manual](https://github.com/jax-ml/jax#installation)
 to install the correct JAX version with CUDA.
 
 ## Training
