@@ -6,10 +6,10 @@ TAPVid-3D is a dataset and benchmark for evaluating the task of long-range
 Tracking Any Point in 3D (TAP-3D).
 
 The benchmark features 4,000+ real-world videos, along with their metric 3D
-position point trajectories. The dataset is contains three different video
-sources, and spans a variety of object types, motion patterns, and indoor and
-outdoor environments. This repository folder contains the code to download and
-generate these annotations and dataset samples to view.
+position point trajectories and camera extrinsics. The dataset is contains three
+different video sources, and spans a variety of object types, motion patterns,
+and indoor and outdoor environments. This repository folder contains the code to
+ download and generate these annotations and dataset samples to view.
 
 **Note that in order to use the dataset, you must accept the licenses of the
 constituent original video data sources that you use!** In particular, you must
@@ -101,6 +101,12 @@ file, contains:
     query point used in the benchmark as the initial given point to track. The
     last dimension is given in `(x, y, t)`, where `x,y` is the pixel location of
     the query point and `t` is the query frame.
+
+*   `extrinsics_w2c`: for videos with a moving camera (videos from the Waymo
+    Open Dataset and ADT), we provide camera extrinsics in the form of a world
+    to camera transform, a 4x4 matrix consisting of the rotation matrix and
+    translation matrix. This field is NOT present in the `pstudio` *.npz files,
+    because in Panoptic Studio, the camera is static.
 
 ### Getting Started: Evaluating Your Own 3D Tracking Model
 
