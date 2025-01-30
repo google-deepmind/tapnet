@@ -1,4 +1,4 @@
-# Copyright 2024 DeepMind Technologies Limited
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -181,21 +181,24 @@ class NumpyFileCheckpointer(utils.Checkpointer):
 
 
 def default_color_augmentation_fn(
-    inputs: Mapping[str, tf.Tensor]) -> Mapping[str, tf.Tensor]:
+    inputs: Mapping[str, tf.Tensor],
+    zero_centering_image: bool = True,
+    prob_color_augment: float = 0.8,
+    prob_color_drop: float = 0.2,
+) -> Mapping[str, tf.Tensor]:
   """Standard color augmentation for videos.
 
   Args:
     inputs: A DatasetElement containing the item 'video' which will have
       augmentations applied to it.
+    zero_centering_image: Whether to zero center the image.
+    prob_color_augment: Probability of applying color augmentation.
+    prob_color_drop: Probability of applying color drop.
 
   Returns:
     A DatasetElement with all the same data as the original, except that
       the video has augmentations applied.
   """
-  zero_centering_image = True
-  prob_color_augment = 0.8
-  prob_color_drop = 0.2
-
   frames = inputs['video']
   if frames.dtype != tf.float32:
     raise ValueError('`frames` should be in float32.')
