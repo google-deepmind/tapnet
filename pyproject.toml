@@ -27,6 +27,7 @@ train = [
   "tensorflow-datasets",
   "tensorflow_graphics",
   "kubric@git+https://github.com/google-research/kubric",
+  "recurrentgemma@git+https://github.com/google-deepmind/recurrentgemma"
 ]
 
 torch = [

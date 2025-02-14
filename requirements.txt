@@ -12,6 +12,7 @@ matplotlib
 mediapy
 opencv-python
 einshape
+einops
 tensorflow
 tensorflow-datasets
 tensorflow_graphics
