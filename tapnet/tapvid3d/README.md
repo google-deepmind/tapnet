@@ -1,6 +1,11 @@
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 # Tracking Any Point in 3D (TAPVid-3D)
 
-[[`TAPVid-3D Website`](https://tapvid3d.github.io/)] [[`TAPVid-3D Paper`](https://arxiv.org/abs/2407.05921)] [[`Colab to Visualize Samples`](https://colab.research.google.com/drive/1Ro2sE0lAvq-h0lixrUBB0oTYXEwXNr66)]
+[Skanda Koppula](https://skoppula.com/), [Ignacio Rocco](https://www.irocco.info/), [Yi Yang](https://yangyi02.github.io/), [Joe Heyward](https://uk.linkedin.com/in/joe-heyward-71623595), [João Carreira](https://uk.linkedin.com/in/jo%C3%A3o-carreira-56238a7), [Andrew Zisserman](https://www.robots.ox.ac.uk/~az/), [Gabriel Brostow](http://www0.cs.ucl.ac.uk/staff/G.Brostow/), [Carl Doersch](http://www.carldoersch.com/)
+
+**[Google DeepMind](https://deepmind.google/)**, **[University College London](http://vis.cs.ucl.ac.uk/home/), [University of Oxford](https://www.robots.ox.ac.uk/~vgg/)**
+
+### [`TAPVid-3D Website`](https://tapvid3d.github.io/) [`TAPVid-3D Paper`](https://arxiv.org/abs/2407.05921) [`Colab to Visualize Samples`](https://colab.research.google.com/github/google-deepmind/tapnet/blob/main/tapnet/tapvid3d/colab/load_and_visualize_tapvid3d_samples.ipynb)
 
 TAPVid-3D is a dataset and benchmark for evaluating the task of long-range
 Tracking Any Point in 3D (TAP-3D).
@@ -15,9 +20,9 @@ and indoor and outdoor environments. This repository folder contains the code to
 constituent original video data sources that you use!** In particular, you must
 adhere to the terms of service outlined in:
 
-1.  [Aria Digital Twin](https://www.projectaria.com/datasets/adt/license/)
-2.  [Waymo Open Dataset](https://waymo.com/open/terms/)
-3.  [Panoptic Studio](http://domedb.perception.cs.cmu.edu/)
+1. [Aria Digital Twin](https://www.projectaria.com/datasets/adt/license/)
+2. [Waymo Open Dataset](https://waymo.com/open/terms/)
+3. [Panoptic Studio](http://domedb.perception.cs.cmu.edu/)
 
 To measure performance on the TAP-3D task, we formulated metrics that extend the
 Jaccard-based metric used in 2D TAP to handle the complexities of ambiguous
@@ -48,8 +53,6 @@ For a local editable installation, clone the repo and use:
 or
 
 `pip install -e .[tapvid3d_eval]`.
-
-
 
 ### How to Download and Generate the Dataset
 
@@ -85,28 +88,28 @@ Once the benchmark files are fully generated, you will have roughly 4,500
 `*.npz` files, each one with exactly one dataset video+annotation. Each `*.npz`
 file, contains:
 
-*   `images_jpeg_bytes`: tensor of shape [`# of frames`, `height`, `width`, 3],
-    each frame stored as JPEG bytes that must be decoded
+*  `images_jpeg_bytes`: tensor of shape [`# of frames`, `height`, `width`, 3],
+  each frame stored as JPEG bytes that must be decoded
 
-*   `intrinsics`: (fx, fy, cx, cy) camera intrinsics of the video
+*  `intrinsics`: (fx, fy, cx, cy) camera intrinsics of the video
 
-*   `tracks_xyz`: tensor of shape (`# of frames`, `# of point tracks`, 3),
-    representing the 3D point trajectories and the last dimension is the `(x, y,
-    z)` point position in meters.
+*  `tracks_xyz`: tensor of shape (`# of frames`, `# of point tracks`, 3),
+  representing the 3D point trajectories and the last dimension is the `(x, y,
+  z)` point position in meters.
 
-*   `visibility`: tensor of shape (`# of frames`, `# of point tracks`),
-    representing the visibility of each point along its trajectory
+*  `visibility`: tensor of shape (`# of frames`, `# of point tracks`),
+  representing the visibility of each point along its trajectory
 
-*   `queries_xyt`: tensor of shape (`# of point tracks`, 3), representing the
-    query point used in the benchmark as the initial given point to track. The
-    last dimension is given in `(x, y, t)`, where `x,y` is the pixel location of
-    the query point and `t` is the query frame.
+*  `queries_xyt`: tensor of shape (`# of point tracks`, 3), representing the
+  query point used in the benchmark as the initial given point to track. The
+  last dimension is given in `(x, y, t)`, where `x,y` is the pixel location of
+  the query point and `t` is the query frame.
 
-*   `extrinsics_w2c`: for videos with a moving camera (videos from the Waymo
-    Open Dataset and ADT), we provide camera extrinsics in the form of a world
-    to camera transform, a 4x4 matrix consisting of the rotation matrix and
-    translation matrix. This field is NOT present in the `pstudio` *.npz files,
-    because in Panoptic Studio, the camera is static.
+*  `extrinsics_w2c`: for videos with a moving camera (videos from the Waymo
+  Open Dataset and ADT), we provide camera extrinsics in the form of a world
+  to camera transform, a 4x4 matrix consisting of the rotation matrix and
+  translation matrix. This field is NOT present in the `pstudio` *.npz files,
+  because in Panoptic Studio, the camera is static.
 
 ### Getting Started: Evaluating Your Own 3D Tracking Model
 
@@ -128,24 +131,18 @@ described in the paper (these are implemented in `tapvid3d_metrics.py`).
 ### Visualizing Samples in Colab
 
 You can view samples of the dataset, using a public Colab demo:
-<a target="https://colab.research.google.com/drive/1Ro2sE0lAvq-h0lixrUBB0oTYXEwXNr66" href=""><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPVid-3D Colab Visualization"/></a>.
-You can also view samples you've generated with the `annotation_generation`
-scripts with the local Jupyter notebook
-`load_and_visualize_tapvid3d_samples.ipynb`.
+<a target="https://colab.research.google.com/github/google-deepmind/tapnet/blob/main/tapnet/tapvid3d/colab/load_and_visualize_tapvid3d_samples.ipynb" href=""><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPVid-3D Colab Visualization"/></a>.
 
 ## Citing this Work
 
 If you find this work useful, consider citing the manuscript:
 
 ```
-@misc{koppula2024tapvid3d,
-      title={TAPVid-3D: A Benchmark for Tracking Any Point in 3D},
-      author={Skanda Koppula and Ignacio Rocco and Yi Yang and Joe Heyward and João Carreira and Andrew Zisserman and Gabriel Brostow and Carl Doersch},
-      year={2024},
-      eprint={2407.05921},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2407.05921},
+@inproceedings{koppula2024tapvid3d,
+   title={TAPVid-3D: A Benchmark for Tracking Any Point in 3D},
+   author={Skanda Koppula and Ignacio Rocco and Yi Yang and Joe Heyward and João Carreira and Andrew Zisserman and Gabriel Brostow and Carl Doersch},
+   booktitle={NeurIPS},
+   year={2024},
 }
 ```
 
