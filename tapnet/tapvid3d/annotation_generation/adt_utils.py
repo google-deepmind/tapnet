@@ -171,6 +171,7 @@ def process_vid(
     queries_xyt = in_npz["queries_xyt"]
     trajectories = in_npz["tracks_XYZ"]
     visibilities = in_npz["visibility"]
+    extrinsics = in_npz["extrinsics_w2c"]
 
     # Verify video means.
     video_means = np.stack([np.mean(x, axis=(0, 1)) for x in rgb_ims], axis=0)
@@ -184,5 +185,6 @@ def process_vid(
         "fx_fy_cx_cy": np.array(
             [FOCAL_LENGTH, FOCAL_LENGTH, WIDTH / 2, HEIGHT / 2]
         ),
+        "extrinsics_w2c": extrinsics,
     }
     np.savez(track_fn, **example)
