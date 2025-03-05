@@ -120,9 +120,9 @@ def compute_tapvid3d_metrics(
        that the point is occluded. Must be consistent with 'order' parameter, so
        if passing in [t, n] or [b, t, n] instead, order string must reflect
        this!
-     gt_tracks: The target points, of shape [b, n, t, 2] or [n, t, 2], unless
+     gt_tracks: The target points, of shape [b, n, t, 3] or [n, t, 3], unless
        specified otherwise in the order parameter. Each point is in the format
-       [x, y].
+       [x, y, z].
      pred_occluded: A boolean array of predicted occlusions, in the same format
        as gt_occluded.
      pred_tracks: An array of track predictions from your algorithm, in the same
