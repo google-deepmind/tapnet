@@ -27,7 +27,7 @@ import chex
 import einops
 import flax
 import flax.linen as nn
-from gemma import modules as gemma_modules
+from gemma.deprecated import modules as gemma_modules
 import jax
 import jax.numpy as jnp
 import numpy as np
