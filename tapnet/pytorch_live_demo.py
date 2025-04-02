@@ -104,9 +104,10 @@ if torch.cuda.is_available():
 else:
   device = torch.device("cpu")
 
+# --------------------
+# Load checkpoint and initialize
 print("Creating model...")
 model = tapir_model.TAPIR(pyramid_level=1, use_casual_conv=True)
-
 print("Loading checkpoint...")
 model.load_state_dict(
     torch.load("tapnet/checkpoints/causal_bootstapir_checkpoint.pt")
@@ -115,9 +116,9 @@ model = model.to(device)
 model = model.eval()
 torch.set_grad_enabled(False)
 
-print("Initializing camera...")
 # --------------------
 # Start point tracking
+print("Initializing camera...")
 vc = cv2.VideoCapture(0)
 
 vc.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
@@ -140,9 +141,9 @@ query_features = online_model_init(
 )
 
 causal_state = model.construct_initial_causal_state(
-    NUM_POINTS, len(query_features.resolutions) - 1, device
+    NUM_POINTS, len(query_features.resolutions) - 1
 )
-causal_state = tree.map_structure(causal_state, lambda x: x.to(device))
+causal_state = tree.map_structure(lambda x: x.to(device), causal_state)
 
 prediction, visible, causal_state = online_model_predict(
     frames=frame[None, None],
@@ -178,7 +179,7 @@ print("Press ESC to exit.")
 
 while rval:
   rval, frame = get_frame(vc)
-  frame_np = frame
+  numpy_frame = frame
   if query_frame:
     query_points = np.array((0,) + pos, dtype=np.float32)
     frame = torch.tensor(frame).to(device)
@@ -203,17 +204,21 @@ while rval:
         features=query_features,
         causal_context=causal_state,
     )
-    track = np.round(track[0, :, 0].cpu().numpy())
-    visible = visible[0, :, 0].cpu().numpy()
+    track = np.round(track.cpu().numpy())
+    visible = visible.cpu().numpy()
 
     for i, _ in enumerate(have_point):
-      if visible[i] and have_point[i]:
+      if visible[0, i, 0] and have_point[i]:
         cv2.circle(
-            frame_np, (int(track[i, 0]), int(track[i, 1])), 5, (255, 0, 0), -1
+            numpy_frame,
+            (int(track[0, i, 0, 0]), int(track[0, i, 0, 1])),
+            5,
+            (255, 0, 0),
+            -1,
         )
-        if track[i, 0] < 16 and track[i, 1] < 16:
+        if track[0, i, 0, 0] < 16 and track[0, i, 0, 1] < 16:
           print((i, next_query_idx))
-  cv2.imshow("Point Tracking", frame_np[:, ::-1])
+  cv2.imshow("Point Tracking", numpy_frame[:, ::-1])
   if pos:
     step_counter += 1
     if time.time() - t > 5:
