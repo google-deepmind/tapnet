@@ -21,8 +21,6 @@ Uses SSM as temporal model and ViT for spatial attention.
 import functools
 from typing import Optional, Sequence, Union
 
-from big_vision.models import vit as bv_vit
-from big_vision.models.vit import decode_variant  # pylint: disable=g-multiple-import,g-importing-member
 import chex
 import einops
 import flax
@@ -38,6 +36,58 @@ from recurrentgemma._src.jax import modules as recurrentgemma_modules
 from tapnet.utils import index_utils
 from tapnet.utils import model_utils
 from tapnet.utils import ssm_utils
+
+
+def posemb_sincos_2d(h, w, width, temperature=10_000.0, dtype=jnp.float32):
+  """Follows the MoCo v3 logic."""
+  y, x = jnp.mgrid[:h, :w]
+
+  assert width % 4 == 0, "Width must be mult of 4 for sincos posemb"
+  omega = jnp.arange(width // 4) / (width // 4 - 1)
+  omega = 1.0 / (temperature**omega)
+  y = jnp.einsum("m,d->md", y.flatten(), omega)
+  x = jnp.einsum("m,d->md", x.flatten(), omega)
+  pe = jnp.concatenate([jnp.sin(x), jnp.cos(x), jnp.sin(y), jnp.cos(y)], axis=1)
+  return jnp.asarray(pe, dtype)[None, :, :]
+
+
+def get_posemb(self, typ, seqshape, width, name, dtype=jnp.float32):
+  if typ == "learn":
+    return self.param(
+        name,
+        nn.initializers.normal(stddev=1 / np.sqrt(width)),
+        (1, np.prod(seqshape), width),
+        dtype,
+    )
+  elif typ == "sincos2d":
+    return posemb_sincos_2d(*seqshape, width, dtype=dtype)
+  else:
+    raise ValueError(f"Unknown posemb type: {typ}")
+
+
+class MlpBlock(nn.Module):
+  """Transformer MLP / feed-forward block."""
+
+  mlp_dim: Optional[int] = None  # Defaults to 4x input dim
+  dropout: float = 0.0
+  dtype_mm: str = "float32"
+
+  @nn.compact
+  def __call__(self, x, deterministic=True):
+    """Applies Transformer MlpBlock module."""
+    inits = dict(
+        kernel_init=nn.initializers.xavier_uniform(),
+        bias_init=nn.initializers.normal(stddev=1e-6),
+    )
+
+    d = x.shape[-1]
+    x = nn.Dense(self.mlp_dim or 4 * d, dtype=self.dtype_mm, **inits)(x)
+    # In some extreme batch-size cases, this is needed as of Sept 2024:
+    x = nn.with_logical_constraint(x, ("act_batch", "act_len", "act_emb"))
+    x = nn.gelu(x)
+    x = nn.Dropout(rate=self.dropout)(x, deterministic)
+    x = nn.Dense(d, dtype=self.dtype_mm, **inits)(x)
+    return x
 
 
 class ViTBlock(nn.Module):
@@ -73,7 +123,7 @@ class ViTBlock(nn.Module):
     x = out["+sa"] = x + y
 
     y = nn.LayerNorm()(x)
-    y = out["mlp"] = bv_vit.MlpBlock(
+    y = out["mlp"] = MlpBlock(
         mlp_dim=self.mlp_dim, dropout=self.dropout,
         dtype_mm=self.dtype_mm,
     )(y, deterministic)
@@ -372,7 +422,7 @@ class MaskedSequenceDecoder(nn.Module):
       h = self.image_size[0] // self.patch_size[1]
       w = self.image_size[1] // self.patch_size[2]
       c = self.width
-      self.image_pos_emb = bv_vit.get_posemb(
+      self.image_pos_emb = get_posemb(
           self, self.posemb, (h, w), c, "pos_embedding", jnp.float32
       )
 
@@ -457,7 +507,7 @@ class MaskedSequenceDecoder(nn.Module):
         self.point_query_token, (n, q, hints, 1))
     tiled_mask_tokens = jnp.tile(self.mask_token, (n, t, q, 1))
     tiled_unknown_tokens = jnp.tile(self.unknown_token, (n, q, 1))
-    posemb2d_full = bv_vit.get_posemb(
+    posemb2d_full = get_posemb(
         self, self.posemb_full,
         (pixel_h * self.query_scale, pixel_w * self.query_scale), c,
         "pos_embedding_full", dtype
@@ -601,7 +651,7 @@ class MaskedSequenceDecoder(nn.Module):
     if self.posemb == "learn":
       posemb2d = self.image_pos_emb
     else:
-      posemb2d = bv_vit.get_posemb(
+      posemb2d = get_posemb(
           self, self.posemb, (h, w), c, "pos_embedding", x.dtype
       )
 
@@ -702,7 +752,7 @@ class MaskedSequenceDecoder(nn.Module):
     if self.posemb == "learn":
       posemb2d = self.image_pos_emb
     else:
-      posemb2d = bv_vit.get_posemb(
+      posemb2d = get_posemb(
           self, self.posemb, (h, w), c, "pos_embedding", x.dtype
       )
     x = jnp.reshape(x, [b, t, h * w, c])
@@ -730,3 +780,79 @@ class MaskedSequenceDecoder(nn.Module):
 def Model(*, variant=None, **kw):  # pylint: disable=invalid-name
   """Factory function, because linen really don't like what I'm doing!"""
   return MaskedSequenceDecoder(**{**decode_variant(variant), **kw})
+
+
+def decode_variant(variant):
+  """Converts a string like "B" or "B/32" into a params dict."""
+  if variant is None:
+    return {}
+
+  v, patch = variant, {}
+  if "/" in variant:
+    v, patch = variant.split("/")
+    patch = {"patch_size": (int(patch), int(patch))}
+
+  return {
+      # Reference: Table 2 of https://arxiv.org/abs/2106.04560.
+      "width": {
+          "mu": 32,
+          "Ti": 192,
+          "S": 384,
+          "M": 512,
+          "B": 768,
+          "L": 1024,
+          "So400m": 1152,
+          "H": 1280,
+          "g": 1408,
+          "g-opt": 1536,
+          "G": 1664,
+          "G-opt": 1536,
+          "e": 1792,
+      }[v],
+      "depth": {
+          "mu": 1,
+          "Ti": 12,
+          "S": 12,
+          "M": 12,
+          "B": 12,
+          "L": 24,
+          "So400m": 27,
+          "H": 32,
+          "g": 40,
+          "g-opt": 40,
+          "G": 48,
+          "G-opt": 48,
+          "e": 56,
+      }[v],
+      "mlp_dim": {
+          "mu": 128,
+          "Ti": 768,
+          "S": 1536,
+          "M": 2048,
+          "B": 3072,
+          "L": 4096,
+          "So400m": 4304,
+          "H": 5120,
+          "g": 6144,
+          "g-opt": 6144,
+          "G": 8192,
+          "G-opt": 8192,
+          "e": 15360,
+      }[v],
+      "num_heads": {
+          "mu": 2,
+          "Ti": 3,
+          "S": 6,
+          "M": 8,
+          "B": 12,
+          "L": 16,
+          "So400m": 16,
+          "H": 16,
+          "g": 16,
+          "g-opt": 16,
+          "G": 16,
+          "G-opt": 16,
+          "e": 16,
+      }[v],
+      **patch,
+  }
