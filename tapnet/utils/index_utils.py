@@ -17,14 +17,15 @@
 
 import functools
 
+import chex
 import jax
 import jax.numpy as jnp
-from kauldron.typing import Int, Bool, Float  # pylint: disable=g-multiple-import,g-importing-member
+# from kauldron.typing import Int, Bool, Float  # pylint: disable=g-multiple-import,g-importing-member
 
 
 def scatter_inner(
-    target: Float["T C"], mask: Bool["()"],
-    timestep: Int["()"], data: Float["C"]) -> Float["T C"]:
+    target: chex.Array, mask: chex.Array, timestep: chex.Array, data: chex.Array
+) -> chex.Array:
   """Scatter data into target at timestep if mask is true.
 
   Args:
@@ -42,8 +43,8 @@ def scatter_inner(
 @jax.vmap
 @functools.partial(jax.vmap, in_axes=(1, 0, 0, 0), out_axes=1)
 def scatter(
-    target: Float["T C"], mask: Bool["()"],
-    timestep: Int["()"], data: Float["C"]) -> Float["T C"]:
+    target: chex.Array, mask: chex.Array, timestep: chex.Array, data: chex.Array
+) -> chex.Array:
   """Scatter data into target at timestep if mask is true.
 
   (dimensions that are added via vmap are put into square brackets [])
@@ -62,8 +63,8 @@ def scatter(
 @jax.vmap
 @functools.partial(jax.vmap, in_axes=(1, None, None, 0), out_axes=1)
 def scatter2(
-    target: Float["T C"], mask: Bool["()"],
-    timestep: Int["()"], data: Float["C"]) -> Float["T C"]:
+    target: chex.Array, mask: chex.Array, timestep: chex.Array, data: chex.Array
+) -> chex.Array:
   """Scatter data into target at timestep if mask is true.
 
   (dimensions that are added via vmap are put into square brackets [])
@@ -82,8 +83,8 @@ def scatter2(
 @jax.vmap
 @functools.partial(jax.vmap, in_axes=(1, 0, 0, 0), out_axes=1)
 def scatter_prefix(
-    target: Float["T C"], mask: Float["()"],
-    timestep: Int["()"], data: Float["C"]) -> Float["T C"]:
+    target: chex.Array, mask: chex.Array, timestep: chex.Array, data: chex.Array
+) -> chex.Array:
   """Scatter data into target before timestep if mask is true.
 
   Equivalent to
@@ -114,8 +115,8 @@ def scatter_prefix(
 @jax.vmap
 @functools.partial(jax.vmap, in_axes=(1, 0, 0, 0), out_axes=1)
 def scatter_suffix(
-    target: Float["T C"], mask: Float["()"],
-    timestep: Int["()"], data: Float["C"]) -> Float["T C"]:
+    target: chex.Array, mask: chex.Array, timestep: chex.Array, data: chex.Array
+) -> chex.Array:
   """Scatter data into target before timestep if mask is true.
 
   Equivalent to
