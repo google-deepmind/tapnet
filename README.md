@@ -1,9 +1,10 @@
 # Tracking Any Point (TAP)
 
-[[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)] [[`BootsTAP`](https://bootstap.github.io/)] [[`TAPVid-3D`](https://tapvid3d.github.io/)]
+[[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)] [[`BootsTAP`](https://bootstap.github.io/)] [[`TAPVid-3D`](https://tapvid3d.github.io/)] [[`TAPNext`](https://tap-next.github.io/)]
 
 https://github.com/google-deepmind/tapnet/assets/4534987/9f66b81a-7efb-48e7-a59c-f5781c35bebc
 
+<!-- disableFinding(LINE_OVER_80) -->
 Welcome to the official Google Deepmind repository for Tracking Any Point (TAP), home of the TAP-Vid and TAPVid-3D Datasets, our top-performing TAPIR model, and our RoboTAP extension.
 
 - [TAP-Vid](https://tapvid.github.io) is a benchmark for models that perform this task, with a collection of ground-truth points for both real and synthetic videos.
@@ -11,20 +12,20 @@ Welcome to the official Google Deepmind repository for Tracking Any Point (TAP),
 - [RoboTAP](https://robotap.github.io) is a system which utilizes TAPIR point tracks to execute robotics manipulation tasks through efficient imitation in the real world. It also includes a dataset with ground-truth points annotated on real robotics manipulation videos.
 - [BootsTAP](https://bootstap.github.io) (or Bootstrapped Training for TAP) uses a large dataset of unlabeled, real-world video to improve tracking accuracy. Specifically, the model is trained to give consistent predictions across different spatial transformations and corruptions of the video, as well as different choices of the query points. We apply it to TAPIR to create BootsTAPIR, which is architecturally similar to TAPIR but substantially outperforms it on TAP-Vid.
 - [TAPVid-3D](https://tapvid3d.github.io) is a benchmark and set of metrics for models that perform the 3D point tracking task. The benchmark contains 1M+ computed ground-truth trajectories on 4,000+ real-world videos.
+- [TAPNext](https://tap-next.github.io) is our latest, most capable, fastest, yet simplest tracker. It formulates the TAP problem as next token prediction and tracks points simply by propagating information through a network. Note that our best TAPNext checkpoint was fine-tuned using the BootsTAP procedure.
 
 This repository contains the following:
 
-- [TAPIR / BootsTAPIR Demos](#demos) for both online **colab demo** and offline **real-time demo** by cloning this repo
+- [TAPNext / TAPIR / BootsTAPIR Demos](#demos) for both online **colab demo** and offline **real-time demo** by cloning this repo
 - [TAP-Vid Benchmark](#tap-vid) for both evaluation **dataset** and evaluation **metrics**
 - [RoboTAP Benchmark](#roboTAP) for both evaluation **dataset** and point track based clustering code
 - [TAPVid-3D Benchmark](#tapvid-3d) for the evaluation **metrics** and sample **evaluation code** for the TAPVid-3D benchmark.
 - [Checkpoints](#checkpoints) for TAP-Net (the baseline presented in the TAP-Vid paper), TAPIR and BootsTAPIR **pre-trained** model weights in both **Jax** and **PyTorch**
 - [Instructions](#training) for **training** TAP-Net (the baseline presented in the TAP-Vid paper) and TAPIR on Kubric
 
-
 ## Demos
 
-The simplest way to run TAPIR / BootsTAPIR is to use our colab demos online. You can also
+The simplest way to run TAPNext / TAPIR / BootsTAPIR is to use our colab demos online. You can also
 clone this repo and run on your own hardware, including a real-time demo.
 
 ### Colab Demo
@@ -32,11 +33,26 @@ clone this repo and run on your own hardware, including a real-time demo.
 You can run colab demos to see how TAPIR works. You can also upload your own video and try point tracking with TAPIR.
 We provide a few colab demos:
 
-1. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR / BootsTAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
-2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential causal TAPIR / BootsTAPIR model that allows for online tracking on points, which can be run in real-time on a GPU platform.
-3. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_rainbow_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPIR Rainbow Visualization"/></a> **Rainbow Visualization**: This visualization is used in many of our teaser videos: it does automatic foreground/background segmentation and corrects the tracks for the camera motion, so you can visualize the paths objects take through real space.
-4. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline PyTorch TAPIR"/></a> **Standard PyTorch TAPIR**: This is the TAPIR / BootsTAPIR model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
-5. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online PyTorch TAPIR"/></a> **Online PyTorch TAPIR**: This is the sequential causal BootsTAPIR model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
+ <!-- disableFinding(LINE_OVER_80) -->
+1. <a target="_blank" href="https://github.com/google-deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="BootsTAPNext"/></a> **BootsTAPNext**: This is the most powerful TAPNext model that runs online (per-frame). This is the BootsTAPNext model reported in the paper.
+<!-- disableFinding(LINE_OVER_80) -->
+<!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
+2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapnext_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="BootsTAPNext PyTorch"/></a> **BootsTAPNext PyTorch**: This is the most powerful TAPNext model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
+<!-- disableFinding(LINE_OVER_80) -->
+<!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
+2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR / BootsTAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
+ <!-- disableFinding(LINE_OVER_80) -->
+<!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
+3. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential causal TAPIR / BootsTAPIR model that allows for online tracking on points, which can be run in real-time on a GPU platform.
+<!-- disableFinding(LINE_OVER_80) -->
+<!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
+4. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_rainbow_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPIR Rainbow Visualization"/></a> **Rainbow Visualization**: This visualization is used in many of our teaser videos: it does automatic foreground/background segmentation and corrects the tracks for the camera motion, so you can visualize the paths objects take through real space.
+<!-- disableFinding(LINE_OVER_80) -->
+<!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
+5. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline PyTorch TAPIR"/></a> **Standard PyTorch TAPIR**: This is the TAPIR / BootsTAPIR model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
+<!-- disableFinding(LINE_OVER_80) -->
+<!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
+6. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online PyTorch TAPIR"/></a> **Online PyTorch TAPIR**: This is the sequential causal BootsTAPIR model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
 
 ### Live Demo
 
@@ -79,7 +95,7 @@ python3 ./tapnet/live_demo.py \
 
 In our tests, we achieved ~17 fps on 480x480 images on a quadro RTX 4000 (a 2018 mobile GPU).
 
-
+ <!-- disableFinding(WHITESPACE_LINES) -->
 ## Benchmarks
 
 This repository hosts three separate but related benchmarks: TAP-Vid, its later extension RoboTAP, and TAPVid-3D.
@@ -96,26 +112,27 @@ More details on downloading, using, and evaluating on the **TAP-Vid benchmark** 
 
 [RoboTAP](https://robotap.github.io/) is a following work of TAP-Vid and TAPIR that demonstrates point tracking models are important for robotics.
 
-The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip) follows the same annotation format as TAP-Vid, but is released as an addition to TAP-Vid. In terms of domain, RoboTAP dataset is mostly similar to TAP-Vid-RGB-Stacking, with a key difference that all robotics videos are real and manually annotated. Video sources and object categories are also more diversified. The benchmark dataset includes 265 videos, serving for evaluation purpose only.  More details can be found in the TAP-Vid [README](https://github.com/google-deepmind/tapnet/blob/main/tapnet/tapvid).  We also provide a <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> demo of the segmentation algorithm used in the paper.
+<!-- disableFinding(SPACES) -->
+The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip) follows the same annotation format as TAP-Vid, but is released as an addition to TAP-Vid. In terms of domain, RoboTAP dataset is mostly similar to TAP-Vid-RGB-Stacking, with a key difference that all robotics videos are real and manually annotated. Video sources and object categories are also more diversified. The benchmark dataset includes 265 videos, serving for evaluation purpose only. More details can be found in the TAP-Vid [README](https://github.com/google-deepmind/tapnet/blob/main/tapnet/tapvid). We also provide a <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> demo of the segmentation algorithm used in the paper.
 
 ### TAPVid-3D
 
 TAPVid-3D is a dataset and benchmark for evaluating the task of long-range Tracking Any Point in 3D (TAP-3D).
 
-The benchmark features 4,000+ real-world videos, along with their metric 3D position point trajectories. The dataset is contains three different video sources, and spans a variety of object types, motion patterns, and indoor and outdoor environments. This repository folder contains the code to download and generate these annotations and dataset samples to view.  Be aware that it has a separate license from TAP-Vid.
+The benchmark features 4,000+ real-world videos, along with their metric 3D position point trajectories. The dataset is contains three different video sources, and spans a variety of object types, motion patterns, and indoor and outdoor environments. This repository folder contains the code to download and generate these annotations and dataset samples to view. Be aware that it has a separate license from TAP-Vid.
 
 More details on downloading, using, and evaluating on the **TAPVid-3D benchmark** can be found in the corresponding [README](https://github.com/google-deepmind/tapnet/tree/main/tapnet/tapvid3d).
 
 ### A Note on Coordinates
 
 In our storage datasets, (x, y) coordinates are typically in normalized raster coordinates: i.e., (0, 0) is the upper-left corner of the upper-left pixel, and
-(1, 1) is the lower-right corner of the lower-right pixel.  Our code, however, immediately converts these to regular raster coordinates, matching the output of
+(1, 1) is the lower-right corner of the lower-right pixel. Our code, however, immediately converts these to regular raster coordinates, matching the output of
 the Kubric reader: (0, 0) is the upper-left corner of the upper-left pixel, while (h, w) is the lower-right corner of the lower-right pixel, where h is the
 image height in pixels, and w is the respective width.
 
 When working with 2D coordinates, we typically store them in the order (x, y). However, we typically work with 3D coordinates in the order (t, y, x), where
 y and x are raster coordinates as above, but t is in frame coordinates, i.e. 0 refers to the first frame, and 0.5 refers to halfway between the first and
-second frames.  Please take care with this: one pixel error can make a difference according to our metrics.
+second frames. Please take care with this: one pixel error can make a difference according to our metrics.
 
 
 ## Checkpoints
@@ -130,6 +147,7 @@ TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/tapir_checkpoint_panning.np
 Online TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/causal_tapir_checkpoint.npy)|[causal_tapir_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/causal_tapir_config.py)|ResNet18|256x256|56.2%|58.3%|51.2%|59.1%
 BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18 + 4 Convs|256x256 + 512x512|62.4%|67.4%|55.8%|69.2%
 Online BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18 + 4 Convs|256x256 + 512x512|59.7%|61.2%|55.1%|69.1
+TAPNext|[Jax](https://storage.googleapis.com/dm-tapnet/tapnext/bootstapnext_ckpt.npz)|[tapnext_demo.ipynb](https://github.com/google-deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb)|TrecViT-B|256x256|65.25%|68.9%|57.3%|64.1%
 
 
 ## Training
