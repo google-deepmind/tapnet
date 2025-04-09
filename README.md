@@ -34,7 +34,7 @@ You can run colab demos to see how TAPIR works. You can also upload your own vid
 We provide a few colab demos:
 
  <!-- disableFinding(LINE_OVER_80) -->
-1. <a target="_blank" href="https://github.com/google-deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="BootsTAPNext"/></a> **BootsTAPNext**: This is the most powerful TAPNext model that runs online (per-frame). This is the BootsTAPNext model reported in the paper.
+1. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="BootsTAPNext"/></a> **BootsTAPNext**: This is the most powerful TAPNext model that runs online (per-frame). This is the BootsTAPNext model reported in the paper.
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
 2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapnext_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="BootsTAPNext PyTorch"/></a> **BootsTAPNext PyTorch**: This is the most powerful TAPNext model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
@@ -146,7 +146,7 @@ TAP-Net|[Jax](https://storage.googleapis.com/dm-tapnet/checkpoint.npy)|[tapnet_c
 TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/tapir_checkpoint_panning.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/tapir_checkpoint_panning.pt)|[tapir_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_config.py)|ResNet18|256x256|58.5%|63.3%|50.0%|59.6%
 Online TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/causal_tapir_checkpoint.npy)|[causal_tapir_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/causal_tapir_config.py)|ResNet18|256x256|56.2%|58.3%|51.2%|59.1%
 BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18 + 4 Convs|256x256 + 512x512|62.4%|67.4%|55.8%|69.2%
-Online BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18 + 4 Convs|256x256 + 512x512|59.7%|61.2%|55.1%|69.1
+Online BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18 + 4 Convs|256x256 + 512x512|59.7%|61.2%|55.1%|69.1%
 TAPNext|[Jax](https://storage.googleapis.com/dm-tapnet/tapnext/bootstapnext_ckpt.npz)|[tapnext_demo.ipynb](https://github.com/google-deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb)|TrecViT-B|256x256|65.25%|68.9%|57.3%|64.1%
 
 
