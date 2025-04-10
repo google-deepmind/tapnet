@@ -204,6 +204,14 @@ Please use the following bibtex entries to cite our work:
   year={2024}
 }
 ```
+```
+@article{zholus2025tapnext,
+  title={TAPNext: Tracking Any Point (TAP) as Next Token Prediction},
+  author={Zholus, Artem and Doersch, Carl and Yang, Yi and Koppula, Skanda and Patraucean, Viorica and He, Xu Owen and Rocco, Ignacio and Sajjadi, Mehdi S. M. and Chandar, Sarath and Goroshin, Ross},
+  journal={arXiv preprint arXiv:2504.05579},
+  year={2025}
+}
+```
 
 
 ## License and Disclaimer
