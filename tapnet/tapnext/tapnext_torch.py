@@ -98,10 +98,12 @@ class TAPNext(nn.Module):
       num_heads=12,
       lru_width=768,
       depth=12,
+      use_checkpointing=False,
   ):
     super().__init__()
     self.width = width
     self.patch_size = patch_size
+    self.use_checkpointing = use_checkpointing
     self.image_size = image_size
 
     self.lin_proj = nn.Conv2d(
@@ -273,7 +275,12 @@ class TAPNext(nn.Module):
     for blk, cache in zip(
         self.blocks, state.hidden_state if state is not None else [None] * 12
     ):
-      x, ssm_cache_layer = blk(x, cache=cache)
+      if self.use_checkpointing:
+        x, ssm_cache_layer = torch.utils.checkpoint.checkpoint(
+            blk, x, cache, use_reentrant=False
+        )
+      else:
+        x, ssm_cache_layer = blk(x, cache=cache)
       ssm_cache.append(ssm_cache_layer)
     x = self.encoder_norm(x)
     video_tokens, point_tokens = x.split(h * w, dim=2)
