@@ -20,8 +20,8 @@ from typing import List
 
 import einops
 import numpy as np
-from recurrentgemma import common
-from recurrentgemma.torch import modules as recurrentgemma_modules
+from tapnext_lru_modules import RecurrentBlockCache
+from tapnext_lru_modules import ResidualBlock
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -46,13 +46,11 @@ class TRecViTBlock(nn.Module):
 
   def __init__(self, depth, width, num_heads, lru_width, dtype, device):
     super().__init__()
-    self.ssm_block = recurrentgemma_modules.ResidualBlock(
+    self.ssm_block = ResidualBlock(
         width=width,
         mlp_expanded_width=width * 4,
         num_heads=num_heads,
-        attention_window_size=1,  # note that this is not used when running SSM
         lru_width=lru_width,
-        temporal_block_type=common.TemporalBlockType.RECURRENT,
         final_w_init_variance_scale=2.0 / depth,
         dtype=dtype,
         device=device,
@@ -65,13 +63,10 @@ class TRecViTBlock(nn.Module):
         dropout=0.0,
     )
 
-  def forward(self, x, cache=None):
+  def forward(self, x, cache=None, use_linear_scan=True):
     b, t, n, _ = x.shape
     x = einops.rearrange(x, 'b t n c -> (b n) t c')
-    pos = torch.arange(t, device=x.device).repeat(b * n, 1)
-    if cache is not None:
-      pos += 1  # a hack to avoid state reset in online inference
-    x, ssm_cache = self.ssm_block(x, pos, cache)
+    x, ssm_cache = self.ssm_block(x, cache, use_linear_scan=use_linear_scan)
     x = einops.rearrange(x, '(b n) t c -> (b t) n c', b=b, n=n)
     x = self.vit_block(x)
     x = einops.rearrange(x, '(b t) n c -> b t n c', b=b, t=t)
@@ -84,7 +79,7 @@ class TAPNextTrackingState:
 
   step: int
   query_points: torch.Tensor  # Float["*B Q 3"]
-  hidden_state: List[recurrentgemma_modules.RecurrentBlockCache] = None
+  hidden_state: List[RecurrentBlockCache] = None
 
 
 class TAPNext(nn.Module):
@@ -272,18 +267,21 @@ class TAPNext(nn.Module):
     point_tokens = self.embed_queries(t, query_points)  # [b t Q c]
     x = torch.cat([video_tokens, point_tokens], dim=2)  # [b t (h * w + Q) c]
     ssm_cache = []
+    use_linear_scan = not self.training
     for blk, cache in zip(
         self.blocks, state.hidden_state if state is not None else [None] * 12
     ):
       if self.use_checkpointing:
         x, ssm_cache_layer = torch.utils.checkpoint.checkpoint(
-            blk, x, cache, use_reentrant=False
+            blk, x, cache, use_linear_scan, use_reentrant=False
         )
       else:
-        x, ssm_cache_layer = blk(x, cache=cache)
+        x, ssm_cache_layer = blk(
+            x, cache=cache, use_linear_scan=use_linear_scan
+        )
       ssm_cache.append(ssm_cache_layer)
     x = self.encoder_norm(x)
-    video_tokens, point_tokens = x.split(h * w, dim=2)
+    _, point_tokens = x.split(h * w, dim=2)
     return (
         *self.prediction_heads(point_tokens),
         TAPNextTrackingState(
