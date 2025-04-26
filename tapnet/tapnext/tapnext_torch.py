@@ -20,8 +20,7 @@ from typing import List
 
 import einops
 import numpy as np
-from tapnext_lru_modules import RecurrentBlockCache
-from tapnext_lru_modules import ResidualBlock
+from tapnet.tapnext import tapnext_lru_modules
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -46,7 +45,7 @@ class TRecViTBlock(nn.Module):
 
   def __init__(self, depth, width, num_heads, lru_width, dtype, device):
     super().__init__()
-    self.ssm_block = ResidualBlock(
+    self.ssm_block = tapnext_lru_modules.ResidualBlock(
         width=width,
         mlp_expanded_width=width * 4,
         num_heads=num_heads,
@@ -79,7 +78,7 @@ class TAPNextTrackingState:
 
   step: int
   query_points: torch.Tensor  # Float["*B Q 3"]
-  hidden_state: List[RecurrentBlockCache] = None
+  hidden_state: List[tapnext_lru_modules.RecurrentBlockCache] = None
 
 
 class TAPNext(nn.Module):
@@ -281,7 +280,7 @@ class TAPNext(nn.Module):
         )
       ssm_cache.append(ssm_cache_layer)
     x = self.encoder_norm(x)
-    _, point_tokens = x.split(h * w, dim=2)
+    video_tokens, point_tokens = x.split(h * w, dim=2)
     return (
         *self.prediction_heads(point_tokens),
         TAPNextTrackingState(

@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from typing import NamedTuple
 
 import einops
-from pscan import pscan
+from tapnet.tapnext.pscan import pscan
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -148,16 +148,16 @@ def rnn_scan(x, a, h0, acc_dtype=torch.float32, use_linear_scan=True):
 class SqrtBoundDerivative(torch.autograd.Function):
   """Computes a square root with a gradient clipped at `_MAX_SQRT_GRADIENT`."""
 
-  @classmethod
-  def forward(cls, x: torch.Tensor) -> torch.Tensor:
+  @staticmethod
+  def forward(ctx, x: torch.Tensor) -> torch.Tensor:
     """The forward pass, which is a normal `sqrt`."""
-    cls.save_for_backward(x)
+    ctx.save_for_backward(x)
     return torch.sqrt(x)
 
-  @classmethod
-  def backward(cls, grad_output: torch.Tensor) -> torch.Tensor:
+  @staticmethod
+  def backward(ctx, grad_output: torch.Tensor) -> torch.Tensor:
     """The backward pass, which clips the `sqrt` gradient."""
-    (x,) = cls.saved_tensors
+    (x,) = ctx.saved_tensors
     clipped_x_times_4 = torch.clip(4.0 * x, min=1 / (_MAX_SQRT_GRADIENT**2))
     return grad_output / torch.sqrt(clipped_x_times_4)
 
@@ -439,7 +439,7 @@ class RecurrentBlock(nn.Module):
 
 
 class MLPBlock(nn.Module):
-  """A block that implements a feed-forward network with a gating mechanism."""
+  """A block that implements a feed-forward network with a GELU activation."""
 
   def __init__(
       self,
