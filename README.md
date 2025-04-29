@@ -13,10 +13,12 @@ Welcome to the official Google Deepmind repository for Tracking Any Point (TAP),
 - [BootsTAP](https://bootstap.github.io) (or Bootstrapped Training for TAP) uses a large dataset of unlabeled, real-world video to improve tracking accuracy. Specifically, the model is trained to give consistent predictions across different spatial transformations and corruptions of the video, as well as different choices of the query points. We apply it to TAPIR to create BootsTAPIR, which is architecturally similar to TAPIR but substantially outperforms it on TAP-Vid.
 - [TAPVid-3D](https://tapvid3d.github.io) is a benchmark and set of metrics for models that perform the 3D point tracking task. The benchmark contains 1M+ computed ground-truth trajectories on 4,000+ real-world videos.
 - [TAPNext](https://tap-next.github.io) is our latest, most capable, fastest, yet simplest tracker. It formulates the TAP problem as next token prediction and tracks points simply by propagating information through a network. Note that our best TAPNext checkpoint was fine-tuned using the BootsTAP procedure.
+- [TRAJAN](https://trajan-paper.github.io) is our first point TRAJectory AutoeNcoder (TRAJAN). TRAJAN conditions on a set of support point trajectories and reconstructs the trajectories of a held out set of query points. The embedding space learned by TRAJAN can be used to compare distributions of videos, to compare motion trajectories in different videos independent of object appearances, and to evaluate the realism and consistency of videos output by generative video models.
 
 This repository contains the following:
 
 - [TAPNext / TAPIR / BootsTAPIR Demos](#demos) for both online **colab demo** and offline **real-time demo** by cloning this repo
+- [TRAJAN Demo](#demos) for online **colab demo**
 - [TAP-Vid Benchmark](#tap-vid) for both evaluation **dataset** and evaluation **metrics**
 - [RoboTAP Benchmark](#roboTAP) for both evaluation **dataset** and point track based clustering code
 - [TAPVid-3D Benchmark](#tapvid-3d) for the evaluation **metrics** and sample **evaluation code** for the TAPVid-3D benchmark.
@@ -53,6 +55,7 @@ We provide a few colab demos:
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
 6. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online PyTorch TAPIR"/></a> **Online PyTorch TAPIR**: This is the sequential causal BootsTAPIR model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
+7. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/trajan_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TRAJAN"/></a> **TRAJAN**: This is the point trajectory autoencoder for reconstructing the motion of held out point trajectories conditioned on a set of input point trajectories.
 
 ### Live Demo
 
@@ -148,7 +151,7 @@ Online TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/causal_tapir_checkpo
 BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18 + 4 Convs|256x256 + 512x512|62.4%|67.4%|55.8%|69.2%
 Online BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18 + 4 Convs|256x256 + 512x512|59.7%|61.2%|55.1%|69.1%
 TAPNext|[Jax](https://storage.googleapis.com/dm-tapnet/tapnext/bootstapnext_ckpt.npz)|[tapnext_demo.ipynb](https://github.com/google-deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb)|TrecViT-B|256x256|65.25%|68.9%|57.3%|64.1%
-
+TRAJAN|[Jax](https://storage.googleapis.com/dm-tapnet/trajan/track_autoencoder_ckpt.npz)|[trajan_config.py](https://github.com/google-deepmind/tapnet/blob/main/colabs/trajan_demo.ipynb)
 
 ## Training
 
@@ -209,6 +212,14 @@ Please use the following bibtex entries to cite our work:
   title={TAPNext: Tracking Any Point (TAP) as Next Token Prediction},
   author={Zholus, Artem and Doersch, Carl and Yang, Yi and Koppula, Skanda and Patraucean, Viorica and He, Xu Owen and Rocco, Ignacio and Sajjadi, Mehdi S. M. and Chandar, Sarath and Goroshin, Ross},
   journal={arXiv preprint arXiv:2504.05579},
+  year={2025}
+}
+```
+```
+@article{allen2025trajan,
+  title={Direct Motion Models for Assessing Generated Videos},
+  author={Allen, Kelsey and Doersch, Carl and Zhou, Guangyao and Suhail, Mohammed and Driess, Danny and Rocco, Ignacio and Rubanova, Yulia and Kipf, Thomas and Sajjadi, Mehdi S. M. and Murphy, Kevin and Carreira, Joao and van Steenkiste, Sjoerd},
+  journal={arXiv preprint},
   year={2025}
 }
 ```
