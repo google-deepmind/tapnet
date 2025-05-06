@@ -142,7 +142,9 @@ second frames. Please take care with this: one pixel error can make a difference
 
 ## Checkpoints
 
-`tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable using our NumpyFileCheckpointer. You can download checkpoints here, which should closely match the ones used in the paper.
+[<img alt="Checkpoints" src="https://huggingface.co/datasets/huggingface/brand-assets/resolve/main/hf-logo-with-title.png" width="200px">](https://huggingface.co/google/tapnet)
+
+`tapnet/checkpoint/` must contain a file checkpoint.npy that's loadable using our NumpyFileCheckpointer. You can download checkpoints below here or on [HuggingFace](https://huggingface.co/google/tapnet), which should closely match the ones used in the paper.
 Note: evaluation results in the table are reported under 256x256 inference resolution, but higher resolution can benefit results. For BootsTAPIR, we typically find the best results at 512x512 resolution, and for TAPIR, even higher resolutions than 512x512 can be beneficial.
 
 model|checkpoint|config|backbone|training resolution|DAVIS First (AJ)|DAVIS Strided (AJ)|Kinetics First (AJ)|RoboTAP First (AJ)
