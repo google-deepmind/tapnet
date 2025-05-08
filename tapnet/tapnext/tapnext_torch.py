@@ -201,7 +201,10 @@ class TAPNext(nn.Module):
       queries_are_early = query_timesteps < 0
       mask_and_query_tokens = mask_tokens.scatter(
           dim=1,
-          index=query_timesteps.long().clamp(0, t - 1).repeat(1, 1, 1, c),
+          index=query_timesteps.unsqueeze(1)
+          .long()
+          .clamp(0, t - 1)
+          .repeat(1, 1, 1, c),
           src=point_query_tokens,
       )
       mask_and_query_tokens = torch.where(
@@ -291,3 +294,18 @@ class TAPNext(nn.Module):
             hidden_state=ssm_cache,
         ),
     )
+
+torch.export.register_dataclass(TAPNextTrackingState)
+
+
+def flatten_tracking_state(state, _):
+  return (
+      state.step,
+      state.query_points,
+      [[st for st in h] for h in state.hidden_state],
+  )
+
+
+torch.fx._pytree.register_pytree_flatten_spec(  # pylint: disable=protected-access
+    TAPNextTrackingState, flatten_tracking_state
+)
