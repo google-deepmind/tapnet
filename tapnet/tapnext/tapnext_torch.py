@@ -283,7 +283,7 @@ class TAPNext(nn.Module):
         )
       ssm_cache.append(ssm_cache_layer)
     x = self.encoder_norm(x)
-    video_tokens, point_tokens = x.split(h * w, dim=2)
+    video_tokens, point_tokens = x[:, :, : h * w, :], x[:, :, h * w :, :]
     return (
         *self.prediction_heads(point_tokens),
         TAPNextTrackingState(
