@@ -21,8 +21,6 @@ import einops
 import flax.linen as nn
 import jax
 from jax import numpy as jnp
-from kauldron import modules as kd_nn
-# from kauldron.typing import Array, typechecked, Float, Shape, Bool  # pylint: disable=g-multiple-import,g-importing-member
 import numpy as np
 from recurrentgemma._src.jax import scan
 
@@ -77,7 +75,7 @@ class TokenSubsampling(nn.Module):
   # only true is supported for now
   mask_temporal_tokens: bool = True
 
-  is_training = kd_nn.train_property()
+  is_training: bool = False
 
   @nn.compact
   # @typechecked
