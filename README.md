@@ -35,7 +35,7 @@ clone this repo and run on your own hardware, including a real-time demo.
 You can run colab demos to see how TAPIR works. You can also upload your own video and try point tracking with TAPIR.
 We provide a few colab demos:
 
- <!-- disableFinding(LINE_OVER_80) -->
+<!-- disableFinding(LINE_OVER_80) -->
 1. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="BootsTAPNext"/></a> **BootsTAPNext**: This is the most powerful TAPNext model that runs online (per-frame). This is the BootsTAPNext model reported in the paper.
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
@@ -43,7 +43,7 @@ We provide a few colab demos:
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
 2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR / BootsTAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
- <!-- disableFinding(LINE_OVER_80) -->
+<!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
 3. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential causal TAPIR / BootsTAPIR model that allows for online tracking on points, which can be run in real-time on a GPU platform.
 <!-- disableFinding(LINE_OVER_80) -->
@@ -58,6 +58,7 @@ We provide a few colab demos:
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
 7. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/trajan_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TRAJAN"/></a> **TRAJAN**: This is the point trajectory autoencoder for reconstructing the motion of held out point trajectories conditioned on a set of input point trajectories.
+8. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/kubric_for_tapvid(3d).ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Kubric"/></a> **Kubric**: This visualization illustrates how to generate groundtruth point tracks in 2D and 3D with world coordinate frame using Kubric dataset.
 
 ### Live Demo
 
@@ -100,7 +101,6 @@ python3 ./tapnet/live_demo.py \
 
 In our tests, we achieved ~17 fps on 480x480 images on a quadro RTX 4000 (a 2018 mobile GPU).
 
- <!-- disableFinding(WHITESPACE_LINES) -->
 ## Benchmarks
 
 This repository hosts three separate but related benchmarks: TAP-Vid, its later extension RoboTAP, and TAPVid-3D.
@@ -117,7 +117,6 @@ More details on downloading, using, and evaluating on the **TAP-Vid benchmark** 
 
 [RoboTAP](https://robotap.github.io/) is a following work of TAP-Vid and TAPIR that demonstrates point tracking models are important for robotics.
 
-<!-- disableFinding(SPACES) -->
 The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip) follows the same annotation format as TAP-Vid, but is released as an addition to TAP-Vid. In terms of domain, RoboTAP dataset is mostly similar to TAP-Vid-RGB-Stacking, with a key difference that all robotics videos are real and manually annotated. Video sources and object categories are also more diversified. The benchmark dataset includes 265 videos, serving for evaluation purpose only. More details can be found in the TAP-Vid [README](https://github.com/google-deepmind/tapnet/blob/main/tapnet/tapvid). We also provide a <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> demo of the segmentation algorithm used in the paper.
 
 ### TAPVid-3D
@@ -138,7 +137,6 @@ image height in pixels, and w is the respective width.
 When working with 2D coordinates, we typically store them in the order (x, y). However, we typically work with 3D coordinates in the order (t, y, x), where
 y and x are raster coordinates as above, but t is in frame coordinates, i.e. 0 refers to the first frame, and 0.5 refers to halfway between the first and
 second frames. Please take care with this: one pixel error can make a difference according to our metrics.
-
 
 ## Checkpoints
 
@@ -227,7 +225,6 @@ Please use the following bibtex entries to cite our work:
   year={2025}
 }
 ```
-
 
 ## License and Disclaimer
 
