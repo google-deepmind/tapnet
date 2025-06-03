@@ -58,7 +58,8 @@ We provide a few colab demos:
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
 7. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/trajan_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TRAJAN"/></a> **TRAJAN**: This is the point trajectory autoencoder for reconstructing the motion of held out point trajectories conditioned on a set of input point trajectories.
-8. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/kubric_for_tapvid(3d).ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Kubric"/></a> **Kubric**: This visualization illustrates how to generate groundtruth point tracks in 2D and 3D with world coordinate frame using Kubric dataset.
+8. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> **RoboTAP**: This is the demo of the segmentation algorithm used in RoboTAP.
+9. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/kubric_for_tapvid(3d).ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Kubric"/></a> **Kubric for TAPVid(3D)**: This visualization illustrates how to generate groundtruth point tracks in 2D and 3D with world coordinate frame using Kubric dataset.
 
 ### Live Demo
 
@@ -117,7 +118,7 @@ More details on downloading, using, and evaluating on the **TAP-Vid benchmark** 
 
 [RoboTAP](https://robotap.github.io/) is a following work of TAP-Vid and TAPIR that demonstrates point tracking models are important for robotics.
 
-The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip) follows the same annotation format as TAP-Vid, but is released as an addition to TAP-Vid. In terms of domain, RoboTAP dataset is mostly similar to TAP-Vid-RGB-Stacking, with a key difference that all robotics videos are real and manually annotated. Video sources and object categories are also more diversified. The benchmark dataset includes 265 videos, serving for evaluation purpose only. More details can be found in the TAP-Vid [README](https://github.com/google-deepmind/tapnet/blob/main/tapnet/tapvid). We also provide a <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> demo of the segmentation algorithm used in the paper.
+The [RoboTAP dataset](https://storage.googleapis.com/dm-tapnet/robotap/robotap.zip) follows the same annotation format as TAP-Vid, but is released as an addition to TAP-Vid. In terms of domain, RoboTAP dataset is mostly similar to TAP-Vid-RGB-Stacking, with a key difference that all robotics videos are real and manually annotated. Video sources and object categories are also more diversified. The benchmark dataset includes 265 videos, serving for evaluation purpose only. More details can be found in the TAP-Vid [README](https://github.com/google-deepmind/tapnet/blob/main/tapnet/tapvid). We also provide a [RoboTAP Colab Notebook](https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb) demo of the segmentation algorithm used in the paper.
 
 ### TAPVid-3D
 
