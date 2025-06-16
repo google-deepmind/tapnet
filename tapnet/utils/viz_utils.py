@@ -188,6 +188,7 @@ def plot_tracks_v2(
     )
     points = np.maximum(points, 0.0)
     points = np.minimum(points, [rgb.shape[2], rgb.shape[1]])
+    colalpha = np.clip(colalpha, 0, 1)
     plt.scatter(points[:, i, 0], points[:, i, 1], s=point_size, c=colalpha)
     occ2 = occluded[:, i : i + 1]
     if gt_occluded is not None:
@@ -199,6 +200,8 @@ def plot_tracks_v2(
       colalpha = np.concatenate(
           [colors[:, :-1], 1 - gt_occluded[:, i : i + 1]], axis=1
       )
+      colalpha = np.clip(colalpha, 0, 1)
+
       plt.scatter(
           gt_points[:, i, 0],
           gt_points[:, i, 1],
