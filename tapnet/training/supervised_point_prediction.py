@@ -645,7 +645,7 @@ class SupervisedPointPrediction(task.Task):
       )
 
     query_mode = 'first' if 'q_first' in mode else 'strided'
-    metrics = evaluation_datasets.compute_tapvid_metrics(
+    metrics = evaluation_datasets.compute_tapvid_metrics(  # pytype: disable=wrong-arg-types  # jax-nn-types
         query_points=query_points,
         gt_occluded=gt_occluded,
         gt_tracks=gt_target_points,
