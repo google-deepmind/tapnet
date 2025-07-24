@@ -17,6 +17,7 @@
 
 import functools
 from os import path
+import time
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Tuple
 
 from absl import logging
@@ -661,7 +662,7 @@ class SupervisedPointPrediction(task.Task):
       self,
       mode: str,
   ) -> Iterable[evaluation_datasets.DatasetElement]:
-    """Build evalutation data reader generator.
+    """Build evalutation data reader generator with optional prefetching.
 
     Args:
       mode: evaluation mode.  Can be one of 'eval_davis_points',
@@ -683,38 +684,40 @@ class SupervisedPointPrediction(task.Task):
           to reach num_frames.
     """
     query_mode = 'first' if 'q_first' in mode else 'strided'
+    
+    # Create the base dataset iterator
     if 'eval_kubric_train' in mode:
-      yield from evaluation_datasets.create_kubric_eval_train_dataset(
+      dataset_iter = evaluation_datasets.create_kubric_eval_train_dataset(
           mode, train_size=self.config.datasets.kubric_kwargs.train_size
       )
     elif 'eval_kubric' in mode:
-      yield from evaluation_datasets.create_kubric_eval_dataset(
+      dataset_iter = evaluation_datasets.create_kubric_eval_dataset(
           mode, train_size=self.config.datasets.kubric_kwargs.train_size
       )
     elif 'eval_davis_points' in mode:
-      yield from evaluation_datasets.create_davis_dataset(
+      dataset_iter = evaluation_datasets.create_davis_dataset(
           self.config.davis_points_path,
           query_mode=query_mode,
           resolution=self.eval_inference_resolution,
       )
     elif 'eval_jhmdb' in mode:
-      yield from evaluation_datasets.create_jhmdb_dataset(
+      dataset_iter = evaluation_datasets.create_jhmdb_dataset(
           self.config.jhmdb_path, resolution=self.eval_inference_resolution
       )
     elif 'eval_robotics_points' in mode:
-      yield from evaluation_datasets.create_rgb_stacking_dataset(
+      dataset_iter = evaluation_datasets.create_rgb_stacking_dataset(
           self.config.robotics_points_path,
           query_mode=query_mode,
           resolution=self.eval_inference_resolution,
       )
     elif 'eval_kinetics_points' in mode:
-      yield from evaluation_datasets.create_kinetics_dataset(
+      dataset_iter = evaluation_datasets.create_kinetics_dataset(
           self.config.kinetics_points_path,
           query_mode=query_mode,
           resolution=self.eval_inference_resolution,
       )
     elif 'eval_robotap' in mode:
-      yield from evaluation_datasets.create_csv_dataset(
+      dataset_iter = evaluation_datasets.create_csv_dataset(
           dataset_name='robotap',
           csv_path=self.config.robotap_csv_path,
           video_base_path=self.config.robotap_video_path,
@@ -722,7 +725,7 @@ class SupervisedPointPrediction(task.Task):
           resolution=self.eval_inference_resolution,
       )
     elif 'eval_perception_test' in mode:
-      yield from evaluation_datasets.create_csv_dataset(
+      dataset_iter = evaluation_datasets.create_csv_dataset(
           dataset_name='perception_test',
           csv_path=self.config.perception_test_csv_path,
           video_base_path=self.config.perception_test_video_path,
@@ -731,6 +734,55 @@ class SupervisedPointPrediction(task.Task):
       )
     else:
       raise ValueError(f'Unrecognized eval mode {mode}')
+    
+    # Add prefetching wrapper for better performance
+    yield from self._add_prefetching(dataset_iter)
+  
+  def _add_prefetching(self, dataset_iter, buffer_size=2):
+    """Add prefetching to dataset iterator for better performance."""
+    try:
+      from concurrent.futures import ThreadPoolExecutor
+      from collections import deque
+      import threading
+      
+      # Simple prefetching using a separate thread
+      buffer = deque(maxlen=buffer_size)
+      iterator = iter(dataset_iter)
+      lock = threading.Lock()
+      
+      def prefetch_worker():
+        try:
+          while True:
+            item = next(iterator)
+            with lock:
+              buffer.append(item)
+        except StopIteration:
+          with lock:
+            buffer.append(None)  # Sentinel to indicate end
+          break
+      
+      # Start prefetch thread
+      prefetch_thread = threading.Thread(target=prefetch_worker, daemon=True)
+      prefetch_thread.start()
+      
+      # Yield items from buffer
+      while True:
+        with lock:
+          if buffer:
+            item = buffer.popleft()
+            if item is None:  # End sentinel
+              break
+            yield item
+        
+        # Small sleep to prevent busy waiting
+        if not buffer:
+          time.sleep(0.001)
+      
+      prefetch_thread.join()
+      
+    except ImportError:
+      # Fallback to no prefetching if threading is not available
+      yield from dataset_iter
 
   def compute_pck(
       self,
