@@ -881,7 +881,7 @@ class SupervisedPointPrediction(task.Task):
     for inputs in self._build_eval_input(mode):
       batch_size = inputs[input_key]['video'].shape[0]  # pytype: disable=attribute-error  # 'video' entry is array-valued
       num_samples += batch_size
-      scalars, viz = eval_batch_fn(params, state, inputs, rng)
+      scalars, viz = eval_batch_fn(params, state, inputs, rng)  # pytype: disable=wrong-arg-types
       write_viz = batch_id < 0
       if 'eval_davis_points' in mode or 'eval_robotics_points' in mode:
         # Only write videos sometimes for the small datasets; otherwise
