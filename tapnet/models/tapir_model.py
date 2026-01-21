@@ -19,7 +19,7 @@ import functools
 from typing import Any, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
 import chex
-from einshape import jax_einshape as einshape
+import einops
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -438,14 +438,14 @@ class TAPIR(hk.Module):
     shape = cost_volume.shape
     batch_size, num_points = cost_volume.shape[1:3]
 
-    cost_volume = einshape('tbnhw->(tbn)hw1', cost_volume)
+    cost_volume = einops.rearrange(cost_volume, 'tbnhw->(tbn)hw1')
 
     occlusion = mods['hid1'](cost_volume)
     occlusion = jax.nn.relu(occlusion)
 
     pos = mods['hid2'](occlusion)
-    pos = einshape(
-        '(tbn)hw1->bnthw', pos, t=shape[0], b=batch_size, n=num_points
+    pos = einops.rearrange(
+        pos, '(tbn)hw1->bnthw', t=shape[0], b=batch_size, n=num_points
     )
     pos = jax.nn.softmax(pos * self.softmax_temperature, axis=(-2, -1))
     points = model_utils.heatmaps_to_points(
@@ -458,11 +458,11 @@ class TAPIR(hk.Module):
     occlusion = mods['hid4'](occlusion)
     occlusion = jax.nn.relu(occlusion)
     occlusion = mods['occ_out'](occlusion)
-    expected_dist = einshape(
-        '(tbn)1->bnt', occlusion[..., 1:2], n=shape[2], t=shape[0]
+    expected_dist = einops.rearrange(
+        occlusion[..., 1:2], '(tbn)1->bnt', n=shape[2], t=shape[0]
     )
-    occlusion = einshape(
-        '(tbn)1->bnt', occlusion[..., 0:1], n=shape[2], t=shape[0]
+    occlusion = einops.rearrange(
+        occlusion[..., 0:1], '(tbn)1->bnt', n=shape[2], t=shape[0]
     )
     return points, occlusion, expected_dist
 
@@ -552,9 +552,10 @@ class TAPIR(hk.Module):
             extract_patch_depthwise_conv, patch_size=self.patch_size
         )
         patches = jax.vmap(extract_patch_depthwise_conv_)(
-            einshape('bnfc->b(nf)c', coords), einshape('bnfhw->b(nf)hw', corrs)
+            einops.rearrange(coords, 'bnfc->b(nf)c'),
+            einops.rearrange(corrs, 'bnfhw->b(nf)hw'),
         )
-        patches = einshape('b(nf)hw->bnf(hw)', patches, n=n)
+        patches = einops.rearrange(patches, 'b(nf)hw->bnf(hw)', n=n)
       corrs_pyr.append(patches)
     corrs_pyr = jnp.concatenate(corrs_pyr, axis=-1)
 
@@ -587,19 +588,19 @@ class TAPIR(hk.Module):
         ],
         axis=-1,
     )
-    x = einshape('bnfc->(bn)fc', mlp_input)
+    x = einops.rearrange(mlp_input, 'bnfc->(bn)fc')
     if causal_context is not None:
       causal_context = jax.tree_util.tree_map(
-          lambda x: einshape('bn...->(bn)...', x), causal_context
+          lambda x: einops.rearrange(x, 'bn...->(bn)...'), causal_context
       )
     res, new_causal_context = self.pips_mixer(
         x, causal_context, get_causal_context
     )
 
-    res = einshape('(bn)fc->bnfc', res, b=mlp_input.shape[0])
+    res = einops.rearrange(res, '(bn)fc->bnfc', b=mlp_input.shape[0])
     if get_causal_context:
       new_causal_context = jax.tree_util.tree_map(
-          lambda x: einshape('(bn)...->bn...', x, b=mlp_input.shape[0]),
+          lambda x: einops.rearrange(x, '(bn)...->bn...', b=mlp_input.shape[0]),
           new_causal_context,
       )
 

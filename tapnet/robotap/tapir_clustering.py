@@ -19,7 +19,7 @@ import functools
 import time
 from typing import NamedTuple
 
-from einshape import jax_einshape as einshape
+import einops
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -41,7 +41,7 @@ class TrainingState(NamedTuple):
 
 def make_projection_matrix(pred_mat, fourdof=True):
   """Convert predicted projection matrix parameters to a projection matrix."""
-  pred_mat = einshape('n(coi)->ncoi', pred_mat, o=3, i=4)
+  pred_mat = einops.rearrange(pred_mat, 'n(coi)->ncoi', o=3, i=4)
 
   # This runs Gram-Schmidt to create an orthonormal matrix from the input 3x3
   # matrix that comes from a neural net.
@@ -200,7 +200,7 @@ def forward(
   )
 
   def mul(mat):
-    mat = einshape('(pio)c->pcio', mat, i=64, o=3)
+    mat = einops.rearrange(mat, '(pio)c->pcio', i=64, o=3)
     return jnp.einsum('pcio,pi->pco', mat, state) * 0.01
 
   pos_pred_base = mul(base_pred)[pts_idx]

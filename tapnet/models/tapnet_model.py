@@ -19,7 +19,7 @@ import functools
 from typing import Optional, Mapping, Tuple
 
 import chex
-from einshape import jax_einshape as einshape
+import einops
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -148,14 +148,14 @@ class TAPNet(hk.Module):
         feature_grid_heads,
     )
     shape = cost_volume.shape
-    cost_volume = einshape('tbnhwd->t(bn)hwd', cost_volume)
+    cost_volume = einops.rearrange(cost_volume, 'tbnhwd->t(bn)hwd')
 
     occlusion = mods['hid1'](cost_volume)
     occlusion = jax.nn.relu(occlusion)
 
     pos = mods['hid2'](occlusion)
     pos = jax.nn.softmax(pos * self.softmax_temperature, axis=(-2, -3))
-    pos = einshape('t(bn)hw1->bnthw', pos, n=shape[2])
+    pos = einops.rearrange(pos, 't(bn)hw1->bnthw', n=shape[2])
     points = model_utils.heatmaps_to_points(
         pos, im_shp, query_points=query_points
     )
@@ -245,12 +245,12 @@ class TAPNet(hk.Module):
             out_axes=1,
         )
     )(feature_grid, position_in_grid)
-    feature_grid_heads = einshape(
-        'bthw(cd)->bthwcd', feature_grid, d=self.num_heads
+    feature_grid_heads = einops.rearrange(
+        feature_grid, 'bthw(cd)->bthwcd', d=self.num_heads
     )
-    interp_features_heads = einshape(
-        'bn(cd)->bncd',
+    interp_features_heads = einops.rearrange(
         interp_features,
+        'bn(cd)->bncd',
         d=self.num_heads,
     )
     out = {'feature_grid': feature_grid}
