@@ -438,14 +438,18 @@ class TAPIR(hk.Module):
     shape = cost_volume.shape
     batch_size, num_points = cost_volume.shape[1:3]
 
-    cost_volume = einops.rearrange(cost_volume, 'tbnhw->(tbn)hw1')
+    cost_volume = einops.rearrange(cost_volume, 't b n h w -> (t b n) h w 1')
 
     occlusion = mods['hid1'](cost_volume)
     occlusion = jax.nn.relu(occlusion)
 
     pos = mods['hid2'](occlusion)
     pos = einops.rearrange(
-        pos, '(tbn)hw1->bnthw', t=shape[0], b=batch_size, n=num_points
+        pos,
+        '(t b n) h w 1 -> b n t h w',
+        t=shape[0],
+        b=batch_size,
+        n=num_points,
     )
     pos = jax.nn.softmax(pos * self.softmax_temperature, axis=(-2, -1))
     points = model_utils.heatmaps_to_points(
@@ -459,10 +463,10 @@ class TAPIR(hk.Module):
     occlusion = jax.nn.relu(occlusion)
     occlusion = mods['occ_out'](occlusion)
     expected_dist = einops.rearrange(
-        occlusion[..., 1:2], '(tbn)1->bnt', n=shape[2], t=shape[0]
+        occlusion[..., 1:2], '(t b n) 1 -> b n t', n=shape[2], t=shape[0]
     )
     occlusion = einops.rearrange(
-        occlusion[..., 0:1], '(tbn)1->bnt', n=shape[2], t=shape[0]
+        occlusion[..., 0:1], '(t b n) 1 -> b n t', n=shape[2], t=shape[0]
     )
     return points, occlusion, expected_dist
 
@@ -552,10 +556,10 @@ class TAPIR(hk.Module):
             extract_patch_depthwise_conv, patch_size=self.patch_size
         )
         patches = jax.vmap(extract_patch_depthwise_conv_)(
-            einops.rearrange(coords, 'bnfc->b(nf)c'),
-            einops.rearrange(corrs, 'bnfhw->b(nf)hw'),
+            einops.rearrange(coords, 'b n f c -> b (n f) c'),
+            einops.rearrange(corrs, 'b n f h w -> b (n f) h w'),
         )
-        patches = einops.rearrange(patches, 'b(nf)hw->bnf(hw)', n=n)
+        patches = einops.rearrange(patches, 'b (n f) h w -> b n f (h w)', n=n)
       corrs_pyr.append(patches)
     corrs_pyr = jnp.concatenate(corrs_pyr, axis=-1)
 
@@ -588,19 +592,21 @@ class TAPIR(hk.Module):
         ],
         axis=-1,
     )
-    x = einops.rearrange(mlp_input, 'bnfc->(bn)fc')
+    x = einops.rearrange(mlp_input, 'b n f c -> (b n) f c')
     if causal_context is not None:
       causal_context = jax.tree_util.tree_map(
-          lambda x: einops.rearrange(x, 'bn...->(bn)...'), causal_context
+          lambda x: einops.rearrange(x, 'b n ... -> (b n) ...'), causal_context
       )
     res, new_causal_context = self.pips_mixer(
         x, causal_context, get_causal_context
     )
 
-    res = einops.rearrange(res, '(bn)fc->bnfc', b=mlp_input.shape[0])
+    res = einops.rearrange(res, '(b n) f c -> b n f c', b=mlp_input.shape[0])
     if get_causal_context:
       new_causal_context = jax.tree_util.tree_map(
-          lambda x: einops.rearrange(x, '(bn)...->bn...', b=mlp_input.shape[0]),
+          lambda x: einops.rearrange(
+              x, '(b n) ... -> b n ...', b=mlp_input.shape[0]
+          ),
           new_causal_context,
       )
 
@@ -680,8 +686,7 @@ class TAPIR(hk.Module):
           barrier = 0
           for i in range(0, video_resize.shape[1], chunk_size):
             u3, u1 = hk.remat(rnet_fwd)(
-                video_resize[:, i : i + chunk_size]
-                + barrier
+                video_resize[:, i : i + chunk_size] + barrier
             )
             if self.extra_convs:
               u3 = hk.BatchApply(self.extra_convs)(u3, is_training=is_training)
@@ -897,6 +902,7 @@ class TAPIR(hk.Module):
           units from the temporal depthwise conv layers, and the keys are names
           derived from Haiku's layer names.
     """
+
     def train2orig(x):
       return transforms.convert_grid_coordinates(
           x,

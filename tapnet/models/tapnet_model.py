@@ -148,14 +148,14 @@ class TAPNet(hk.Module):
         feature_grid_heads,
     )
     shape = cost_volume.shape
-    cost_volume = einops.rearrange(cost_volume, 'tbnhwd->t(bn)hwd')
+    cost_volume = einops.rearrange(cost_volume, 't b n h w d -> t (b n) h w d')
 
     occlusion = mods['hid1'](cost_volume)
     occlusion = jax.nn.relu(occlusion)
 
     pos = mods['hid2'](occlusion)
     pos = jax.nn.softmax(pos * self.softmax_temperature, axis=(-2, -3))
-    pos = einops.rearrange(pos, 't(bn)hw1->bnthw', n=shape[2])
+    pos = einops.rearrange(pos, 't (b n) h w 1 -> b n t h w', n=shape[2])
     points = model_utils.heatmaps_to_points(
         pos, im_shp, query_points=query_points
     )
@@ -246,11 +246,11 @@ class TAPNet(hk.Module):
         )
     )(feature_grid, position_in_grid)
     feature_grid_heads = einops.rearrange(
-        feature_grid, 'bthw(cd)->bthwcd', d=self.num_heads
+        feature_grid, 'b t h w (c d) -> b t h w c d', d=self.num_heads
     )
     interp_features_heads = einops.rearrange(
         interp_features,
-        'bn(cd)->bncd',
+        'b n (c d) -> b n c d',
         d=self.num_heads,
     )
     out = {'feature_grid': feature_grid}
