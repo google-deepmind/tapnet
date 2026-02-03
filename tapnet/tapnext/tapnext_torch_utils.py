@@ -202,3 +202,160 @@ def restore_model_from_jax_checkpoint(model, ckpt_path):
       torch.from_numpy(ckpt['coordinate_head/layers_6/bias'])
   )
   return model
+
+
+def convert_pytorch_model_to_jax_checkpoint(model):
+  """Converts a TAPNext PyTorch model back to a JAX/Numpy checkpoint dictionary.
+
+  matching specific multi-head attention and embedding shapes.
+
+  Args:
+    model: The TAPNext PyTorch model to convert.
+
+  Returns:
+    A dictionary of JAX/Numpy checkpoint data.
+  """
+  ckpt = {}
+
+  def to_np(tensor):
+    """Helper to convert PyTorch tensor to numpy array."""
+    return tensor.detach().cpu().numpy()
+
+  # Constants inferred from shapes provided
+  n_heads = 12
+  head_dim = 64
+  embed_dim = 768  # 12 * 64
+
+  # --- 1. Global / Backbone Embeddings ---
+
+  # Embedding: PyTorch (Out, In, H, W) -> JAX (1, H, W, In, Out)
+  # 1. Permute PyTorch (768, 3, 8, 8) -> (8, 8, 3, 768)
+  # 2. Add singleton dimension at front -> (1, 8, 8, 3, 768)
+  embed_kernel = model.lin_proj.weight.permute(2, 3, 1, 0)
+  ckpt['backbone/embedding/kernel'] = np.expand_dims(
+      to_np(embed_kernel), axis=0
+  )
+
+  ckpt['backbone/embedding/bias'] = to_np(model.lin_proj.bias)
+  ckpt['backbone/mask_token'] = to_np(model.mask_token)
+  ckpt['backbone/point_query_token'] = to_np(model.point_query_token)
+  ckpt['backbone/unknown_token'] = to_np(model.unknown_token)
+  ckpt['backbone/pos_embedding'] = to_np(model.image_pos_emb)
+
+  ckpt['backbone/Transformer/encoder_norm/scale'] = to_np(
+      model.encoder_norm.weight
+  )
+  ckpt['backbone/Transformer/encoder_norm/bias'] = to_np(
+      model.encoder_norm.bias
+  )
+
+  # --- 2. Transformer Blocks (Layers 0-11) ---
+  for layer in range(12):
+    block_prefix = f'backbone/Transformer/encoderblock_{layer}'
+
+    # --- A. SSM Block ---
+    ssm_block = model.blocks[layer].ssm_block
+    for name, param in ssm_block.named_parameters():
+      jax_key_suffix = name.replace('.', '/').replace('weight', 'kernel')
+      jax_key = f'{block_prefix}/ssm_block/{jax_key_suffix}'
+
+      param_np = to_np(param)
+      if 'weight' in name:
+        param_np = param_np.T  # Transpose linear weights
+
+      ckpt[jax_key] = param_np
+
+    # --- B. ViT Block ---
+    vit_block = model.blocks[layer].vit_block
+    vit_prefix = f'{block_prefix}/vit_block'
+
+    # LayerNorms
+    ckpt[f'{vit_prefix}/LayerNorm_0/scale'] = to_np(vit_block.ln_1.weight)
+    ckpt[f'{vit_prefix}/LayerNorm_0/bias'] = to_np(vit_block.ln_1.bias)
+    ckpt[f'{vit_prefix}/LayerNorm_1/scale'] = to_np(vit_block.ln_2.weight)
+    ckpt[f'{vit_prefix}/LayerNorm_1/bias'] = to_np(vit_block.ln_2.bias)
+
+    # MLP (Simple Transpose)
+    ckpt[f'{vit_prefix}/MlpBlock_0/Dense_0/kernel'] = to_np(
+        vit_block.mlp[0].weight
+    ).T
+    ckpt[f'{vit_prefix}/MlpBlock_0/Dense_0/bias'] = to_np(vit_block.mlp[0].bias)
+    ckpt[f'{vit_prefix}/MlpBlock_0/Dense_1/kernel'] = to_np(
+        vit_block.mlp[3].weight
+    ).T
+    ckpt[f'{vit_prefix}/MlpBlock_0/Dense_1/bias'] = to_np(vit_block.mlp[3].bias)
+
+    # --- Self Attention (Reshaping needed) ---
+    # PyTorch in_proj_weight is (3*Embed, Embed).
+    # We chunk it into Q, K, V -> (Embed, Embed).
+    q_w, k_w, v_w = torch.chunk(
+        vit_block.self_attention.in_proj_weight, 3, dim=0
+    )
+    q_b, k_b, v_b = torch.chunk(vit_block.self_attention.in_proj_bias, 3, dim=0)
+
+    # Helper to reshape (Embed, Embed) -> (Embed, Heads, HeadDim)
+    def reshape_attn_kernel(tensor):
+      # 1. Transpose: (Out, In) -> (In, Out) = (768, 768)
+      # 2. Reshape: (768, 12, 64)
+      return to_np(tensor).T.reshape(embed_dim, n_heads, head_dim)
+
+    # Helper to reshape Bias (Embed,) -> (Heads, HeadDim)
+    def reshape_attn_bias(tensor):
+      return to_np(tensor).reshape(n_heads, head_dim)
+
+    # Q, K, V Weights & Biases
+    ckpt[f'{vit_prefix}/MultiHeadDotProductAttention_0/query/kernel'] = (
+        reshape_attn_kernel(q_w)
+    )
+    ckpt[f'{vit_prefix}/MultiHeadDotProductAttention_0/query/bias'] = (
+        reshape_attn_bias(q_b)
+    )
+
+    ckpt[f'{vit_prefix}/MultiHeadDotProductAttention_0/key/kernel'] = (
+        reshape_attn_kernel(k_w)
+    )
+    ckpt[f'{vit_prefix}/MultiHeadDotProductAttention_0/key/bias'] = (
+        reshape_attn_bias(k_b)
+    )
+
+    ckpt[f'{vit_prefix}/MultiHeadDotProductAttention_0/value/kernel'] = (
+        reshape_attn_kernel(v_w)
+    )
+    ckpt[f'{vit_prefix}/MultiHeadDotProductAttention_0/value/bias'] = (
+        reshape_attn_bias(v_b)
+    )
+
+    # Output Projection
+    # PyTorch: (Embed, Embed) -> Transpose -> (Embed, Embed) -> Reshape ->
+    # (Heads, HeadDim, Embed)
+    # Target Shape: (12, 64, 768)
+    out_proj_weight = to_np(
+        vit_block.self_attention.out_proj.weight
+    ).T  # (In, Out) -> (768, 768)
+    ckpt[f'{vit_prefix}/MultiHeadDotProductAttention_0/out/kernel'] = (
+        out_proj_weight.reshape(n_heads, head_dim, embed_dim)
+    )
+
+    ckpt[f'{vit_prefix}/MultiHeadDotProductAttention_0/out/bias'] = to_np(
+        vit_block.self_attention.out_proj.bias
+    )
+
+  # --- 3. Heads (Visible & Coordinate) ---
+  head_configs = [
+      ('visible_head', model.visible_head),
+      ('coordinate_head', model.coordinate_head),
+  ]
+
+  for jax_prefix, torch_module in head_configs:
+    ckpt[f'{jax_prefix}/layers_0/kernel'] = to_np(torch_module[0].weight).T
+    ckpt[f'{jax_prefix}/layers_0/bias'] = to_np(torch_module[0].bias)
+    ckpt[f'{jax_prefix}/layers_1/scale'] = to_np(torch_module[1].weight)
+    ckpt[f'{jax_prefix}/layers_1/bias'] = to_np(torch_module[1].bias)
+    ckpt[f'{jax_prefix}/layers_3/kernel'] = to_np(torch_module[3].weight).T
+    ckpt[f'{jax_prefix}/layers_3/bias'] = to_np(torch_module[3].bias)
+    ckpt[f'{jax_prefix}/layers_4/scale'] = to_np(torch_module[4].weight)
+    ckpt[f'{jax_prefix}/layers_4/bias'] = to_np(torch_module[4].bias)
+    ckpt[f'{jax_prefix}/layers_6/kernel'] = to_np(torch_module[6].weight).T
+    ckpt[f'{jax_prefix}/layers_6/bias'] = to_np(torch_module[6].bias)
+
+  return ckpt
