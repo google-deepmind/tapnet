@@ -1,6 +1,6 @@
 # Tracking Any Point (TAP)
 
-[[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)] [[`BootsTAP`](https://bootstap.github.io/)] [[`TAPVid-3D`](https://tapvid3d.github.io/)] [[`TAPNext`](https://tap-next.github.io/)] [[`TRAJAN`](https://trajan-paper.github.io)]
+[[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)] [[`BootsTAP`](https://bootstap.github.io/)] [[`TAPVid-3D`](https://tapvid3d.github.io/)] [[`TAPNext`](https://tap-next.github.io/)] [[`TRAJAN`](https://trajan-paper.github.io)] [[`TAPNext++`](https://tap-next-plus-plus.github.io/)]
 
 https://github.com/google-deepmind/tapnet/assets/4534987/9f66b81a-7efb-48e7-a59c-f5781c35bebc
 
@@ -14,10 +14,11 @@ Welcome to the official Google Deepmind repository for Tracking Any Point (TAP),
 - [TAPVid-3D](https://tapvid3d.github.io) is a benchmark and set of metrics for models that perform the 3D point tracking task. The benchmark contains 1M+ computed ground-truth trajectories on 4,000+ real-world videos.
 - [TAPNext](https://tap-next.github.io) is our latest, most capable, fastest, yet simplest tracker. It formulates the TAP problem as next token prediction and tracks points simply by propagating information through a network. Note that our best TAPNext checkpoint was fine-tuned using the BootsTAP procedure.
 - [TRAJAN](https://trajan-paper.github.io) is our first point TRAJectory AutoeNcoder (TRAJAN). TRAJAN conditions on a set of support point trajectories and reconstructs the trajectories of a held out set of query points. The embedding space learned by TRAJAN can be used to compare distributions of videos, to compare motion trajectories in different videos independent of object appearances, and to evaluate the realism and consistency of videos output by generative video models.
+- [TAPNext++](https://tap-next-plus-plus.github.io) is an improved TAPNext checkpoint that has a 40x longer stable tracking performance, allows tracking through occlusions and shows strong re-detection capabilities. It has been fine-tuned on 1024-frame synthetic sequences with a variety of novel training strategies.
 
 This repository contains the following:
 
-- [TAPNext / TAPIR / BootsTAPIR Demos](#demos) for both online **colab demo** and offline **real-time demo** by cloning this repo
+- [TAPNext / TAPNext++ / TAPIR / BootsTAPIR Demos](#demos) for both online **colab demo** and offline **real-time demo** by cloning this repo
 - [TRAJAN Demo](#demos) for online **colab demo**
 - [TAP-Vid Benchmark](#tap-vid) for both evaluation **dataset** and evaluation **metrics**
 - [RoboTAP Benchmark](#roboTAP) for both evaluation **dataset** and point track based clustering code
@@ -27,7 +28,7 @@ This repository contains the following:
 
 ## Demos
 
-The simplest way to run TAPNext / TAPIR / BootsTAPIR is to use our colab demos online. You can also
+The simplest way to run TAPNext / TAPNext++ / TAPIR / BootsTAPIR is to use our colab demos online. You can also
 clone this repo and run on your own hardware, including a real-time demo.
 
 ### Colab Demo
@@ -36,44 +37,53 @@ You can run colab demos to see how TAPIR works. You can also upload your own vid
 We provide a few colab demos:
 
 <!-- disableFinding(LINE_OVER_80) -->
-1. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="BootsTAPNext"/></a> **BootsTAPNext**: This is the most powerful TAPNext model that runs online (per-frame). This is the BootsTAPNext model reported in the paper.
+<!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
+1. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/main/colabs/torch_tapnextpp_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPNext++"/></a> **TAPNext++**: This is a fine-tuned BootsTAPNext checkpoint capable of long-term tracking, occlusion tracking and re-detection. It has been fine-tuned on PointOdyssey and Kubric-1024.
+<!-- disableFinding(LINE_OVER_80) -->
+2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="BootsTAPNext"/></a> **BootsTAPNext**: This is the most powerful TAPNext model that runs online (per-frame). This is the BootsTAPNext model reported in the paper.
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
-2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapnext_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="BootsTAPNext PyTorch"/></a> **BootsTAPNext PyTorch**: This is the most powerful TAPNext model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
+3. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapnext_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="BootsTAPNext PyTorch"/></a> **BootsTAPNext PyTorch**: This is the most powerful TAPNext model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
-2. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR / BootsTAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
+4. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline TAPIR"/></a> **Standard TAPIR**: This is the most powerful TAPIR / BootsTAPIR model that runs on a whole video at once. We mainly report the results of this model in the paper.
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
-3. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential causal TAPIR / BootsTAPIR model that allows for online tracking on points, which can be run in real-time on a GPU platform.
+5. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online TAPIR"/></a> **Online TAPIR**: This is the sequential causal TAPIR / BootsTAPIR model that allows for online tracking on points, which can be run in real-time on a GPU platform.
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
-4. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_rainbow_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPIR Rainbow Visualization"/></a> **Rainbow Visualization**: This visualization is used in many of our teaser videos: it does automatic foreground/background segmentation and corrects the tracks for the camera motion, so you can visualize the paths objects take through real space.
+6. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_rainbow_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TAPIR Rainbow Visualization"/></a> **Rainbow Visualization**: This visualization is used in many of our teaser videos: it does automatic foreground/background segmentation and corrects the tracks for the camera motion, so you can visualize the paths objects take through real space.
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
-5. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline PyTorch TAPIR"/></a> **Standard PyTorch TAPIR**: This is the TAPIR / BootsTAPIR model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
+7. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Offline PyTorch TAPIR"/></a> **Standard PyTorch TAPIR**: This is the TAPIR / BootsTAPIR model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
-6. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online PyTorch TAPIR"/></a> **Online PyTorch TAPIR**: This is the sequential causal BootsTAPIR model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
+8. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/torch_causal_tapir_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Online PyTorch TAPIR"/></a> **Online PyTorch TAPIR**: This is the sequential causal BootsTAPIR model re-implemented in PyTorch, which contains the exact architecture & weights as the Jax model.
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
-7. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/trajan_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TRAJAN"/></a> **TRAJAN**: This is the point trajectory autoencoder for reconstructing the motion of held out point trajectories conditioned on a set of input point trajectories.
-8. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> **RoboTAP**: This is the demo of the segmentation algorithm used in RoboTAP.
-9. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/kubric_for_tapvid(3d).ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Kubric"/></a> **Kubric for TAPVid(3D)**: This visualization illustrates how to generate groundtruth point tracks in 2D and 3D with world coordinate frame using Kubric dataset.
+9. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/trajan_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="TRAJAN"/></a> **TRAJAN**: This is the point trajectory autoencoder for reconstructing the motion of held out point trajectories conditioned on a set of input point trajectories.
+10. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/tapir_clustering.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Point Clustering"/></a> **RoboTAP**: This is the demo of the segmentation algorithm used in RoboTAP.
+11. <a target="_blank" href="https://colab.research.google.com/github/deepmind/tapnet/blob/master/colabs/kubric_for_tapvid(3d).ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Kubric"/></a> **Kubric for TAPVid(3D)**: This visualization illustrates how to generate groundtruth point tracks in 2D and 3D with world coordinate frame using Kubric dataset.
 
 ### Live Demo
 
 Clone the repository:
 
-```git clone https://github.com/deepmind/tapnet.git```
+```bash
+git clone https://github.com/deepmind/tapnet.git
+```
 
 Switch to the project directory:
 
-```cd tapnet```
+```bash
+cd tapnet
+```
 
 Install the `tapnet` python package (and its requirements for running inference):
 
-```pip install .```
+```bash
+pip install .
+```
 
 Download the checkpoint
 
@@ -85,7 +95,9 @@ wget -P checkpoints https://storage.googleapis.com/dm-tapnet/causal_tapir_checkp
 Add current path (parent directory of where TapNet is installed)
 to ```PYTHONPATH```:
 
-```export PYTHONPATH=`(cd ../ && pwd)`:`pwd`:$PYTHONPATH```
+```bash
+export PYTHONPATH=`(cd ../ && pwd)`:`pwd`:$PYTHONPATH
+```
 
 If you want to use CUDA, make sure you install the drivers and a version
 of JAX that's compatible with your CUDA and CUDNN versions.
@@ -154,6 +166,7 @@ Online TAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/causal_tapir_checkpo
 BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_checkpoint_v2.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18 + 4 Convs|256x256 + 512x512|62.4%|67.4%|55.8%|69.2%
 Online BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18 + 4 Convs|256x256 + 512x512|59.7%|61.2%|55.1%|69.1%
 TAPNext|[Jax](https://storage.googleapis.com/dm-tapnet/tapnext/bootstapnext_ckpt.npz)|[tapnext_demo.ipynb](https://github.com/google-deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb)|TrecViT-B|256x256|65.25%|68.9%|57.3%|64.1%
+TAPNext++|[PyTorch](https://storage.googleapis.com/dm-tapnet/tapnextpp/tapnextpp_ckpt.pt)|[torch_tapnextpp_demo.ipynb](https://colab.research.google.com/github/deepmind/tapnet/blob/main/colabs/torch_tapnextpp_demo.ipynb)|TrecViT-B|256x256|65.6%|-|53.9%|61.1%
 TRAJAN|[Jax](https://storage.googleapis.com/dm-tapnet/trajan/track_autoencoder_ckpt.npz)|[trajan_demo.ipynb](https://github.com/google-deepmind/tapnet/blob/main/colabs/trajan_demo.ipynb)
 
 ## Training
