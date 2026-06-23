@@ -15,7 +15,23 @@
 
 """Legacy API for TAP.  Prefer importing from project subfolders."""
 
-from tapnet.models import tapir_model  # pylint:disable=g-importing-member
-from tapnet.models import tapnet_model  # pylint:disable=g-importing-member
-from tapnet.robotap import tapir_clustering  # pylint:disable=g-importing-member
-from tapnet.tapvid import evaluation_datasets  # pylint:disable=g-importing-member
+import importlib
+
+_LAZY_SUBMODULES = {
+    "tapir_model": ".models.tapir_model",
+    "tapnet_model": ".models.tapnet_model",
+    "tapir_clustering": ".robotap.tapir_clustering",
+    "evaluation_datasets": ".tapvid.evaluation_datasets",
+}
+
+
+def __getattr__(name):  # pylint: disable=invalid-name
+  if name in _LAZY_SUBMODULES:
+    module = importlib.import_module(_LAZY_SUBMODULES[name], __package__)
+    globals()[name] = module
+    return module
+  raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():  # pylint: disable=invalid-name
+  return sorted(set(globals()) | set(_LAZY_SUBMODULES))
