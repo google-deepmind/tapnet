@@ -1,6 +1,6 @@
 # TAPNext++ — VOTSp2026
 
-VOTSp2026 point tracking submission based on [TAPNext++](https://arxiv.org/abs/2604.10582) \[Jung et al., CVPR 2026\].
+VOTSp2026 point tracking submission based on [TAPNext++](https://arxiv.org/abs/2604.10582) \[Jung et al., CVPR 2026 - Findings\].
 
 ## Approach
 
