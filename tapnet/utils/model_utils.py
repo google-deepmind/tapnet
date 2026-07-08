@@ -34,7 +34,7 @@ def huber_loss(
     reduction_axes: Optional[Sequence[int]] = (1, 2),
 ) -> chex.Array:
   """Huber loss for point trajectories."""
-  error = tracks - target_points
+  error = tracks - target_points  # pyrefly: ignore[unsupported-operation]
   # Huber loss with a threshold of 4 pixels
   distsqr = jnp.sum(jnp.square(error), axis=-1)
   dist = jnp.sqrt(distsqr + 1e-12)  # add eps to prevent nan
@@ -61,7 +61,7 @@ def prob_loss(
   # Points with an error larger than 8 pixels are likely to be useless; marking
   # them as occluded will actually improve Jaccard metrics and give
   # qualitatively better results.
-  err = jnp.sum(jnp.square(tracks - target_points), axis=-1)
+  err = jnp.sum(jnp.square(tracks - target_points), axis=-1)  # pyrefly: ignore[unsupported-operation]
   invalid = (err > expected_dist_thresh**2).astype(expd.dtype)
   logprob = optax.sigmoid_binary_cross_entropy(expd, invalid)
   logprob *= 1.0 - occluded
@@ -194,13 +194,13 @@ def interp(x: chex.Array, y: chex.Array, mode: str = 'nearest') -> chex.Array:
   # If the coordinate format is [z,y,x], we need to handle the z coordinate
   # differently per the docstring.
   if y.shape[-1] == 3:
-    y = jnp.concatenate([y[..., 0:1], y[..., 1:] - 0.5], axis=-1)
+    y = jnp.concatenate([y[..., 0:1], y[..., 1:] - 0.5], axis=-1)  # pyrefly: ignore[bad-index]
   else:
     y = y - 0.5
 
   return jax.scipy.ndimage.map_coordinates(
       x,
-      jnp.transpose(y),
+      jnp.transpose(y),  # pyrefly: ignore[bad-argument-type]
       order=1,
       mode=mode,
   )
@@ -237,11 +237,11 @@ def soft_argmax_heatmap(
       keepdims=True,
   ) < jnp.square(threshold)
   weighted_sum = jnp.sum(
-      coords * valid * softmax_val[:, :, jnp.newaxis],
+      coords * valid * softmax_val[:, :, jnp.newaxis],  # pyrefly: ignore[bad-index]
       axis=(0, 1),
   )
   sum_of_weights = jnp.maximum(
-      jnp.sum(valid * softmax_val[:, :, jnp.newaxis], axis=(0, 1)),
+      jnp.sum(valid * softmax_val[:, :, jnp.newaxis], axis=(0, 1)),  # pyrefly: ignore[bad-index]
       1e-12,
   )
   return weighted_sum / sum_of_weights
@@ -293,7 +293,7 @@ def heatmaps_to_points(
   assert feature_grid_shape[1] == image_shape[1]
   if query_points is not None:
     # The [..., 0:1] is because we only care about the frame index.
-    query_frame = transforms.convert_grid_coordinates(
+    query_frame = transforms.convert_grid_coordinates(  # pyrefly: ignore[bad-index]
         query_points,
         image_shape[1:4],
         feature_grid_shape[1:4],
@@ -308,7 +308,7 @@ def heatmaps_to_points(
     is_query_point = is_query_point[:, :, :, jnp.newaxis]
     out_points = (
         out_points * (1 - is_query_point)
-        + query_points[:, :, jnp.newaxis, 2:0:-1] * is_query_point
+        + query_points[:, :, jnp.newaxis, 2:0:-1] * is_query_point  # pyrefly: ignore[bad-index]
     )
 
   return out_points

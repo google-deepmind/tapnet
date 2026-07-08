@@ -34,7 +34,7 @@ def prepare_inputs(inputs: chex.Array) -> Tuple[jnp.ndarray, str, int]:
     # Input is given in the [T * B, H, W, 3] format.
     tsm_mode = 'tpu'
     num_frames = None
-  return inputs, tsm_mode, num_frames
+  return inputs, tsm_mode, num_frames  # pyrefly: ignore[bad-return]
 
 
 def prepare_outputs(

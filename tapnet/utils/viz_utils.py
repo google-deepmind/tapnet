@@ -198,7 +198,7 @@ def plot_tracks_v2(
       gt_points = np.maximum(gt_points, 0.0)
       gt_points = np.minimum(gt_points, [rgb.shape[2], rgb.shape[1]])
       colalpha = np.concatenate(
-          [colors[:, :-1], 1 - gt_occluded[:, i : i + 1]], axis=1
+          [colors[:, :-1], 1 - gt_occluded[:, i : i + 1]], axis=1  # pyrefly: ignore[unsupported-operation]
       )
       colalpha = np.clip(colalpha, 0, 1)
 
@@ -362,14 +362,14 @@ def compute_inliers(
   """Compute inliers and errors."""
   if src_pts_homog is None:
     src_pts_homog = jnp.transpose(
-        jnp.concatenate([src_pts, src_pts[:, 0:1] * 0 + 1], axis=-1)
+        jnp.concatenate([src_pts, src_pts[:, 0:1] * 0 + 1], axis=-1)  # pyrefly: ignore[bad-argument-type, unsupported-operation]
     )
   tformed = jnp.transpose(jnp.matmul(homog, src_pts_homog))
   tformed = tformed[..., :-1] / (
       jnp.maximum(1e-12, jnp.abs(tformed[..., -1:]))
       * jnp.sign(tformed[..., -1:])
   )
-  err = jnp.sum(jnp.square(targ_pts - tformed), axis=-1)
+  err = jnp.sum(jnp.square(targ_pts - tformed), axis=-1)  # pyrefly: ignore[unsupported-operation]
   new_inliers = err < thresh * thresh
   return new_inliers, err, tformed
 

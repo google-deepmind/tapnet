@@ -49,7 +49,7 @@ class BlockV1(hk.Module):
       bn_config.setdefault("cross_replica_axis", "i")
     elif normalization == "layernorm":
       bn_config = dict(bn_config)
-      bn_config.setdefault("axis", [-1, -2, -3])
+      bn_config.setdefault("axis", [-1, -2, -3])  # pyrefly: ignore[no-matching-overload]
       bn_config.setdefault("create_scale", True)
       bn_config.setdefault("create_offset", True)
     elif normalization == "instancenorm":
@@ -106,7 +106,7 @@ class BlockV1(hk.Module):
       bn_1 = hk.LayerNorm(name="layernorm_1", **bn_config)
     elif normalization == "instancenorm":
       bn_1 = hk.InstanceNorm(name="instancenorm_1", **bn_config)
-    layers = ((conv_0, bn_0), (conv_1, bn_1))
+    layers = ((conv_0, bn_0), (conv_1, bn_1))  # pyrefly: ignore[unbound-name]
 
     if bottleneck:
       conv_2 = hk.Conv2D(
@@ -123,7 +123,7 @@ class BlockV1(hk.Module):
         bn_2 = hk.LayerNorm(name="layernorm_2", **bn_config)
       elif normalization == "instancenorm":
         bn_2 = hk.InstanceNorm(name="instancenorm_2", **bn_config)
-      layers = layers + ((conv_2, bn_2),)
+      layers = layers + ((conv_2, bn_2),)  # pyrefly: ignore[unbound-name]
 
     self.layers = layers
 
@@ -173,7 +173,7 @@ class BlockV2(hk.Module):
       bn_config.setdefault("decay_rate", 0.9)
       bn_config.setdefault("cross_replica_axis", "i")
     elif normalization == "layernorm":
-      bn_config.setdefault("axis", [-1, -2, -3])
+      bn_config.setdefault("axis", [-1, -2, -3])  # pyrefly: ignore[no-matching-overload]
       bn_config.setdefault("create_scale", True)
       bn_config.setdefault("create_offset", True)
     elif normalization == "instancenorm":
@@ -220,7 +220,7 @@ class BlockV2(hk.Module):
       bn_1 = hk.LayerNorm(name="layernorm_1", **bn_config)
     elif normalization == "instancenorm":
       bn_1 = hk.InstanceNorm(name="instancenorm_1", **bn_config)
-    layers = ((conv_0, bn_0), (conv_1, bn_1))
+    layers = ((conv_0, bn_0), (conv_1, bn_1))  # pyrefly: ignore[unbound-name]
 
     if bottleneck:
       conv_2 = hk.Conv2D(
@@ -237,7 +237,7 @@ class BlockV2(hk.Module):
         bn_2 = hk.LayerNorm(name="layernorm_2", **bn_config)
       elif normalization == "instancenorm":
         bn_2 = hk.InstanceNorm(name="instancenorm_2", **bn_config)
-      layers = layers + ((conv_2, bn_2),)
+      layers = layers + ((conv_2, bn_2),)  # pyrefly: ignore[unbound-name]
 
     self.layers = layers
 
@@ -399,7 +399,7 @@ class ResNet(hk.Module):
       bn_config.setdefault("cross_replica_axis", "i")
     elif normalization == "layernorm":
       bn_config = dict(bn_config or {})
-      bn_config.setdefault("axis", [-1, -2, -3])
+      bn_config.setdefault("axis", [-1, -2, -3])  # pyrefly: ignore[no-matching-overload]
       bn_config.setdefault("create_scale", True)
       bn_config.setdefault("create_offset", True)
     elif normalization == "instancenorm":
@@ -424,12 +424,12 @@ class ResNet(hk.Module):
 
     if not self.resnet_v2 and normalization == "batchnorm":
       self.initial_batchnorm = hk.BatchNorm(
-          name="initial_batchnorm", **bn_config)
+          name="initial_batchnorm", **bn_config)  # pyrefly: ignore[bad-unpacking]
     elif not self.resnet_v2 and normalization == "layernorm":
-      self.initial_norm = hk.LayerNorm(name="initial_layernorm", **bn_config)
+      self.initial_norm = hk.LayerNorm(name="initial_layernorm", **bn_config)  # pyrefly: ignore[bad-unpacking]
     elif not self.resnet_v2 and normalization == "instancenorm":
       self.initial_norm = hk.InstanceNorm(
-          name="initial_instancenorm", **bn_config
+          name="initial_instancenorm", **bn_config  # pyrefly: ignore[bad-unpacking]
       )
 
     self.block_groups = []

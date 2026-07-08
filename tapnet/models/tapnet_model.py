@@ -157,7 +157,7 @@ class TAPNet(hk.Module):
     pos = jax.nn.softmax(pos * self.softmax_temperature, axis=(-2, -3))
     pos = einops.rearrange(pos, 't (b n) h w 1 -> b n t h w', n=shape[2])
     points = model_utils.heatmaps_to_points(
-        pos, im_shp, query_points=query_points
+        pos, im_shp, query_points=query_points  # pyrefly: ignore[bad-argument-type]
     )
 
     occlusion = mods['hid3'](occlusion)
@@ -267,7 +267,7 @@ class TAPNet(hk.Module):
         points, occlusion = infer(
             interp_features_heads[:, i:i + query_chunk_size],
             feature_grid_heads,
-            query_points[:, i:i + query_chunk_size],
+            query_points[:, i:i + query_chunk_size],  # pyrefly: ignore[bad-index]
         )
         all_occ.append(occlusion)
         all_pts.append(points)

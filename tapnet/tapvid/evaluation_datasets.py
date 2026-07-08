@@ -412,8 +412,8 @@ def create_jhmdb_dataset(
     )
     gt_pose = transforms.convert_grid_coordinates(
         gt_pose,
-        np.array([width, height]),
-        np.array([frames.shape[2], frames.shape[1]]),
+        np.array([width, height]),  # pyrefly: ignore[bad-argument-type]
+        np.array([frames.shape[2], frames.shape[1]]),  # pyrefly: ignore[bad-argument-type]
     )
     # Set invalid poses to -1 (outside the frame)
     gt_pose = (1.0 - invalid) * gt_pose + invalid * (-1.0)

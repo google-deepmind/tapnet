@@ -55,7 +55,7 @@ def depthwise_conv_residual(
   if get_causal_context:
     # Keep only as many frames of x as needed for future frames.  This may be up
     # to (kernel_shape - 1) frames.
-    new_causal_context[name1] = x[..., -(kernel_shape - 1) :, :]
+    new_causal_context[name1] = x[..., -(kernel_shape - 1) :, :]  # pyrefly: ignore[bad-index]
   x = hk.DepthwiseConv1D(
       channel_multiplier=4,
       kernel_shape=kernel_shape,
@@ -67,7 +67,7 @@ def depthwise_conv_residual(
   x = jax.nn.gelu(x)
   name2 = cur_name + '_causal_2'
   if causal_context is not None:
-    x = jnp.concatenate([causal_context[name2], x[..., num_extra:, :]], axis=-2)
+    x = jnp.concatenate([causal_context[name2], x[..., num_extra:, :]], axis=-2)  # pyrefly: ignore[unbound-name]
     num_extra = causal_context[name2].shape[-2]
   if get_causal_context:
     new_causal_context[name2] = x[..., -(kernel_shape - 1) :, :]
@@ -81,7 +81,7 @@ def depthwise_conv_residual(
       name='mlp1_up',
   )(x)
   if causal_context is not None:
-    x = x[..., num_extra:, :]
+    x = x[..., num_extra:, :]  # pyrefly: ignore[unbound-name]
 
   return (
       x[..., 0::4] + x[..., 1::4] + x[..., 2::4] + x[..., 3::4],
@@ -453,7 +453,7 @@ class TAPIR(hk.Module):
     )
     pos = jax.nn.softmax(pos * self.softmax_temperature, axis=(-2, -1))
     points = model_utils.heatmaps_to_points(
-        pos, im_shp, query_points=query_points
+        pos, im_shp, query_points=query_points  # pyrefly: ignore[bad-argument-type]
     )
 
     occlusion = mods['hid3'](occlusion)
@@ -489,13 +489,13 @@ class TAPIR(hk.Module):
     # target_features is batch, num_points, channels
     # pos_guess is batch, num_points, num_frames,2
     orig_h, orig_w = orig_hw
-    resized_h, resized_w = resize_hw
+    resized_h, resized_w = resize_hw  # pyrefly: ignore[not-iterable]
 
     corrs_pyr = []
     assert len(target_feature) == len(pyramid)
     for pyridx, (query, grid) in enumerate(zip(target_feature, pyramid)):
       # note: interp needs [y,x]
-      coords = transforms.convert_grid_coordinates(
+      coords = transforms.convert_grid_coordinates(  # pyrefly: ignore[bad-index]
           pos_guess, (orig_w, orig_h), grid.shape[-2:-4:-1]
       )[..., ::-1]
       last_iter_query = None
@@ -686,7 +686,7 @@ class TAPIR(hk.Module):
           barrier = 0
           for i in range(0, video_resize.shape[1], chunk_size):
             u3, u1 = hk.remat(rnet_fwd)(
-                video_resize[:, i : i + chunk_size] + barrier
+                video_resize[:, i : i + chunk_size] + barrier  # pyrefly: ignore[bad-index]
             )
             if self.extra_convs:
               u3 = hk.BatchApply(self.extra_convs)(u3, is_training=is_training)
@@ -696,7 +696,7 @@ class TAPIR(hk.Module):
               hires = jnp.pad(u1, [(0, 0), (0, n_pad), (0, 0), (0, 0), (0, 0)])
             else:
               latent = latent.at[:, i : i + chunk_size].set(u3)
-              hires = hires.at[:, i : i + chunk_size].set(u1)
+              hires = hires.at[:, i : i + chunk_size].set(u1)  # pyrefly: ignore[missing-attribute]
             barrier = u3[0, 0, 0, 0, 0] > 1e20
         else:
           latent, hires = hk.remat(rnet_fwd)(video_resize)
@@ -706,23 +706,23 @@ class TAPIR(hk.Module):
                 latent, is_training=is_training
             )
 
-        latent = latent / jnp.sqrt(
+        latent = latent / jnp.sqrt(  # pyrefly: ignore[unsupported-operation]
             jnp.maximum(
-                jnp.sum(jnp.square(latent), axis=-1, keepdims=True),
+                jnp.sum(jnp.square(latent), axis=-1, keepdims=True),  # pyrefly: ignore[bad-argument-type]
                 1e-12,
             )
         )
-        hires = hires / jnp.sqrt(
+        hires = hires / jnp.sqrt(  # pyrefly: ignore[unsupported-operation]
             jnp.maximum(
-                jnp.sum(jnp.square(hires), axis=-1, keepdims=True),
+                jnp.sum(jnp.square(hires), axis=-1, keepdims=True),  # pyrefly: ignore[bad-argument-type]
                 1e-12,
             )
         )
 
-      feature_grid.append(latent)
-      hires_feats.append(hires)
+      feature_grid.append(latent)  # pyrefly: ignore[unbound-name]
+      hires_feats.append(hires)  # pyrefly: ignore[unbound-name]
       # This zero-sized tensor is only used for shape information.
-      resize_im_shape.append(video_resize[0, 0, :, :, 0:0])
+      resize_im_shape.append(video_resize[0, 0, :, :, 0:0])  # pyrefly: ignore[bad-index, unbound-name]
 
     return FeatureGrids(
         tuple(feature_grid), tuple(hires_feats), tuple(resize_im_shape)
@@ -809,9 +809,9 @@ class TAPIR(hk.Module):
                 ),
                 in_axes=(0, None),
             )
-        )(feature_grid[i], position_in_grid[..., 1:])
+        )(feature_grid[i], position_in_grid[..., 1:])  # pyrefly: ignore[bad-index]
         # is_correct_frame is [batch, time, num_points]
-        frame_id = jnp.array(jnp.round(position_in_grid[:, :, 0]), jnp.int32)
+        frame_id = jnp.array(jnp.round(position_in_grid[:, :, 0]), jnp.int32)  # pyrefly: ignore[bad-index]
         is_correct_frame = jax.nn.one_hot(
             frame_id, feature_grid[i].shape[1], axis=1
         )
@@ -827,7 +827,7 @@ class TAPIR(hk.Module):
                 ),
                 in_axes=(0, None),
             )
-        )(hires_feats[i], position_in_grid_hires[..., 1:])
+        )(hires_feats[i], position_in_grid_hires[..., 1:])  # pyrefly: ignore[bad-index]
         hires_interp = jnp.sum(
             hires_interp * is_correct_frame[..., jnp.newaxis], axis=1
         )
@@ -949,16 +949,16 @@ class TAPIR(hk.Module):
     # the same time by creating a fake dependency between iterations.
     barrier = 0
 
-    for ch in range(0, num_queries, query_chunk_size):
-      perm_chunk = perm[ch : ch + query_chunk_size]
-      chunk = query_features.lowres[0][:, perm_chunk] + barrier
+    for ch in range(0, num_queries, query_chunk_size):  # pyrefly: ignore[bad-argument-type]
+      perm_chunk = perm[ch : ch + query_chunk_size]  # pyrefly: ignore[unsupported-operation]
+      chunk = query_features.lowres[0][:, perm_chunk] + barrier  # pyrefly: ignore[bad-index]
       if causal_context is not None:
         cc_chunk = jax.tree_util.tree_map(
             lambda x: x[:, perm_chunk], causal_context  # pylint: disable=cell-var-from-loop
         )
       if query_points_in_video is not None:
-        infer_query_points = query_points_in_video[
-            :, perm[ch : ch + query_chunk_size]
+        infer_query_points = query_points_in_video[  # pyrefly: ignore[bad-index]
+            :, perm[ch : ch + query_chunk_size]  # pyrefly: ignore[unsupported-operation]
         ]
         num_frames = feature_grids.lowres[0].shape[1]
         infer_query_points = transforms.convert_grid_coordinates(
@@ -983,8 +983,8 @@ class TAPIR(hk.Module):
       for i in range(num_iters):
         feature_level = i // self.num_pips_iter + 1
         queries = [
-            query_features.hires[feature_level][:, perm_chunk],
-            query_features.lowres[feature_level][:, perm_chunk],
+            query_features.hires[feature_level][:, perm_chunk],  # pyrefly: ignore[bad-index]
+            query_features.lowres[feature_level][:, perm_chunk],  # pyrefly: ignore[bad-index]
         ]
         for _ in range(self.pyramid_level):
           queries.append(queries[-1])
@@ -995,7 +995,7 @@ class TAPIR(hk.Module):
         for _ in range(self.pyramid_level):
           pyramid.append(
               hk.avg_pool(
-                  pyramid[-1], [1, 1, 2, 2, 1], [1, 1, 2, 2, 1], 'VALID'
+                  pyramid[-1], [1, 1, 2, 2, 1], [1, 1, 2, 2, 1], 'VALID'  # pyrefly: ignore[bad-argument-type]
               )
           )
 
@@ -1006,7 +1006,7 @@ class TAPIR(hk.Module):
         #
         # TODO(doersch): this should constrain the output to match the query
         # points.
-        cc = cc_chunk[i] if causal_context is not None else None
+        cc = cc_chunk[i] if causal_context is not None else None  # pyrefly: ignore[unbound-name]
         refined = self.refine_pips(
             queries,
             None,
@@ -1038,7 +1038,7 @@ class TAPIR(hk.Module):
           expected_dist = expd_iters[0][-1]
           occlusion = occ_iters[0][-1]
       # barrier always stays 0, but the JAX compiler doesn't know that.
-      barrier = points[0, 0, 0, 0] > 1e20
+      barrier = points[0, 0, 0, 0] > 1e20  # pyrefly: ignore[bad-index]
 
     occlusion = []
     points = []
@@ -1125,7 +1125,7 @@ class TAPIR(hk.Module):
     )
 
     trajectories = self.estimate_trajectories(
-        video.shape[-3:-1],
+        video.shape[-3:-1],  # pyrefly: ignore[bad-argument-type]
         is_training,
         feature_grids,
         query_features,
@@ -1242,7 +1242,7 @@ class ParameterizedTAPIR:
     # A function that constructs a TAPIR model and calls a single TAPIR
     # function by name.
     def tapir_call(fn_name, *args, **kwargs):
-      model = TAPIR(**self._tapir_kwargs)
+      model = TAPIR(**self._tapir_kwargs)  # pyrefly: ignore[bad-unpacking]
       fn = getattr(model, fn_name)
       return fn(*args, **kwargs)
 

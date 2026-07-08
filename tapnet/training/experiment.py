@@ -97,7 +97,7 @@ class Experiment(experiment.AbstractExperiment):
       config: config options.  See configs/tapnet_config.py for an example.
     """
 
-    super().__init__(mode=mode, init_rng=init_rng)
+    super().__init__(mode=mode, init_rng=init_rng)  # pyrefly: ignore[missing-attribute]
 
     self.mode = mode
     self.init_rng = init_rng
@@ -177,12 +177,12 @@ class Experiment(experiment.AbstractExperiment):
     if self._train_input is None:
       self._initialize_train()
 
-    inputs = next(self._train_input)
+    inputs = next(self._train_input)  # pyrefly: ignore[bad-argument-type]
 
     self._params, self._state, self._opt_state, scalars = self._update_func(
-        self._params,
-        self._state,
-        self._opt_state,
+        self._params,  # pyrefly: ignore[bad-argument-type]
+        self._state,  # pyrefly: ignore[bad-argument-type]
+        self._opt_state,  # pyrefly: ignore[bad-argument-type]
         inputs,
         rng,
         global_step,
@@ -321,7 +321,7 @@ class Experiment(experiment.AbstractExperiment):
         inputs,
         rng,
         global_step,
-        self._transform.apply,
+        self._transform.apply,  # pyrefly: ignore[bad-argument-type]
         is_training=True,
     )
     scalars = {**scalars}  # Mutable copy.
@@ -370,15 +370,15 @@ class Experiment(experiment.AbstractExperiment):
 
     updates = map_fn(updates)
 
-    params = optax.apply_updates(params, updates)
+    params = optax.apply_updates(params, updates)  # pyrefly: ignore[bad-assignment]
 
     n_params = 0
     for k in params.keys():  # pytype: disable=attribute-error  # numpy-scalars
-      for l in params[k]:
+      for l in params[k]:  # pyrefly: ignore[bad-index, not-iterable]
         n_params = n_params + np.prod(params[k][l].shape)  # pytype: disable=attribute-error  # numpy-scalars
 
     # Scalars to log (note: we log the mean across all hosts/devices).
-    scalars.update({
+    scalars.update({  # pyrefly: ignore[no-matching-overload]
         'learning_rate': learning_rate,
         'n_params (M)': float(n_params / 1e6),
     })
@@ -404,10 +404,10 @@ class Experiment(experiment.AbstractExperiment):
     forward_fn = self._transform.apply
     eval_scalars = point_prediction_task.evaluate(
         global_step=global_step,
-        params=self._params,
-        state=self._state,
+        params=self._params,  # pyrefly: ignore[bad-argument-type]
+        state=self._state,  # pyrefly: ignore[bad-argument-type]
         rng=rng,
-        wrapped_forward_fn=forward_fn,
+        wrapped_forward_fn=forward_fn,  # pyrefly: ignore[bad-argument-type]
         mode=mode,
     )
     return {

@@ -141,16 +141,16 @@ class SupervisedPointPrediction(task.Task):
     """
     if input_key is None:
       input_key = self.input_key
-    frames = inputs[input_key]['video']
+    frames = inputs[input_key]['video']  # pyrefly: ignore[bad-index]
 
     if self.prediction_algo in [
         'cost_volume_regressor',
         'cost_volume_cycle_consistency',
     ]:
-      return shared_modules[self.model_key](
-          frames,
+      return shared_modules[self.model_key](  # pyrefly: ignore[unsupported-operation]
+          frames,  # pyrefly: ignore[bad-argument-type]
           is_training=is_training,
-          query_points=inputs[input_key]['query_points'],
+          query_points=inputs[input_key]['query_points'],  # pyrefly: ignore[bad-argument-type, bad-index]
           query_chunk_size=query_chunk_size,
           get_query_feats=get_query_feats,
       )
@@ -600,13 +600,13 @@ class SupervisedPointPrediction(task.Task):
     )
     loss_scalars = {**loss_scalars}  # Mutable copy.
 
-    gt_occluded = inputs[input_key]['occluded']
-    gt_target_points = inputs[input_key]['target_points']
-    query_points = inputs[input_key]['query_points']
+    gt_occluded = inputs[input_key]['occluded']  # pyrefly: ignore[bad-index]
+    gt_target_points = inputs[input_key]['target_points']  # pyrefly: ignore[bad-index]
+    query_points = inputs[input_key]['query_points']  # pyrefly: ignore[bad-index]
 
     tracks = outputs['tracks']
     # Huber loss is by default measured under 256x256 resolution
-    shape = inputs[input_key]['video'].shape
+    shape = inputs[input_key]['video'].shape  # pyrefly: ignore[bad-index]
     target_points = transforms.convert_grid_coordinates(
         gt_target_points, shape[3:1:-1], (256, 256), coordinate_format='xy'
     )
@@ -627,29 +627,29 @@ class SupervisedPointPrediction(task.Task):
       # Resize prediction and groundtruth to standard evaluation resolution
       query_points = transforms.convert_grid_coordinates(
           query_points,
-          (1,) + inputs[input_key]['video'].shape[2:4],  # (1, height, width)
+          (1,) + inputs[input_key]['video'].shape[2:4],  # (1, height, width)  # pyrefly: ignore[bad-index]
           (1,) + self.eval_metrics_resolution,  # (1, height, width)
           coordinate_format='tyx',
       )
       gt_target_points = transforms.convert_grid_coordinates(
           gt_target_points,
-          inputs[input_key]['video'].shape[3:1:-1],  # (width, height)
+          inputs[input_key]['video'].shape[3:1:-1],  # (width, height)  # pyrefly: ignore[bad-index]
           self.eval_metrics_resolution[::-1],  # (width, height)
           coordinate_format='xy',
       )
       tracks = transforms.convert_grid_coordinates(
           tracks,
-          inputs[input_key]['video'].shape[3:1:-1],  # (width, height)
+          inputs[input_key]['video'].shape[3:1:-1],  # (width, height)  # pyrefly: ignore[bad-index]
           self.eval_metrics_resolution[::-1],  # (width, height)
           coordinate_format='xy',
       )
 
     query_mode = 'first' if 'q_first' in mode else 'strided'
     metrics = evaluation_datasets.compute_tapvid_metrics(  # pytype: disable=wrong-arg-types  # jax-nn-types
-        query_points=query_points,
-        gt_occluded=gt_occluded,
-        gt_tracks=gt_target_points,
-        pred_occluded=pred_occ,
+        query_points=query_points,  # pyrefly: ignore[bad-argument-type]
+        gt_occluded=gt_occluded,  # pyrefly: ignore[bad-argument-type]
+        gt_tracks=gt_target_points,  # pyrefly: ignore[bad-argument-type]
+        pred_occluded=pred_occ,  # pyrefly: ignore[bad-argument-type]
         pred_tracks=tracks,
         query_mode=query_mode,
     )
@@ -743,7 +743,7 @@ class SupervisedPointPrediction(task.Task):
       pck = 100.0 * len(idxs) / max(1e-12, len(dist_all[pidx]))
       pck_all[pidx] = pck
 
-    return pck_all
+    return pck_all  # pyrefly: ignore[bad-return]
 
   def pck_evaluate(
       self,
@@ -806,7 +806,7 @@ class SupervisedPointPrediction(task.Task):
           dist = np.linalg.norm(np.subtract([predx, predy], [gtx, gty]))
           dist = dist / boxes[img_idx]
 
-          dist_all[t] = np.append(dist_all[t], [[dist]])
+          dist_all[t] = np.append(dist_all[t], [[dist]])  # pyrefly: ignore[unsupported-operation]
     pck_ranges = (0.1, 0.2, 0.3, 0.4, 0.5)
     pck_all = []
     for pck_range in pck_ranges:
@@ -886,7 +886,7 @@ class SupervisedPointPrediction(task.Task):
       if 'eval_davis_points' in mode or 'eval_robotics_points' in mode:
         # Only write videos sometimes for the small datasets; otherwise
         # there will be a crazy number of videos dumped.
-        write_viz = write_viz and (global_step % 10 == 0)
+        write_viz = write_viz and (global_step % 10 == 0)  # pyrefly: ignore[unsupported-operation]
       if 'eval_jhmdb' in mode:
         pix_pts = viz['tracks']
         grid_size = np.array(
@@ -898,14 +898,14 @@ class SupervisedPointPrediction(task.Task):
                 self.eval_inference_resolution[1],
                 self.eval_inference_resolution[0],
             ),
-            grid_size,
+            grid_size,  # pyrefly: ignore[bad-argument-type]
         )
         mean_scalars = self._eval_jhmdb(
             pix_pts,
-            inputs[input_key]['gt_pose'],
-            inputs[input_key]['gt_pose_orig'],
-            inputs[input_key]['im_size'],
-            inputs[input_key]['fname'],
+            inputs[input_key]['gt_pose'],  # pyrefly: ignore[bad-argument-type]
+            inputs[input_key]['gt_pose_orig'],  # pyrefly: ignore[bad-argument-type]
+            inputs[input_key]['im_size'],  # pyrefly: ignore[bad-argument-type]
+            inputs[input_key]['fname'],  # pyrefly: ignore[bad-argument-type]
             is_first=batch_id == 0,
         )
         scalars = {}
@@ -919,13 +919,13 @@ class SupervisedPointPrediction(task.Task):
             for x in range(batch_size * batch_id, batch_size * (batch_id + 1))
         ]
         viz_utils.write_visualization(
-            (inputs[input_key]['video'] + 1.0) * (255.0 / 2.0),
-            pix_pts,
-            jax.nn.sigmoid(viz['occlusion']),
+            (inputs[input_key]['video'] + 1.0) * (255.0 / 2.0),  # pyrefly: ignore[unsupported-operation]
+            pix_pts,  # pyrefly: ignore[bad-argument-type]
+            jax.nn.sigmoid(viz['occlusion']),  # pyrefly: ignore[bad-argument-type]
             outname,
-            gt_points=targ_pts,
-            gt_occluded=inputs[input_key]['occluded'],
-            trackgroup=inputs[input_key]['trackgroup']
+            gt_points=targ_pts,  # pyrefly: ignore[bad-argument-type]
+            gt_occluded=inputs[input_key]['occluded'],  # pyrefly: ignore[bad-argument-type]
+            trackgroup=inputs[input_key]['trackgroup']  # pyrefly: ignore[bad-argument-type]
             if 'trackgroup' in inputs[input_key]
             else None,
         )
@@ -946,8 +946,8 @@ class SupervisedPointPrediction(task.Task):
         mean_scalars = jax.tree_util.tree_map(
             lambda x: x / num_samples, summed_scalars
         )
-      logging.info(mean_scalars)
-    logging.info(evaluation_datasets.latex_table(mean_scalars))
+      logging.info(mean_scalars)  # pyrefly: ignore[unbound-name]
+    logging.info(evaluation_datasets.latex_table(mean_scalars))  # pyrefly: ignore[bad-argument-type]
 
     return mean_scalars
 

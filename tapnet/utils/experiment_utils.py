@@ -139,7 +139,7 @@ class NumpyFileCheckpointer(utils.Checkpointer):
     to_save['global_step'] = global_step
 
     with tf.io.gfile.GFile(self._checkpoint_file + '_tmp', 'wb') as fp:
-      np.save(fp, to_save)
+      np.save(fp, to_save)  # pyrefly: ignore[bad-argument-type]
     tf.io.gfile.rename(
         self._checkpoint_file + '_tmp',
         self._checkpoint_file,
@@ -207,7 +207,7 @@ def default_color_augmentation_fn(
     """Do standard color augmentations."""
     # Note the same augmentation will be applied to all frames of the video.
     if zero_centering_image:
-      video = 0.5 * (video + 1.0)
+      video = 0.5 * (video + 1.0)  # pyrefly: ignore[bad-assignment, unsupported-operation]
     video = tf.image.random_brightness(video, max_delta=32. / 255.)
     video = tf.image.random_saturation(video, lower=0.6, upper=1.4)
     video = tf.image.random_contrast(video, lower=0.6, upper=1.4)

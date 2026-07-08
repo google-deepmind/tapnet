@@ -85,4 +85,4 @@ def add_weight_decay(
     updates = hk.data_structures.merge(u_ex, u_in)
     return updates, state
 
-  return optax.GradientTransformation(init_fn, update_fn)
+  return optax.GradientTransformation(init_fn, update_fn)  # pyrefly: ignore[bad-argument-type]
