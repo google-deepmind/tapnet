@@ -49,6 +49,7 @@ def paint_point_track(
     point_tracks: np.ndarray,
     visibles: np.ndarray,
     colormap: Optional[List[Tuple[int, int, int]]] = None,
+    dot_size_multiple: int
 ) -> np.ndarray:
   """Converts a sequence of points to color code video.
 
@@ -65,7 +66,7 @@ def paint_point_track(
   if colormap is None:
     colormap = get_colors(num_colors=num_points)
   height, width = frames.shape[1:3]
-  dot_size_as_fraction_of_min_edge = 0.015
+  dot_size_as_fraction_of_min_edge = (0.0015 x dot_size_multiple)
   radius = int(round(min(height, width) * dot_size_as_fraction_of_min_edge))
   diam = radius * 2 + 1
   quadratic_y = np.square(np.arange(diam)[:, np.newaxis] - radius - 1)
