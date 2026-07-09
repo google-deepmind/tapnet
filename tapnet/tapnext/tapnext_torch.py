@@ -16,6 +16,7 @@
 """TAPNext implementation in torch."""
 
 import dataclasses
+import math
 from typing import List
 
 import einops
@@ -113,7 +114,7 @@ class TAPNext(nn.Module):
             num_heads=num_heads,
             lru_width=lru_width,
             dtype=torch.float32,
-            device='cuda',
+            device=None,
         )
         for _ in range(depth)
     ])
@@ -244,6 +245,44 @@ class TAPNext(nn.Module):
     visible_logits = self.visible_head(x)
     return tracks, track_logits, visible_logits
 
+  def _video_pos_emb(self, h, w):
+    """Returns image_pos_emb interpolated to an h x w patch grid.
+
+    image_pos_emb is learned at a fixed native patch grid (e.g. 32x32 for a
+    256px image with an 8px patch). At higher input resolutions (e.g. 512px)
+    the patch grid is denser (64x64) and no longer matches the stored parameter.
+    We bicubically interpolate onto the actual grid; when h*w already equals the
+    native size this is a no-op and bit-identical to the previous direct add.
+
+    Args:
+      h: The target height of the patch grid.
+      w: The target width of the patch grid.
+
+    Returns:
+      The interpolated image position embedding tensor.
+    """
+    num_native_tokens = self.image_pos_emb.shape[1]
+    if h * w == num_native_tokens:
+      return self.image_pos_emb.unsqueeze(0)
+    native_size = int(math.sqrt(num_native_tokens))
+    if native_size * native_size != num_native_tokens:
+      raise ValueError(
+          f'image_pos_emb has {num_native_tokens} tokens, which is not a '
+          f'perfect square; cannot interpolate to a {h}x{w} grid.'
+      )
+    c = self.width
+    pos_emb_reshaped = self.image_pos_emb.reshape(
+        1, native_size, native_size, c
+    ).permute(0, 3, 1, 2)
+    pos_emb_interp = F.interpolate(
+        pos_emb_reshaped.float(),
+        size=(h, w),
+        mode='bicubic',
+        align_corners=False,
+    )
+    image_pos_emb = pos_emb_interp.permute(0, 2, 3, 1).reshape(1, h * w, c)
+    return image_pos_emb.to(self.image_pos_emb.dtype).unsqueeze(0)
+
   def forward(self, video, query_points=None, state=None):
     # video.shape
     b, t, _, _, _ = video.shape
@@ -255,7 +294,7 @@ class TAPNext(nn.Module):
     video_tokens = einops.rearrange(
         video_tokens, '(b t) c h w -> b t (h w) c', b=b, t=t
     )
-    video_tokens = video_tokens + self.image_pos_emb.unsqueeze(0)
+    video_tokens = video_tokens + self._video_pos_emb(h, w)
     if state is not None:
       # in online tracking, we put query "back in time"
       if query_points is None:

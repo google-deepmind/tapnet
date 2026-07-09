@@ -167,6 +167,7 @@ BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/bootstapir_ch
 Online BootsTAPIR|[Jax](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.npy) & [PyTorch](https://storage.googleapis.com/dm-tapnet/bootstap/causal_bootstapir_checkpoint.pt)|[tapir_bootstrap_config.py](https://github.com/google-deepmind/tapnet/blob/main/configs/tapir_bootstrap_config.py)|ResNet18 + 4 Convs|256x256 + 512x512|59.7%|61.2%|55.1%|69.1%
 TAPNext|[Jax](https://storage.googleapis.com/dm-tapnet/tapnext/bootstapnext_ckpt.npz)|[tapnext_demo.ipynb](https://github.com/google-deepmind/tapnet/blob/main/colabs/tapnext_demo.ipynb)|TrecViT-B|256x256|65.25%|68.9%|57.3%|64.1%
 TAPNext++|[PyTorch](https://storage.googleapis.com/dm-tapnet/tapnextpp/tapnextpp_ckpt.pt)|[torch_tapnextpp_demo.ipynb](https://colab.research.google.com/github/deepmind/tapnet/blob/main/colabs/torch_tapnextpp_demo.ipynb)|TrecViT-B|256x256|65.6%|-|53.9%|61.1%
+TAPNext++ (512×512)|[PyTorch](https://storage.googleapis.com/gresearch/tapnextpp/tapnextpp_512.ckpt)|[VOTSp2026 README](https://github.com/google-deepmind/tapnet/blob/main/tapnet/tapnextpp/votsp2026/README.md)|TrecViT-B|512x512|67.0%|71.2%|-|-
 TRAJAN|[Jax](https://storage.googleapis.com/dm-tapnet/trajan/track_autoencoder_ckpt.npz)|[trajan_demo.ipynb](https://github.com/google-deepmind/tapnet/blob/main/colabs/trajan_demo.ipynb)
 
 ## Training
