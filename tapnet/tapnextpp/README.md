@@ -49,3 +49,7 @@ The Re-Detection Average Jaccard Metric can be calculated using `./metrics/aj_rd
 
 Code to generate Roll and Homography augmentations as well as visualizations for them are provided in `./augmentations/`. These augmentations are a unique aspect of TAPNext++ training and are crucial for improving its re-detection capabilities under camera roll and perspective shifts.
 
+## License
+
+The TAPNext++ model checkpoint is released under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0), consistent with the rest of the software in this repository.
+

@@ -117,3 +117,7 @@ for frame in subsequent_frames:
   pages     = {8429-8438}
 }
 ```
+
+## License
+
+The TAPNext++ model checkpoint (`tapnextpp_512.ckpt`) is released under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0), consistent with the rest of the software in this repository.
