@@ -72,9 +72,9 @@ class TrackAutoEncoderInputs(TypedDict):
   """Track autoencoder inputs.
 
   Attributes:
-    query_points: The (t, x, y) locations of a set of query points on initial
-      frame. The decoder predicts the location and visibility of these query
-      points for T frames into the future.
+    query_points: The (t, x, y) locations of a set of query points on the
+      chosen frames. The decoder predicts the location and visibility of these
+      points for the remaining frames.
     boundary_frame: Int specifying the first frame of any padding in the support
       tracks.  Track values starting on this frame will be masked out of the
       attention for transformers.
