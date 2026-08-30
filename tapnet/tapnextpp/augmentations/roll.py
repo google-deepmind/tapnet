@@ -156,13 +156,13 @@ class RollAugmentation:
       trajs[i, :, 1] = y_coords % padded_h
 
       if self.rotate:
-        h, w = rolled_img.shape[:2]
-        center = (w // 2, h // 2)
+        ph, pw = rolled_img.shape[:2]
+        center = (pw // 2, ph // 2)
         angle = angle_arr[i]
 
         m = cv2.getRotationMatrix2D(center, angle, 1.0)
         aug_img_padded = cv2.warpAffine(
-            rolled_img, m, (w, h), borderMode=cv2.BORDER_CONSTANT
+            rolled_img, m, (pw, ph), borderMode=cv2.BORDER_CONSTANT
         )
 
         points = trajs[i].reshape(-1, 1, 2)
