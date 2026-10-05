@@ -165,7 +165,7 @@ class Experiment(experiment.AbstractExperiment):
   # | |_| | | (_| | | | | |
   #  \__|_|  \__,_|_|_| |_|
   #
-  def step(  # pytype: disable=signature-mismatch  # numpy-scalars
+  def step(  # pyrefly: ignore[bad-override]
       self,
       global_step: chex.Array,
       rng: chex.PRNGKey,
@@ -327,7 +327,7 @@ class Experiment(experiment.AbstractExperiment):
     scalars = {**scalars}  # Mutable copy.
     if grads is not None:
       grads = jax.lax.psum(grads, axis_name='i')
-      task_updates, opt_state = self._optimizer.update(  # pytype: disable=attribute-error
+      task_updates, opt_state = self._optimizer.update(  # pyrefly: ignore[missing-attribute]
           grads,
           opt_state,
           params,
@@ -360,7 +360,7 @@ class Experiment(experiment.AbstractExperiment):
     def map_fn(nested_dict, prefix=None):
       prefix = prefix or []
       result = {}
-      for k, v in nested_dict.items():  # pytype: disable=attribute-error
+      for k, v in nested_dict.items():
         if isinstance(v, mapping_type):
           result[k] = map_fn(v, prefix + [k])
         else:
@@ -373,9 +373,9 @@ class Experiment(experiment.AbstractExperiment):
     params = optax.apply_updates(params, updates)  # pyrefly: ignore[bad-assignment]
 
     n_params = 0
-    for k in params.keys():  # pytype: disable=attribute-error  # numpy-scalars
+    for k in params.keys():  # pyrefly: ignore[missing-attribute]
       for l in params[k]:  # pyrefly: ignore[bad-index, not-iterable]
-        n_params = n_params + np.prod(params[k][l].shape)  # pytype: disable=attribute-error  # numpy-scalars
+        n_params = n_params + np.prod(params[k][l].shape)  # pyrefly: ignore[bad-index, missing-attribute]
 
     # Scalars to log (note: we log the mean across all hosts/devices).
     scalars.update({  # pyrefly: ignore[no-matching-overload]
@@ -384,7 +384,7 @@ class Experiment(experiment.AbstractExperiment):
     })
     scalars = jax.lax.pmean(scalars, axis_name='i')
 
-    return params, state, opt_state, scalars  # pytype: disable=bad-return-type
+    return params, state, opt_state, scalars  # pyrefly: ignore[bad-return]
 
   #                  _
   #   _____   ____ _| |
@@ -392,7 +392,7 @@ class Experiment(experiment.AbstractExperiment):
   # |  __/\ V / (_| | |
   #  \___| \_/ \__,_|_|
   #
-  def evaluate(  # pytype: disable=signature-mismatch  # numpy-scalars
+  def evaluate(  # pyrefly: ignore[bad-override]
       self,
       global_step: chex.Array,
       rng: chex.PRNGKey,

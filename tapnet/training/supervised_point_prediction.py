@@ -212,15 +212,14 @@ class SupervisedPointPrediction(task.Task):
 
     loss_scalars = {}
     loss = 0.0
-    # pytype: disable=unsupported-operands
     if self.prediction_algo in ['cost_volume_regressor']:
       loss_huber, loss_occ, loss_prob = model_utils.tapnet_loss(
-          output['tracks'],
-          output['occlusion'],
-          inputs[input_key]['target_points'],
-          inputs[input_key]['occluded'],
-          inputs[input_key]['video'].shape,  # pytype: disable=attribute-error  # numpy-scalars
-          expected_dist=output['expected_dist']
+          output['tracks'],  # pyrefly: ignore[bad-index]
+          output['occlusion'],  # pyrefly: ignore[bad-index]
+          inputs[input_key]['target_points'],  # pyrefly: ignore[bad-index]
+          inputs[input_key]['occluded'],  # pyrefly: ignore[bad-index]
+          inputs[input_key]['video'].shape,  # pyrefly: ignore[bad-index, missing-attribute]
+          expected_dist=output['expected_dist']  # pyrefly: ignore[bad-index]
           if 'expected_dist' in output
           else None,
           position_loss_weight=self.position_loss_weight,
@@ -233,14 +232,14 @@ class SupervisedPointPrediction(task.Task):
         loss_scalars['prob_loss'] = loss_prob
 
       if 'unrefined_tracks' in output:
-        for l in range(len(output['unrefined_tracks'])):
+        for l in range(len(output['unrefined_tracks'])):  # pyrefly: ignore[bad-index]
           loss_huber, loss_occ, loss_prob = model_utils.tapnet_loss(
-              output['unrefined_tracks'][l],
-              output['unrefined_occlusion'][l],
-              inputs[input_key]['target_points'],
-              inputs[input_key]['occluded'],
-              inputs[input_key]['video'].shape,  # pytype: disable=attribute-error  # numpy-scalars
-              expected_dist=output['unrefined_expected_dist'][l]
+              output['unrefined_tracks'][l],  # pyrefly: ignore[bad-index]
+              output['unrefined_occlusion'][l],  # pyrefly: ignore[bad-index]
+              inputs[input_key]['target_points'],  # pyrefly: ignore[bad-index]
+              inputs[input_key]['occluded'],  # pyrefly: ignore[bad-index]
+              inputs[input_key]['video'].shape,  # pyrefly: ignore[bad-index, missing-attribute]
+              expected_dist=output['unrefined_expected_dist'][l]  # pyrefly: ignore[bad-index]
               if 'unrefined_expected_dist' in output
               else None,
               position_loss_weight=self.position_loss_weight,
@@ -253,8 +252,8 @@ class SupervisedPointPrediction(task.Task):
             loss_scalars[f'prob_loss_{l}'] = loss_prob
 
     if self.prediction_algo in ['cost_volume_cycle_consistency']:
-      feature_grid = output['feature_grid']
-      query_feats = output['query_feats']
+      feature_grid = output['feature_grid']  # pyrefly: ignore[bad-index]
+      query_feats = output['query_feats']  # pyrefly: ignore[bad-index]
 
       loss_contrast = []
 
@@ -271,10 +270,10 @@ class SupervisedPointPrediction(task.Task):
         all_pairs_softmax = jax.nn.log_softmax(
             all_pairs_dots * self.softmax_temperature, axis=(2, 3, 4)
         )
-        im_shp = inputs[input_key]['video'].shape  # pytype: disable=attribute-error  # numpy-scalars
-        target_points = inputs[input_key]['target_points']
+        im_shp = inputs[input_key]['video'].shape  # pyrefly: ignore[bad-index, missing-attribute]
+        target_points = inputs[input_key]['target_points']  # pyrefly: ignore[bad-index]
         position_in_grid2 = transforms.convert_grid_coordinates(
-            target_points[:, qchunk_low:qchunk_high],
+            target_points[:, qchunk_low:qchunk_high],  # pyrefly: ignore[bad-argument-type, bad-index]
             im_shp[3:1:-1],
             feature_grid.shape[3:1:-1],
         )
@@ -288,19 +287,18 @@ class SupervisedPointPrediction(task.Task):
         # coordinates in [y, x] format.
         interp_softmax = jax.vmap(jax.vmap(jax.vmap(model_utils.interp)))(
             all_pairs_softmax,
-            position_in_grid2[..., ::-1],
+            position_in_grid2[..., ::-1],  # pyrefly: ignore[bad-index]
         )
 
-        target_occ = inputs[input_key]['occluded']
-        target_occ = target_occ[:, qchunk_low:qchunk_high]
+        target_occ = inputs[input_key]['occluded']  # pyrefly: ignore[bad-index]
+        target_occ = target_occ[:, qchunk_low:qchunk_high]  # pyrefly: ignore[bad-index]
         loss_contrast.append(
-            jnp.mean(interp_softmax * (1.0 - target_occ), axis=-1)
+            jnp.mean(interp_softmax * (1.0 - target_occ), axis=-1)  # pyrefly: ignore[unsupported-operation]
         )
 
       loss_contrast = -jnp.mean(jnp.concatenate(loss_contrast, 1))
       loss += loss_contrast * self.contrastive_loss_weight
       loss_scalars['loss_contrast'] = loss_contrast
-    # pytype: enable=unsupported-operands
 
     loss_scalars['loss'] = loss
     scaled_loss = loss / jax.device_count()
@@ -429,20 +427,19 @@ class SupervisedPointPrediction(task.Task):
         get_query_feats=get_query_feats,
     )
     loss_scalars = {}
-    # pytype: disable=unsupported-operands
     if self.prediction_algo in ['cost_volume_regressor']:
       # Outputs are already in the correct format for cost_volume_regressor.
-      tracks = output['tracks']
+      tracks = output['tracks']  # pyrefly: ignore[bad-index]
       loss_occ = optax.sigmoid_binary_cross_entropy(
-          output['occlusion'], inputs[input_key]['occluded']
+          output['occlusion'], inputs[input_key]['occluded']  # pyrefly: ignore[bad-argument-type, bad-index]
       )
       loss_occ = jnp.mean(loss_occ, axis=(1, 2))
-      occlusion = output['occlusion']
+      occlusion = output['occlusion']  # pyrefly: ignore[bad-index]
       loss_scalars['loss_occ'] = loss_occ
     else:
       # compute forward-backward cycle consistency to infer occlusions.
-      feature_grid = output['feature_grid']
-      query_feats = output['query_feats']
+      feature_grid = output['feature_grid']  # pyrefly: ignore[bad-index]
+      query_feats = output['query_feats']  # pyrefly: ignore[bad-index]
 
       all_tracks = []
       all_occlusion = []
@@ -456,26 +453,26 @@ class SupervisedPointPrediction(task.Task):
             feature_grid,
         )
         # Compute the soft argmax for each frame
-        query_point_chunk = inputs[input_key]['query_points'][
+        query_point_chunk = inputs[input_key]['query_points'][  # pyrefly: ignore[bad-index]
             :, qchunk : qchunk + self.eval_chunk_size
         ]
-        im_shp = inputs[input_key]['video'].shape  # pytype: disable=attribute-error  # numpy-scalars
+        im_shp = inputs[input_key]['video'].shape  # pyrefly: ignore[bad-index, missing-attribute]
         tracks = model_utils.heatmaps_to_points(
             jax.nn.softmax(
                 all_pairs_dots * self.softmax_temperature, axis=(-1, -2)
             ),
             im_shp,
-            query_points=query_point_chunk,
+            query_points=query_point_chunk,  # pyrefly: ignore[bad-argument-type]
         )
 
         # Extract the argmax feature from each frame for each query using
         # bilinear interpolation.
         frame_id = jnp.broadcast_to(
             jnp.arange(tracks.shape[-2])[..., jnp.newaxis],
-            tracks[..., :1].shape,
+            tracks[..., :1].shape,  # pyrefly: ignore[bad-index]
         )
         position_in_grid = jnp.concatenate(
-            [frame_id, tracks[..., ::-1]], axis=-1
+            [frame_id, tracks[..., ::-1]], axis=-1  # pyrefly: ignore[bad-index]
         )
         position_in_grid = transforms.convert_grid_coordinates(
             position_in_grid,
@@ -497,8 +494,8 @@ class SupervisedPointPrediction(task.Task):
         # For each query point, extract the features for the frame which
         # contains the query.
         # query_frame is [batch_size, num_queries]
-        query_frame = transforms.convert_grid_coordinates(
-            inputs[input_key]['query_points'][
+        query_frame = transforms.convert_grid_coordinates(  # pyrefly: ignore[bad-index]
+            inputs[input_key]['query_points'][  # pyrefly: ignore[bad-argument-type, bad-index]
                 :, qchunk : qchunk + self.eval_chunk_size, ...
             ],
             im_shp[1:4],
@@ -529,9 +526,9 @@ class SupervisedPointPrediction(task.Task):
             ),
             im_shp,
         )
-        query_points = inputs[input_key]['query_points']
-        query_points = query_points[:, qchunk : qchunk + self.eval_chunk_size]
-        dist = jnp.square(inverse_tracks - query_points[jnp.newaxis, 2:0:-1])
+        query_points = inputs[input_key]['query_points']  # pyrefly: ignore[bad-index]
+        query_points = query_points[:, qchunk : qchunk + self.eval_chunk_size]  # pyrefly: ignore[bad-index]
+        dist = jnp.square(inverse_tracks - query_points[jnp.newaxis, 2:0:-1])  # pyrefly: ignore[bad-index, unsupported-operation]
         dist = jnp.sum(dist, axis=-1)
         occlusion = dist > jnp.square(48.0)
         # We need to return logits, but the cycle consistency rule is binary.
@@ -546,8 +543,7 @@ class SupervisedPointPrediction(task.Task):
 
     outputs = {'tracks': tracks, 'occlusion': occlusion}
     if 'expected_dist' in output:
-      outputs['expected_dist'] = output['expected_dist']
-    # pytype: enable=unsupported-operands
+      outputs['expected_dist'] = output['expected_dist']  # pyrefly: ignore[bad-index]
     return outputs, loss_scalars
 
   def _eval_batch(
@@ -645,7 +641,7 @@ class SupervisedPointPrediction(task.Task):
       )
 
     query_mode = 'first' if 'q_first' in mode else 'strided'
-    metrics = evaluation_datasets.compute_tapvid_metrics(  # pytype: disable=wrong-arg-types  # jax-nn-types
+    metrics = evaluation_datasets.compute_tapvid_metrics(
         query_points=query_points,  # pyrefly: ignore[bad-argument-type]
         gt_occluded=gt_occluded,  # pyrefly: ignore[bad-argument-type]
         gt_tracks=gt_target_points,  # pyrefly: ignore[bad-argument-type]
@@ -879,9 +875,9 @@ class SupervisedPointPrediction(task.Task):
         input_key=input_key,
     )
     for inputs in self._build_eval_input(mode):
-      batch_size = inputs[input_key]['video'].shape[0]  # pytype: disable=attribute-error  # 'video' entry is array-valued
+      batch_size = inputs[input_key]['video'].shape[0]  # pyrefly: ignore[missing-attribute]
       num_samples += batch_size
-      scalars, viz = eval_batch_fn(params, state, inputs, rng)  # pytype: disable=wrong-arg-types
+      scalars, viz = eval_batch_fn(params, state, inputs, rng)  # pyrefly: ignore[bad-argument-type]
       write_viz = batch_id < 0
       if 'eval_davis_points' in mode or 'eval_robotics_points' in mode:
         # Only write videos sometimes for the small datasets; otherwise
@@ -1016,4 +1012,4 @@ class SupervisedPointPrediction(task.Task):
     media.write_video(output_video_path, painted_frames, fps=fps)
     logging.info('Inference result saved to %s', output_video_path)
 
-    return {'': 0}  # pytype: disable=bad-return-type  # numpy-scalars
+    return {'': 0}  # pyrefly: ignore[bad-assignment]
