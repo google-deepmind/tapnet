@@ -135,8 +135,10 @@ class TokenSubsampling(nn.Module):
         (n_batch, n_tokens + 1, 1, 1), dtype=jnp.bool_)
     mask = jnp.ones(
         (n_batch, 1), dtype=jnp.bool_)
-    masked_positions = index_utils.scatter_suffix(
-        masked_positions, mask, subsample_size[:, None],
-        jnp.ones((n_batch, 1, 1), dtype=jnp.bool_)
+    masked_positions = index_utils.scatter_suffix(  # pyrefly: ignore[bad-index]
+        masked_positions,
+        mask,
+        subsample_size[:, None],
+        jnp.ones((n_batch, 1, 1), dtype=jnp.bool_),
     )[..., 0, 0]
     return masked_tokens, masked_positions
