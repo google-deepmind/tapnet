@@ -1,0 +1,11 @@
+torch
+numpy
+opencv-python
+scipy
+matplotlib
+ml-collections
+tqdm
+mediapy
+plotly
+ipywidgets
+rerun-sdk

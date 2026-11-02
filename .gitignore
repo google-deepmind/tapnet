@@ -22,3 +22,10 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# TAPVid-MV DROID runtime directories
+tapnet/tapvidmv/droid/assets/
+tapnet/tapvidmv/droid/data/
+tapnet/tapvidmv/droid/logs/
+tapnet/tapvidmv/droid/third_party/
+tapnet/tapvidmv/droid/venv/

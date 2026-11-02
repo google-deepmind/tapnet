@@ -1,0 +1,4 @@
+h5py
+open3d
+segment-anything @ git+https://github.com/facebookresearch/segment-anything.git
+torchvision
