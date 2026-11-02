@@ -189,6 +189,13 @@ def compute_tapvid3d_metrics(
   pred_occluded = einops.rearrange(pred_occluded, f'{order} -> {output_order}')
   gt_tracks = einops.rearrange(gt_tracks, f'{order} d -> {output_order} d')
   pred_tracks = einops.rearrange(pred_tracks, f'{order} d -> {output_order} d')
+  if (
+      output_order == '() n t'
+      and query_points is not None
+      and query_points.ndim == 2
+  ):
+    # The tracks have acquired a batch axis; their query frames need it too.
+    query_points = query_points[np.newaxis]
 
   summing_axis = (-1,) if get_trackwise_metrics else (-2, -1)
   evaluation_weights = np.ones(gt_occluded.shape)
@@ -221,6 +228,13 @@ def compute_tapvid3d_metrics(
               thresh=local_neighborhood_thresh,
           )
       )
+      if not get_trackwise_metrics:
+        # Keep per-video metrics shaped [batch], like the other scalings.
+        gt_occluded = gt_occluded[np.newaxis]
+        gt_tracks = gt_tracks[np.newaxis]
+        pred_occluded = pred_occluded[np.newaxis]
+        pred_tracks = pred_tracks[np.newaxis]
+        evaluation_weights = evaluation_weights[np.newaxis]
   else:
     either_occluded = np.logical_or(gt_occluded, pred_occluded)
     nan_mat = np.full(pred_norms.shape, np.nan)
