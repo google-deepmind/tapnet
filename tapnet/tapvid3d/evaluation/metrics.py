@@ -189,7 +189,11 @@ def compute_tapvid3d_metrics(
   pred_occluded = einops.rearrange(pred_occluded, f'{order} -> {output_order}')
   gt_tracks = einops.rearrange(gt_tracks, f'{order} d -> {output_order} d')
   pred_tracks = einops.rearrange(pred_tracks, f'{order} d -> {output_order} d')
-  if output_order == '() n t' and query_points is not None and query_points.ndim == 2:
+  if (
+      output_order == '() n t'
+      and query_points is not None
+      and query_points.ndim == 2
+  ):
     # The tracks have acquired a batch axis; their query frames need it too.
     query_points = query_points[np.newaxis]
 
