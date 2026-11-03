@@ -2,6 +2,8 @@
 
 [[`TAP-Vid`](https://tapvid.github.io/)] [[`TAPIR`](https://deepmind-tapir.github.io/)] [[`RoboTAP`](https://robotap.github.io/)] [[`Blog Post`](https://deepmind-tapir.github.io/blogpost.html)] [[`BootsTAP`](https://bootstap.github.io/)] [[`TAPVid-3D`](https://tapvid3d.github.io/)] [[`TAPNext`](https://tap-next.github.io/)] [[`TRAJAN`](https://trajan-paper.github.io)] [[`TAPNext++`](https://tap-next-plus-plus.github.io/)]
 
+[English](README.md) | [简体中文](https://github.com/google-deepmind/tapnet/blob/main/README.zh.md)
+
 https://github.com/google-deepmind/tapnet/assets/4534987/9f66b81a-7efb-48e7-a59c-f5781c35bebc
 
 <!-- disableFinding(LINE_OVER_80) -->
