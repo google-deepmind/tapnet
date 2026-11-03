@@ -31,6 +31,7 @@ from projectaria_tools.projects.adt import AriaDigitalTwinDataPathsProvider
 from projectaria_tools.projects.adt import AriaDigitalTwinDataProvider
 
 import tqdm
+from tapnet.tapvid3d.annotation_generation import adt_query_utils
 from tapnet.tapvid3d.annotation_generation import adt_v1v2_mappings
 
 
@@ -171,6 +172,12 @@ def process_vid(
     queries_xyt = in_npz["queries_xyt"]
     trajectories = in_npz["tracks_XYZ"]
     visibilities = in_npz["visibility"]
+    intrinsics = np.array(
+        [FOCAL_LENGTH, FOCAL_LENGTH, WIDTH / 2, HEIGHT / 2]
+    )
+    queries_xyt = adt_query_utils.synchronize_query_coordinates(
+        queries_xyt, trajectories, visibilities, intrinsics
+    )
 
     # Verify video means.
     video_means = np.stack([np.mean(x, axis=(0, 1)) for x in rgb_ims], axis=0)
@@ -181,8 +188,6 @@ def process_vid(
         "queries_xyt": queries_xyt,
         "tracks_XYZ": trajectories,
         "visibility": visibilities,
-        "fx_fy_cx_cy": np.array(
-            [FOCAL_LENGTH, FOCAL_LENGTH, WIDTH / 2, HEIGHT / 2]
-        ),
+        "fx_fy_cx_cy": intrinsics,
     }
     np.savez(track_fn, **example)
