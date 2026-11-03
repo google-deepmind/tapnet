@@ -74,11 +74,20 @@ def coordinate_softmax(logits, labels, mask, pixel_size=256):
   labels = einops.rearrange(labels, 'b ... c -> b c ...')
   logits_x, logits_y = logits.chunk(2, dim=1)
   labels_x, labels_y = labels.chunk(2, dim=1)
-  print(logits_x.shape, labels_x.shape)
-  loss_x = F.cross_entropy(logits_x, labels_x.squeeze(1))
-  loss_y = F.cross_entropy(logits_y, labels_y.squeeze(1))
+  # Keep the per-point losses until after applying the visibility mask.
+  # The default mean reduction produces a scalar and lets occluded points
+  # influence both the loss and its gradients.
+  loss_x = F.cross_entropy(logits_x, labels_x.squeeze(1), reduction='none')
+  loss_y = F.cross_entropy(logits_y, labels_y.squeeze(1), reduction='none')
   loss = loss_x + loss_y
   mask = mask.float()
+  if mask.ndim == loss.ndim + 1 and mask.shape[-1] == 1:
+    mask = mask.squeeze(-1)
+  if mask.shape != loss.shape:
+    raise ValueError(
+        f'Visibility mask shape {mask.shape} must match coordinate loss '
+        f'shape {loss.shape}'
+    )
   loss = (loss * mask).sum() / mask.sum()
   return loss
 
