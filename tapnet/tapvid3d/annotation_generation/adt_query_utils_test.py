@@ -40,12 +40,30 @@ class SynchronizeQueryCoordinatesTest(unittest.TestCase):
     np.testing.assert_allclose(result, [[15.0, 25.0, 1.0]])
     np.testing.assert_array_equal(queries, [[5.0, 5.0, 1.0]])
 
+  def test_repairs_small_error_below_issue_threshold(self):
+    # The 1.2 px discrepancy is below the 2.5 px audit threshold, but is
+    # still far above the 0.01 px consistency tolerance.
+    queries = np.array([[16.2, 25.0, 1.0]])
+    result = adt_query_utils.synchronize_query_coordinates(
+        queries, self.tracks, self.visibility, self.intrinsics
+    )
+    np.testing.assert_allclose(result, [[15.0, 25.0, 1.0]])
+
   def test_preserves_consistent_coordinates(self):
     queries = np.array([[15.0, 25.0, 1.0]])
     result = adt_query_utils.synchronize_query_coordinates(
         queries, self.tracks, self.visibility, self.intrinsics
     )
     np.testing.assert_array_equal(result, queries)
+
+  def test_preserves_float32_dtype_and_query_frame(self):
+    queries = np.array([[5.0, 5.0, 1.0]], dtype=np.float32)
+    result = adt_query_utils.synchronize_query_coordinates(
+        queries, self.tracks, self.visibility, self.intrinsics
+    )
+    self.assertEqual(result.dtype, np.float32)
+    self.assertEqual(result[0, 2], queries[0, 2])
+    np.testing.assert_allclose(result[0, :2], [15.0, 25.0], atol=1e-5)
 
   def test_rejects_invisible_query_frame(self):
     visibility = self.visibility.copy()
@@ -76,6 +94,27 @@ class SynchronizeQueryCoordinatesTest(unittest.TestCase):
           tracks,
           self.visibility,
           self.intrinsics,
+      )
+
+  def test_rejects_non_finite_tolerance(self):
+    with self.assertRaisesRegex(ValueError, "finite non-negative"):
+      adt_query_utils.synchronize_query_coordinates(
+          np.array([[5.0, 5.0, 1.0]]),
+          self.tracks,
+          self.visibility,
+          self.intrinsics,
+          tolerance_px=float("nan"),
+      )
+
+  def test_rejects_non_positive_focal_length(self):
+    intrinsics = self.intrinsics.copy()
+    intrinsics[0] = 0.0
+    with self.assertRaisesRegex(ValueError, "Focal lengths"):
+      adt_query_utils.synchronize_query_coordinates(
+          np.array([[5.0, 5.0, 1.0]]),
+          self.tracks,
+          self.visibility,
+          intrinsics,
       )
 
 
