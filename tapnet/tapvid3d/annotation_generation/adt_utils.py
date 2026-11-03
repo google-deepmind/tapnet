@@ -31,8 +31,8 @@ from projectaria_tools.projects.adt import AriaDigitalTwinDataPathsProvider
 from projectaria_tools.projects.adt import AriaDigitalTwinDataProvider
 
 import tqdm
-from tapnet.tapvid3d.annotation_generation import adt_v1v2_mappings
 from tapnet.tapvid3d.annotation_generation import adt_query_utils
+from tapnet.tapvid3d.annotation_generation import adt_v1v2_mappings
 
 
 # Fixed hyperparameters for generating the ADT data.
