@@ -342,14 +342,14 @@ def create_jhmdb_dataset(
 ) -> Iterable[DatasetElement]:
   """JHMDB dataset, including fields required for PCK evaluation."""
   videos = []
-  for file in tf.io.gfile.listdir(path.join(gt_dir, 'splits')):
+  for file in tf.io.gfile.listdir(path.join(jhmdb_path, 'splits')):
     # JHMDB file containing the first split, which is standard for this type of
     # evaluation.
     if not file.endswith('split1.txt'):
       continue
 
     video_folder = '_'.join(file.split('_')[:-2])
-    for video in tf.io.gfile.GFile(path.join(gt_dir, 'splits', file), 'r'):
+    for video in tf.io.gfile.GFile(path.join(jhmdb_path, 'splits', file), 'r'):
       video, traintest = video.split()
       video, _ = video.split('.')
 
@@ -367,7 +367,9 @@ def create_jhmdb_dataset(
 
   for video in videos:
     logging.info(video)
-    joints = path.join(gt_dir, 'joint_positions', video, 'joint_positions.mat')
+    joints = path.join(
+        jhmdb_path, 'joint_positions', video, 'joint_positions.mat'
+    )
 
     if not tf.io.gfile.exists(joints):
       logging.info('skip %s', video)
@@ -375,7 +377,7 @@ def create_jhmdb_dataset(
 
     gt_pose = sio.loadmat(tf.io.gfile.GFile(joints, 'rb'))['pos_img']
     gt_pose = np.transpose(gt_pose, [1, 2, 0])
-    frames = path.join(gt_dir, 'Rename_Images', video, '*.png')
+    frames = path.join(jhmdb_path, 'Rename_Images', video, '*.png')
     framefil = tf.io.gfile.glob(frames)
     framefil.sort()
 
