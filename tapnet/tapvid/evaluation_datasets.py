@@ -405,15 +405,16 @@ def create_jhmdb_dataset(
     if resolution is not None and resolution != frames.shape[1:3]:
       frames = resize_video(frames, resolution)
     frames = frames / (255.0 / 2.0) - 1.0
-    queries = gt_pose[:, 0]
-    queries = np.concatenate(
-        [queries[..., 0:1] * 0, queries[..., ::-1]],
-        axis=-1,
-    )
     gt_pose = transforms.convert_grid_coordinates(
         gt_pose,
         np.array([width, height]),  # pyrefly: ignore[bad-argument-type]
         np.array([frames.shape[2], frames.shape[1]]),  # pyrefly: ignore[bad-argument-type]
+    )
+    # Build (t, y, x) queries in the same pixel grid as the returned frames.
+    queries = gt_pose[:, 0]
+    queries = np.concatenate(
+        [queries[..., 0:1] * 0, queries[..., ::-1]],
+        axis=-1,
     )
     # Set invalid poses to -1 (outside the frame)
     gt_pose = (1.0 - invalid) * gt_pose + invalid * (-1.0)
